@@ -8,551 +8,481 @@
 <style>
 :root {
   --primary: #34D186;
-  --primary-light: #e6f9f0;
+  --primary-light: #34D18620;
   --dark: #1A1A2E;
   --bg: #F8F9FA;
-  --card: #ffffff;
-  --border: #e2e8f0;
-  --text: #1e293b;
-  --muted: #64748b;
-  --green: #16a34a;
-  --red: #dc2626;
-  --yellow: #d97706;
-  --blue: #2563eb;
-  --sidebar-w: 240px;
+  --card: #FFFFFF;
+  --border: #E2E8F0;
+  --text: #1A1A2E;
+  --text-secondary: #64748B;
+  --red: #EF4444;
+  --green: #34D186;
+  --orange: #F59E0B;
+  --sidebar-w: 230px;
 }
-
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, system-ui, sans-serif; line-height: 1.5; }
-
-.layout { display: flex; min-height: 100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
 
 /* Sidebar */
-.sidebar {
-  width: var(--sidebar-w);
-  background: var(--dark);
-  color: #fff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  overflow-y: auto;
-  padding: 20px 0;
-  z-index: 100;
-}
-.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
-.sidebar-logo h2 { font-size: 15px; font-weight: 700; color: var(--primary); }
-.sidebar-logo p { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px; }
-.nav-section { padding: 0 12px; margin-bottom: 16px; }
-.nav-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.4); padding: 0 8px; margin-bottom: 6px; }
-.nav-item {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.7);
-  cursor: pointer;
-  border: none;
-  background: none;
-  text-align: left;
-  transition: all 0.15s;
-}
-.nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.nav-item.active { background: var(--primary); color: var(--dark); font-weight: 600; }
+.sidebar { width: var(--sidebar-w); background: var(--dark); color: #fff; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; z-index: 100; display: flex; flex-direction: column; }
+.sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.sidebar-header h2 { font-size: 16px; font-weight: 700; color: var(--primary); }
+.sidebar-header p { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.nav-item { padding: 10px 20px; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.7); transition: all 0.2s; border-left: 3px solid transparent; }
+.nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.nav-item.active { background: rgba(52,209,134,0.1); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
+.nav-section-title { padding: 16px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); }
 
-/* Main Content */
-.main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: calc(100vw - var(--sidebar-w)); }
+/* Main */
+.main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: 1400px; }
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.top-bar h1 { font-size: 22px; font-weight: 700; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.toggle-btn { padding: 6px 16px; font-size: 12px; cursor: pointer; background: var(--card); border: none; color: var(--text-secondary); font-weight: 500; transition: all 0.2s; }
+.toggle-btn.active { background: var(--primary); color: #fff; }
+.period-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.period-tab { padding: 5px 12px; font-size: 11px; border-radius: 6px; cursor: pointer; background: var(--card); border: 1px solid var(--border); color: var(--text-secondary); transition: all 0.2s; white-space: nowrap; }
+.period-tab:hover { border-color: var(--primary); }
+.period-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.generated-at { font-size: 11px; color: var(--text-secondary); }
 
-.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.header h1 { font-size: 22px; font-weight: 700; }
-.header-meta { text-align: right; font-size: 12px; color: var(--muted); }
-
-/* Time Selector */
-.time-selector { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; flex-wrap: wrap; }
-.time-toggle { display: flex; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.time-toggle button {
-  padding: 8px 16px;
-  border: none;
-  background: none;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--muted);
-  transition: all 0.15s;
-}
-.time-toggle button.active { background: var(--primary); color: var(--dark); font-weight: 600; }
-.period-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-left: 12px; }
-.period-tab {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--muted);
-  transition: all 0.15s;
-}
-.period-tab:hover { border-color: var(--primary); color: var(--text); }
-.period-tab.active { background: var(--primary-light); border-color: var(--primary); color: var(--dark); font-weight: 600; }
-
-/* Sections */
+/* Section */
 .section { margin-bottom: 32px; }
-.section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-.section-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
-.section-icon.fin { background: #dbeafe; color: var(--blue); }
-.section-icon.ops { background: #fef3c7; color: var(--yellow); }
-.section-icon.camp { background: #e6f9f0; color: var(--green); }
+.section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); display: inline-block; }
 
 /* KPI Grid */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.kpi-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  text-align: center;
-}
-.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
-.kpi-value { font-size: 22px; font-weight: 700; }
-.kpi-change { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.kpi-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+.kpi-value { font-size: 20px; font-weight: 700; color: var(--dark); }
+.kpi-change { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
 .kpi-change.up { color: var(--green); }
 .kpi-change.down { color: var(--red); }
-.kpi-change.neutral { color: var(--yellow); }
+.kpi-change.neutral { color: var(--text-secondary); }
 
 /* Tables */
-.table-container { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-.table-container table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.table-container th { text-align: left; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
-.table-container td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
-.table-container tr:last-child td { border-bottom: none; }
-.table-container tr:hover { background: #f8fafc; }
+.data-table-wrap { overflow-x: auto; margin-bottom: 20px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.data-table th { background: var(--dark); color: #fff; padding: 10px 12px; text-align: left; font-weight: 600; white-space: nowrap; }
+.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--primary-light); }
 
 /* Charts */
-.chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
-.chart-box { position: relative; height: 300px; }
-.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.chart-container.full { grid-column: 1 / -1; }
+.chart-container h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.chart-wrap { position: relative; height: 300px; }
 
-/* Utilities */
-.up-color { color: var(--green); }
-.down-color { color: var(--red); }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* Sub-row */
+.sub-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.sub-kpi { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; }
+.sub-kpi .label { color: var(--text-secondary); font-size: 10px; text-transform: uppercase; }
+.sub-kpi .val { font-size: 16px; font-weight: 700; margin-top: 2px; }
+.sub-kpi .chg { font-size: 10px; margin-top: 2px; }
 
-@media (max-width: 1200px) {
-  .chart-row, .grid-2 { grid-template-columns: 1fr; }
-  .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+@media (max-width: 1000px) {
+  .chart-row { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 @media (max-width: 768px) {
-  .sidebar { width: 60px; }
-  .main { margin-left: 60px; padding: 16px; }
-  .sidebar-logo h2, .sidebar-logo p, .nav-section-title, .nav-item span { display: none; }
+  .sidebar { width: 100%; position: relative; height: auto; }
+  .main { margin-left: 0; padding: 16px; }
 }
 </style>
 </head>
 <body>
-<div class="layout">
-  <!-- Sidebar Navigation -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-logo">
-      <h2>3P Stores UA</h2>
-      <p>Weekly Performance Report</p>
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-title">Overview</div>
-      <button class="nav-item active" data-view="overview">All 3P Stores</button>
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-title">Partners</div>
-      <div id="partner-nav"></div>
-    </div>
-  </nav>
 
-  <!-- Main Content -->
-  <main class="main">
-    <div class="header">
-      <div>
-        <h1 id="view-title">3P Stores Ukraine — Overview</h1>
-      </div>
-      <div class="header-meta">
-        <div>Last updated: <span id="last-updated"></span></div>
-        <div>Data from: <span id="data-range"></span></div>
-      </div>
-    </div>
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <h2>3P Stores Ukraine</h2>
+    <p>Weekly Performance Report</p>
+  </div>
+  <div class="sidebar-nav" id="sidebarNav"></div>
+</nav>
 
-    <!-- Time Period Selector -->
-    <div class="time-selector">
-      <div class="time-toggle">
-        <button class="active" data-granularity="monthly">Monthly</button>
-        <button data-granularity="weekly">Weekly</button>
-      </div>
-      <div class="period-tabs" id="period-tabs"></div>
+<div class="main">
+  <div class="top-bar">
+    <div>
+      <h1 id="pageTitle">All 3P Stores</h1>
+      <span class="generated-at" id="generatedAt"></span>
     </div>
+    <div class="controls">
+      <div class="toggle-group" id="granToggle"></div>
+      <div class="period-tabs" id="periodTabs"></div>
+    </div>
+  </div>
 
-    <!-- Report Content -->
-    <div id="report-content"></div>
-  </main>
+  <div id="content"></div>
 </div>
 
 <script>
 /*__REPORT_DATA__*/
 
-// State
-let currentView = 'overview';
-let currentGranularity = 'monthly';
-let currentPeriodIndex = null;
-let chartInstances = {};
+(function() {
+  const D = typeof REPORT_DATA !== 'undefined' ? REPORT_DATA : null;
+  if (!D) { document.getElementById('content').innerHTML = '<p>No data loaded.</p>'; return; }
 
-function init() {
-  document.getElementById('last-updated').textContent = new Date(REPORT_DATA.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  document.getElementById('data-range').textContent = REPORT_DATA.data_start + ' → present';
-  buildPartnerNav();
-  buildPeriodTabs();
-  renderReport();
-  bindEvents();
-}
+  let currentView = 'overview';
+  let currentGran = 'weekly';
+  let currentPeriod = 'all';
+  let charts = [];
 
-function buildPartnerNav() {
-  const container = document.getElementById('partner-nav');
-  container.innerHTML = REPORT_DATA.partners_list.map(p =>
-    `<button class="nav-item" data-view="${p}">${p}</button>`
-  ).join('');
-}
+  const $ = id => document.getElementById(id);
 
-function buildPeriodTabs() {
-  const container = document.getElementById('period-tabs');
-  const data = getViewData();
-  if (!data) return;
-  const gran = currentGranularity;
-  const financial = data[gran]?.financial || [];
-  const periods = financial.map(d => d.period);
-
-  container.innerHTML = periods.map((p, i) => {
-    const label = formatPeriodLabel(p, gran);
-    const isActive = currentPeriodIndex === i ? 'active' : '';
-    return `<button class="period-tab ${isActive}" data-period-index="${i}">${label}</button>`;
-  }).join('') + `<button class="period-tab ${currentPeriodIndex === null ? 'active' : ''}" data-period-index="all">All</button>`;
-}
-
-function formatPeriodLabel(period, gran) {
-  if (gran === 'monthly') {
-    const d = new Date(period);
-    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  } else {
-    const d = new Date(period);
-    const weekNum = getWeekNumber(d);
-    return `W${weekNum} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
+  /* ---- helpers ---- */
+  function safe(arr) { return Array.isArray(arr) ? arr : []; }
+  function fmt(v, dec=0) { if (v == null || isNaN(v)) return '—'; return Number(v).toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
+  function fmtPct(v, dec=1) { if (v == null || isNaN(v)) return '—'; return Number(v).toFixed(dec) + '%'; }
+  function fmtEur(v) { if (v == null || isNaN(v)) return '—'; return '€' + fmt(v, 0); }
+  function pctChange(cur, prev) {
+    if (prev == null || cur == null || prev === 0) return null;
+    return ((cur - prev) / Math.abs(prev)) * 100;
   }
-}
-
-function getWeekNumber(d) {
-  const oneJan = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
-}
-
-function getViewData() {
-  if (currentView === 'overview') return REPORT_DATA.overview;
-  return REPORT_DATA.partners?.[currentView];
-}
-
-function getDataForPeriod(arr, periodIndex) {
-  if (!arr || arr.length === 0) return null;
-  if (periodIndex === null || periodIndex === 'all') return arr[arr.length - 1];
-  return arr[periodIndex] || arr[arr.length - 1];
-}
-
-function getAllPeriodsData(arr) {
-  return arr || [];
-}
-
-function fmt(val, type) {
-  if (val === null || val === undefined || val === '') return '—';
-  const n = parseFloat(val);
-  if (isNaN(n)) return val;
-  switch(type) {
-    case 'eur': return '€' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    case 'eur2': return '€' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    case 'pct': return n.toFixed(1) + '%';
-    case 'pct2': return n.toFixed(2) + '%';
-    case 'num': return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    case 'dec1': return n.toFixed(1);
-    case 'dec2': return n.toFixed(2);
-    default: return n.toLocaleString('en-US');
-  }
-}
-
-function calcChange(arr, idx, field) {
-  if (!arr || idx <= 0 || idx >= arr.length) return null;
-  const curr = parseFloat(arr[idx]?.[field]);
-  const prev = parseFloat(arr[idx - 1]?.[field]);
-  if (isNaN(curr) || isNaN(prev) || prev === 0) return null;
-  return ((curr - prev) / Math.abs(prev)) * 100;
-}
-
-function changeHtml(change) {
-  if (change === null) return '';
-  const cls = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
-  const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '—';
-  return `<div class="kpi-change ${cls}">${arrow} ${Math.abs(change).toFixed(1)}%</div>`;
-}
-
-function renderReport() {
-  destroyCharts();
-  const viewData = getViewData();
-  if (!viewData) {
-    document.getElementById('report-content').innerHTML = '<p>No data available for this view.</p>';
-    return;
+  function changeHtml(cur, prev, inverted=false) {
+    const ch = pctChange(cur, prev);
+    if (ch == null) return '<span class="kpi-change neutral">—</span>';
+    const up = ch >= 0;
+    const cls = inverted ? (up ? 'down' : 'up') : (up ? 'up' : 'down');
+    const arrow = up ? '&#9650;' : '&#9660;';
+    return `<span class="kpi-change ${cls}">${arrow} ${Math.abs(ch).toFixed(1)}%</span>`;
   }
 
-  const gran = currentGranularity;
-  const financial = viewData[gran]?.financial || [];
-  const cpMargins = viewData[gran]?.cp_margins || [];
-  const operational = viewData[gran]?.operational || [];
-  const failedOrders = viewData[gran]?.failed_orders || [];
-  const campaigns = viewData[gran]?.campaigns || [];
+  function destroyCharts() { charts.forEach(c => { try { c.destroy(); } catch(e){} }); charts = []; }
 
-  const idx = (currentPeriodIndex === null || currentPeriodIndex === 'all')
-    ? financial.length - 1
-    : parseInt(currentPeriodIndex);
-
-  const fin = financial[idx] || {};
-  const cp = cpMargins[idx] || {};
-  const ops = operational[idx] || {};
-  const fail = failedOrders[idx] || {};
-  const camp = campaigns[idx] || {};
-
-  const accAvail = currentView === 'overview'
-    ? REPORT_DATA.acceptance_availability?.overview?.[0]
-    : REPORT_DATA.acceptance_availability?.[currentView]?.[0];
-
-  let html = '';
-
-  // Section 1: Financial Overview
-  html += `<div class="section">
-    <div class="section-title"><div class="section-icon fin">$</div> Financial Overview</div>
-    <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-label">GMV</div><div class="kpi-value">${fmt(fin.gmv_eur, 'eur')}</div>${changeHtml(calcChange(financial, idx, 'gmv_eur'))}</div>
-      <div class="kpi-card"><div class="kpi-label">Orders</div><div class="kpi-value">${fmt(fin.orders, 'num')}</div>${changeHtml(calcChange(financial, idx, 'orders'))}</div>
-      <div class="kpi-card"><div class="kpi-label">AOV (with Delivery)</div><div class="kpi-value">${fmt(fin.aov_with_delivery, 'eur2')}</div>${changeHtml(calcChange(financial, idx, 'aov_with_delivery'))}</div>
-      <div class="kpi-card"><div class="kpi-label">AOV (Items Only)</div><div class="kpi-value">${fmt(fin.aov_items_only, 'eur2')}</div>${changeHtml(calcChange(financial, idx, 'aov_items_only'))}</div>
-      <div class="kpi-card"><div class="kpi-label">Eater Fees / Order</div><div class="kpi-value">${fmt(fin.eater_fees_per_order, 'eur2')}</div>${changeHtml(calcChange(financial, idx, 'eater_fees_per_order'))}</div>
-      <div class="kpi-card"><div class="kpi-label">CP Margin</div><div class="kpi-value">${fmt(cp.cp_margin_pct, 'pct')}</div>${changeHtml(calcChange(cpMargins, idx, 'cp_margin_pct'))}</div>
-      <div class="kpi-card"><div class="kpi-label">CP L2 Margin</div><div class="kpi-value">${fmt(cp.cp_l2_margin_pct, 'pct')}</div>${changeHtml(calcChange(cpMargins, idx, 'cp_l2_margin_pct'))}</div>
-      <div class="kpi-card"><div class="kpi-label">Bolt Plus GMV Share</div><div class="kpi-value">${fmt(fin.bolt_plus_gmv_share, 'pct')}</div>${changeHtml(calcChange(financial, idx, 'bolt_plus_gmv_share'))}</div>
-    </div>`;
-
-  // Eater Fees Breakdown Table
-  html += `<div class="table-container">
-    <table>
-      <thead><tr><th>Fee Type</th><th>Total (EUR)</th><th>Per Order (EUR)</th></tr></thead>
-      <tbody>
-        <tr><td>Delivery Fee</td><td>${fmt(fin.delivery_fee_total, 'eur')}</td><td>${fmt(fin.delivery_fee_per_order, 'eur2')}</td></tr>
-        <tr><td>Small Order Fee</td><td>${fmt(fin.small_order_fee_total, 'eur')}</td><td>${fmt(fin.small_order_fee_per_order, 'eur2')}</td></tr>
-        <tr><td>Service Fee</td><td>${fmt(fin.service_fee_total, 'eur')}</td><td>${fmt(fin.service_fee_per_order, 'eur2')}</td></tr>
-      </tbody>
-    </table>
-  </div>`;
-
-  // GMV Share by Partner (pie chart) — only for overview
-  if (currentView === 'overview') {
-    html += `<div class="chart-container">
-      <div class="chart-title">GMV Share by Partner</div>
-      <div class="chart-box"><canvas id="gmvPieChart"></canvas></div>
-    </div>`;
+  function filterPeriods(arr) {
+    if (currentPeriod === 'all') return arr;
+    return arr.filter(r => r.period === currentPeriod);
   }
 
-  html += `</div>`;
+  function last(arr) { return arr.length ? arr[arr.length - 1] : null; }
+  function prev(arr) { return arr.length >= 2 ? arr[arr.length - 2] : null; }
 
-  // Section 2: Operational Overview
-  html += `<div class="section">
-    <div class="section-title"><div class="section-icon ops">⚡</div> Operational Overview</div>
-    <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-label">Active Stores</div><div class="kpi-value">${fmt(ops.active_stores, 'num')}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Acceptance Rate</div><div class="kpi-value">${fmt(accAvail?.acceptance_rate_30d ? accAvail.acceptance_rate_30d * 100 : null, 'pct')}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Availability</div><div class="kpi-value">${fmt(accAvail?.availability_rate_30d ? accAvail.availability_rate_30d * 100 : null, 'pct')}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Avg Rating</div><div class="kpi-value">${fmt(accAvail?.avg_rating_30d, 'dec2')}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Honey Order Rate</div><div class="kpi-value">${fmt(ops.honey_order_rate, 'pct')}</div>${changeHtml(calcChange(operational, idx, 'honey_order_rate'))}</div>
-      <div class="kpi-card"><div class="kpi-label">Bad Order Rate</div><div class="kpi-value">${fmt(ops.bad_order_rate, 'pct')}</div>${changeHtml(calcChange(operational, idx, 'bad_order_rate'))}</div>
-      <div class="kpi-card"><div class="kpi-label">Item Discrepancy Rate</div><div class="kpi-value">${fmt(ops.item_discrepancy_rate, 'pct')}</div>${changeHtml(calcChange(operational, idx, 'item_discrepancy_rate'))}</div>
-      <div class="kpi-card"><div class="kpi-label">Avg Delivery Time</div><div class="kpi-value">${fmt(ops.avg_delivery_minutes, 'dec1')} min</div>${changeHtml(calcChange(operational, idx, 'avg_delivery_minutes'))}</div>
-    </div>`;
+  /* ---- sidebar ---- */
+  function buildSidebar() {
+    const nav = $('sidebarNav');
+    let html = '<div class="nav-section-title">Overview</div>';
+    html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
+    html += '<div class="nav-section-title">Partners</div>';
+    safe(D.partners_list).forEach(p => {
+      html += `<div class="nav-item ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+    });
+    nav.innerHTML = html;
+    nav.querySelectorAll('.nav-item').forEach(el => {
+      el.addEventListener('click', () => { currentView = el.dataset.view; currentPeriod = 'all'; render(); });
+    });
+  }
 
-  // Bad Order Breakdown Table
-  const failedMerchantRate = fail.total_placed ? (parseFloat(fail.failed_merchant) / parseFloat(fail.total_placed) * 100) : null;
-  const failedBoltRate = fail.total_placed ? (parseFloat(fail.failed_bolt_courier) / parseFloat(fail.total_placed) * 100) : null;
+  /* ---- granularity & period tabs ---- */
+  function buildControls() {
+    const gt = $('granToggle');
+    gt.innerHTML = ['monthly','weekly'].map(g =>
+      `<button class="toggle-btn ${currentGran===g?'active':''}" data-g="${g}">${g.charAt(0).toUpperCase()+g.slice(1)}</button>`
+    ).join('');
+    gt.querySelectorAll('.toggle-btn').forEach(b => {
+      b.addEventListener('click', () => { currentGran = b.dataset.g; currentPeriod = 'all'; render(); });
+    });
 
-  html += `<div class="table-container">
-    <table>
-      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
-      <tbody>
-        <tr><td>Bad Order Rate</td><td>${fmt(ops.bad_order_rate, 'pct')}</td></tr>
-        <tr><td>Late Delivery (5min+)</td><td>${fmt(ops.late_delivery_rate, 'pct')}</td></tr>
-        <tr><td>Late Pickup (5min+)</td><td>${fmt(ops.late_pickup_rate, 'pct')}</td></tr>
-        <tr><td>Failed — Merchant (rejected/no response)</td><td>${fmt(failedMerchantRate, 'pct')}</td></tr>
-        <tr><td>Failed — Bolt + Courier</td><td>${fmt(failedBoltRate, 'pct')}</td></tr>
-        <tr><td>Failed Rate Total</td><td>${fmt(fail.failed_rate_total, 'pct')}</td></tr>
-      </tbody>
-    </table>
-  </div>`;
+    const src = getDataSource();
+    const periods = [...new Set(safe(src.financial).map(r => r.period))].sort();
+    const pt = $('periodTabs');
+    let ph = `<span class="period-tab ${currentPeriod==='all'?'active':''}" data-p="all">All</span>`;
+    periods.forEach(p => { ph += `<span class="period-tab ${currentPeriod===p?'active':''}" data-p="${p}">${p}</span>`; });
+    pt.innerHTML = ph;
+    pt.querySelectorAll('.period-tab').forEach(t => {
+      t.addEventListener('click', () => { currentPeriod = t.dataset.p; render(); });
+    });
+  }
 
-  // Additional operational metrics
-  html += `<div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Courier Wait at Provider</div><div class="kpi-value">${fmt(ops.avg_courier_wait_at_provider_min, 'dec1')} min</div></div>
-    <div class="kpi-card"><div class="kpi-label">New User Share</div><div class="kpi-value">${fmt(fin.new_user_share, 'pct')}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Refund Rate</div><div class="kpi-value">${fmt(fin.refund_rate_pct, 'pct2')}</div></div>
-  </div>`;
+  function getDataSource() {
+    if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
+    return ((D.partners || {})[currentView] || {})[currentGran] || {};
+  }
 
-  html += `</div>`;
+  /* ---- KPI card builder ---- */
+  function kpi(label, value, curRow, prevRow, field, opts={}) {
+    const inv = opts.inverted || false;
+    const chg = prevRow ? changeHtml(curRow[field], prevRow[field], inv) : '<span class="kpi-change neutral">—</span>';
+    return `<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div>${chg}</div>`;
+  }
 
-  // Section 3: Campaign Analytics
-  const boltTotal = parseFloat(camp.bolt_total_investment_eur) || 0;
-  const partnerTotal = parseFloat(camp.partner_investment_eur) || 0;
-  const gmvForCamp = parseFloat(camp.gmv_eur) || 1;
+  /* ---- acceptance/availability helpers ---- */
+  function getAcceptAvail() {
+    if (currentView === 'overview') return safe((D.acceptance_availability || {}).overview);
+    return safe((D.acceptance_availability || {})[currentView]);
+  }
 
-  html += `<div class="section">
-    <div class="section-title"><div class="section-icon camp">📊</div> Campaign Analytics</div>
-    <div class="kpi-grid">
-      <div class="kpi-card"><div class="kpi-label">Bolt Investment</div><div class="kpi-value">${fmt(boltTotal, 'eur')}</div><div class="kpi-change neutral">${fmt(camp.bolt_investment_pct_gmv, 'pct')} of GMV</div></div>
-      <div class="kpi-card"><div class="kpi-label">Partner Investment</div><div class="kpi-value">${fmt(partnerTotal, 'eur')}</div><div class="kpi-change neutral">${fmt(camp.partner_investment_pct_gmv, 'pct')} of GMV</div></div>
-      <div class="kpi-card"><div class="kpi-label">Total Campaign Spend</div><div class="kpi-value">${fmt(boltTotal + partnerTotal, 'eur')}</div><div class="kpi-change neutral">${fmt((boltTotal + partnerTotal) / gmvForCamp * 100, 'pct')} of GMV</div></div>
-    </div>`;
+  /* ---- render ---- */
+  function render() {
+    destroyCharts();
+    buildSidebar();
+    buildControls();
+    $('pageTitle').textContent = currentView === 'overview' ? 'All 3P Stores' : currentView;
+    $('generatedAt').textContent = D.generated_at ? 'Generated: ' + D.generated_at : '';
 
-  // Campaign Type Breakdown
-  html += `<div class="table-container">
-    <table>
-      <thead><tr><th>Campaign Type</th><th>Bolt Spend (EUR)</th><th>% of GMV</th></tr></thead>
-      <tbody>
-        <tr><td>Demand Incentives (Eater)</td><td>${fmt(camp.bolt_demand_incentives_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_demand_incentives_eur) / gmvForCamp * 100, 'pct2')}</td></tr>
-        <tr><td>Supply Incentives (Courier)</td><td>${fmt(camp.bolt_supply_incentives_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_supply_incentives_eur) / gmvForCamp * 100, 'pct2')}</td></tr>
-        <tr><td>User Activation</td><td>${fmt(camp.bolt_activation_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_activation_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
-        <tr><td>User Reactivation</td><td>${fmt(camp.bolt_reactivation_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_reactivation_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
-        <tr><td>User Engagement</td><td>${fmt(camp.bolt_engagement_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_engagement_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
-        <tr><td>Liquidity</td><td>${fmt(camp.bolt_liquidity_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_liquidity_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
-        <tr><td>Marketing</td><td>${fmt(camp.bolt_marketing_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_marketing_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
-      </tbody>
-    </table>
-  </div>`;
+    const src = getDataSource();
+    const fin = safe(src.financial);
+    const cp = safe(src.cp_margins);
+    const ops = safe(src.operational);
+    const fail = safe(src.failed_orders);
+    const camp = safe(src.campaigns);
+    const gmvPart = safe(src.gmv_by_partner);
+    const aa = getAcceptAvail();
 
-  // Trend chart for campaigns
-  html += `<div class="chart-container">
-    <div class="chart-title">Investment Trend — Bolt vs Partner</div>
-    <div class="chart-box"><canvas id="campaignTrendChart"></canvas></div>
-  </div>`;
+    let html = '';
 
-  html += `</div>`;
+    /* ===== SECTION 1: Financial Overview ===== */
+    html += '<div class="section"><div class="section-title">Financial Overview</div>';
 
-  document.getElementById('report-content').innerHTML = html;
-
-  // Render charts after DOM update
-  setTimeout(() => {
-    if (currentView === 'overview') renderGmvPieChart(gran, idx);
-    renderCampaignTrendChart(campaigns);
-  }, 50);
-}
-
-function renderGmvPieChart(gran, idx) {
-  const canvas = document.getElementById('gmvPieChart');
-  if (!canvas) return;
-
-  const gmvByPartner = REPORT_DATA.overview[gran]?.gmv_by_partner || [];
-  const allPeriods = [...new Set(gmvByPartner.map(d => d.period))];
-  const selectedPeriod = allPeriods[idx] || allPeriods[allPeriods.length - 1];
-
-  const periodData = gmvByPartner.filter(d => d.period === selectedPeriod);
-  periodData.sort((a, b) => parseFloat(b.gmv_eur) - parseFloat(a.gmv_eur));
-
-  const top10 = periodData.slice(0, 10);
-  const others = periodData.slice(10);
-  const othersGmv = others.reduce((sum, d) => sum + parseFloat(d.gmv_eur), 0);
-
-  const labels = [...top10.map(d => d.group_name), ...(othersGmv > 0 ? ['Others'] : [])];
-  const values = [...top10.map(d => parseFloat(d.gmv_eur)), ...(othersGmv > 0 ? [othersGmv] : [])];
-
-  const colors = ['#34D186', '#2563eb', '#7c3aed', '#ea580c', '#0891b2', '#dc2626', '#ca8a04', '#6366f1', '#ec4899', '#14b8a6', '#94a3b8'];
-
-  chartInstances['gmvPie'] = new Chart(canvas, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 1, borderColor: '#fff' }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, padding: 8 } },
-        tooltip: { callbacks: { label: (ctx) => `${ctx.label}: €${ctx.parsed.toLocaleString('en-US', {maximumFractionDigits: 0})} (${(ctx.parsed / values.reduce((a,b)=>a+b,0) * 100).toFixed(1)}%)` } }
+    if (currentPeriod === 'all' && fin.length) {
+      const c = last(fin), p = prev(fin);
+      const cpC = last(cp), cpP = prev(cp);
+      html += '<div class="kpi-grid">';
+      html += kpi('GMV', fmtEur(c.gmv_eur), c, p, 'gmv_eur');
+      html += kpi('Orders', fmt(c.orders), c, p, 'orders');
+      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery), c, p, 'aov_with_delivery');
+      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only), c, p, 'aov_items_only');
+      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order), c, p, 'eater_fees_per_order');
+      if (cpC) {
+        html += kpi('CP Margin', fmtPct(cpC.cp_margin_pct), cpC, cpP, 'cp_margin_pct');
+        html += kpi('CP L2 Margin', fmtPct(cpC.cp_l2_margin_pct), cpC, cpP, 'cp_l2_margin_pct');
       }
+      html += kpi('Bolt Plus GMV Share', fmtPct(c.bolt_plus_gmv_share, 1), c, p, 'bolt_plus_gmv_share');
+      html += '</div>';
+
+      // Users sub-row
+      html += '<div class="sub-row">';
+      html += `<div class="sub-kpi"><div class="label">Users Activated</div><div class="val">${fmt(c.users_activated)}</div><div class="chg">${prevRow => changeHtml(c.users_activated, p ? p.users_activated : null)}</div></div>`;
+      html += `<div class="sub-kpi"><div class="label">Active Users</div><div class="val">${fmt(c.active_users)}</div><div class="chg">${changeHtml(c.active_users, p ? p.active_users : null)}</div></div>`;
+      html += '</div>';
+
+    } else if (currentPeriod !== 'all') {
+      const rows = fin.filter(r => r.period === currentPeriod);
+      const idx = fin.findIndex(r => r.period === currentPeriod);
+      const c = rows[0] || {};
+      const p = idx > 0 ? fin[idx - 1] : null;
+      const cpRows = cp.filter(r => r.period === currentPeriod);
+      const cpIdx = cp.findIndex(r => r.period === currentPeriod);
+      const cpC = cpRows[0] || null;
+      const cpP = cpIdx > 0 ? cp[cpIdx - 1] : null;
+
+      html += '<div class="kpi-grid">';
+      html += kpi('GMV', fmtEur(c.gmv_eur), c, p, 'gmv_eur');
+      html += kpi('Orders', fmt(c.orders), c, p, 'orders');
+      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery), c, p, 'aov_with_delivery');
+      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only), c, p, 'aov_items_only');
+      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order), c, p, 'eater_fees_per_order');
+      if (cpC) {
+        html += kpi('CP Margin', fmtPct(cpC.cp_margin_pct), cpC, cpP, 'cp_margin_pct');
+        html += kpi('CP L2 Margin', fmtPct(cpC.cp_l2_margin_pct), cpC, cpP, 'cp_l2_margin_pct');
+      }
+      html += kpi('Bolt Plus GMV Share', fmtPct(c.bolt_plus_gmv_share, 1), c, p, 'bolt_plus_gmv_share');
+      html += '</div>';
+
+      html += '<div class="sub-row">';
+      html += `<div class="sub-kpi"><div class="label">Users Activated</div><div class="val">${fmt(c.users_activated)}</div><div class="chg">${changeHtml(c.users_activated, p ? p.users_activated : null)}</div></div>`;
+      html += `<div class="sub-kpi"><div class="label">Active Users</div><div class="val">${fmt(c.active_users)}</div><div class="chg">${changeHtml(c.active_users, p ? p.active_users : null)}</div></div>`;
+      html += '</div>';
     }
-  });
-}
 
-function renderCampaignTrendChart(campaigns) {
-  const canvas = document.getElementById('campaignTrendChart');
-  if (!canvas || campaigns.length === 0) return;
-
-  const labels = campaigns.map(d => formatPeriodLabel(d.period, currentGranularity));
-  const boltData = campaigns.map(d => parseFloat(d.bolt_total_investment_eur) || 0);
-  const partnerData = campaigns.map(d => parseFloat(d.partner_investment_eur) || 0);
-
-  chartInstances['campaignTrend'] = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Bolt Investment', data: boltData, backgroundColor: '#34D186', borderRadius: 4 },
-        { label: 'Partner Investment', data: partnerData, backgroundColor: '#2563eb', borderRadius: 4 }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { y: { beginAtZero: true, ticks: { callback: v => '€' + v.toLocaleString() } }, x: { grid: { display: false } } },
-      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: €${ctx.parsed.y.toLocaleString('en-US', {maximumFractionDigits: 0})}` } } }
+    // Eater Fees Breakdown Table
+    const feePeriods = currentPeriod === 'all' ? fin : fin.filter(r => r.period === currentPeriod);
+    if (feePeriods.length) {
+      html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Period</th><th>Delivery Fee</th><th>/ Order</th><th>Small Order Fee</th><th>/ Order</th><th>Service Fee</th><th>/ Order</th></tr></thead><tbody>';
+      feePeriods.forEach(r => {
+        html += `<tr><td>${r.period}</td><td>${fmtEur(r.delivery_fee_total)}</td><td>${fmtEur(r.delivery_fee_per_order)}</td><td>${fmtEur(r.small_order_fee_total)}</td><td>${fmtEur(r.small_order_fee_per_order)}</td><td>${fmtEur(r.service_fee_total)}</td><td>${fmtEur(r.service_fee_per_order)}</td></tr>`;
+      });
+      html += '</tbody></table></div>';
     }
-  });
-}
 
-function destroyCharts() {
-  Object.values(chartInstances).forEach(c => c?.destroy());
-  chartInstances = {};
-}
+    // Charts row
+    html += '<div class="chart-row">';
+    html += '<div class="chart-container"><h3>GMV &amp; Orders Trend</h3><div class="chart-wrap"><canvas id="chartGmvOrders"></canvas></div></div>';
+    html += '<div class="chart-container"><h3>Eater Fees per Order</h3><div class="chart-wrap"><canvas id="chartEaterFees"></canvas></div></div>';
+    html += '</div>';
 
-function bindEvents() {
-  // Nav items
-  document.getElementById('sidebar').addEventListener('click', e => {
-    const btn = e.target.closest('.nav-item');
-    if (!btn) return;
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentView = btn.dataset.view;
-    currentPeriodIndex = null;
-    document.getElementById('view-title').textContent = currentView === 'overview' ? '3P Stores Ukraine — Overview' : currentView;
-    buildPeriodTabs();
-    renderReport();
-  });
+    // GMV by Partner doughnut (overview only)
+    if (currentView === 'overview' && safe(D.top_partners_gmv).length) {
+      html += '<div class="chart-row"><div class="chart-container full"><h3>GMV Share by Partner</h3><div class="chart-wrap" style="height:350px;max-width:500px;margin:0 auto;"><canvas id="chartGmvShare"></canvas></div></div></div>';
+    }
+    html += '</div>'; // end financial section
 
-  // Granularity toggle
-  document.querySelector('.time-toggle').addEventListener('click', e => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    document.querySelectorAll('.time-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentGranularity = btn.dataset.granularity;
-    currentPeriodIndex = null;
-    buildPeriodTabs();
-    renderReport();
-  });
+    /* ===== SECTION 2: Operational Overview ===== */
+    html += '<div class="section"><div class="section-title">Operational Overview</div>';
 
-  // Period tabs
-  document.getElementById('period-tabs').addEventListener('click', e => {
-    const btn = e.target.closest('.period-tab');
-    if (!btn) return;
-    document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const val = btn.dataset.periodIndex;
-    currentPeriodIndex = val === 'all' ? null : parseInt(val);
-    renderReport();
-  });
-}
+    const opsData = currentPeriod === 'all' ? ops : ops.filter(r => r.period === currentPeriod);
+    const oc = last(opsData), op = opsData.length >= 2 ? opsData[opsData.length - 2] : null;
+    const aaLast = last(aa);
 
-document.addEventListener('DOMContentLoaded', init);
+    if (oc || aaLast) {
+      html += '<div class="kpi-grid">';
+      if (oc) {
+        html += kpi('Active Stores', fmt(oc.active_stores), oc, op, 'active_stores');
+      }
+      if (aaLast) {
+        const aaPrev = aa.length >= 2 ? aa[aa.length - 2] : null;
+        html += kpi('Acceptance Rate', fmtPct(aaLast.acceptance_rate_30d * 100, 1), {v: aaLast.acceptance_rate_30d*100}, aaPrev ? {v: aaPrev.acceptance_rate_30d*100} : null, 'v');
+        html += kpi('Availability', fmtPct(aaLast.availability_rate_30d * 100, 1), {v: aaLast.availability_rate_30d*100}, aaPrev ? {v: aaPrev.availability_rate_30d*100} : null, 'v');
+        html += kpi('Avg Rating', fmt(aaLast.avg_rating_30d, 2), {v: aaLast.avg_rating_30d}, aaPrev ? {v: aaPrev.avg_rating_30d} : null, 'v');
+      }
+      if (oc) {
+        html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
+        html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
+        html += kpi('Replacement Rate', fmtPct(oc.replacement_rate, 2), oc, op, 'replacement_rate', {inverted: true});
+        html += kpi('Adjustment Rate', fmtPct(oc.adjustment_rate, 2), oc, op, 'adjustment_rate', {inverted: true});
+        html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
+      }
+      html += '</div>';
+    }
+
+    // Failed orders & rates table
+    const failData = currentPeriod === 'all' ? fail : fail.filter(r => r.period === currentPeriod);
+    if (failData.length) {
+      html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Period</th><th>Bad Order Rate</th><th>Late Delivery 5min+</th><th>Late Pickup 5min+</th><th>Failed — Merchant</th><th>Failed — Bolt+Courier</th><th>Failed Rate Total</th></tr></thead><tbody>';
+      failData.forEach((r, i) => {
+        const opsRow = opsData.find(o => o.period === r.period) || {};
+        html += `<tr><td>${r.period}</td><td>${fmtPct(opsRow.bad_order_rate, 2)}</td><td>${fmtPct(opsRow.late_delivery_rate, 2)}</td><td>${fmtPct(opsRow.late_pickup_rate, 2)}</td><td>${fmt(r.failed_merchant)}</td><td>${fmt(r.failed_bolt_courier)}</td><td>${fmtPct(r.failed_rate_total, 2)}</td></tr>`;
+      });
+      html += '</tbody></table></div>';
+    }
+
+    // Sub-row: Courier Wait, New User Share, Refund Rate
+    if (oc || (fin.length && last(fin))) {
+      const fc = last(fin) || {};
+      html += '<div class="sub-row">';
+      if (oc) html += `<div class="sub-kpi"><div class="label">Courier Wait at Provider</div><div class="val">${fmt(oc.avg_courier_wait_at_provider_min, 1)} min</div></div>`;
+      if (fc.refund_rate_pct != null) html += `<div class="sub-kpi"><div class="label">Refund Rate</div><div class="val">${fmtPct(fc.refund_rate_pct, 2)}</div></div>`;
+      html += '</div>';
+    }
+    html += '</div>'; // end operational section
+
+    /* ===== SECTION 3: Campaign Analytics ===== */
+    html += '<div class="section"><div class="section-title">Campaign Analytics</div>';
+    const campData = currentPeriod === 'all' ? camp : camp.filter(r => r.period === currentPeriod);
+    const cc = last(campData), cp2 = campData.length >= 2 ? campData[campData.length - 2] : null;
+    if (cc) {
+      const gmv = cc.gmv_eur || 1;
+      html += '<div class="kpi-grid">';
+      html += kpi('Campaigns Discount', fmtEur(cc.campaigns_discount_eur) + ` (${fmtPct(cc.campaigns_discount_eur / gmv * 100, 1)})`, cc, cp2, 'campaigns_discount_eur');
+      html += kpi('Bolt Spend', fmtEur(cc.bolt_spend_eur) + ` (${fmtPct(cc.bolt_spend_eur / gmv * 100, 1)})`, cc, cp2, 'bolt_spend_eur');
+      html += kpi('Merchant Spend', fmtEur(cc.merchant_spend_eur) + ` (${fmtPct(cc.merchant_spend_eur / gmv * 100, 1)})`, cc, cp2, 'merchant_spend_eur');
+      html += '</div>';
+    }
+    html += '<div class="chart-row"><div class="chart-container full"><h3>Campaign Spend Trend</h3><div class="chart-wrap"><canvas id="chartCampaigns"></canvas></div></div></div>';
+    html += '</div>'; // end campaigns section
+
+    $('content').innerHTML = html;
+
+    /* ---- draw charts ---- */
+    drawGmvOrdersChart(fin);
+    drawEaterFeesChart(fin);
+    if (currentView === 'overview') drawGmvShareChart();
+    drawCampaignsChart(camp);
+  }
+
+  /* ---- Charts ---- */
+  function makeChart(id, cfg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const c = new Chart(el.getContext('2d'), cfg);
+    charts.push(c);
+    return c;
+  }
+
+  function drawGmvOrdersChart(fin) {
+    if (!fin.length) return;
+    const labels = fin.map(r => r.period);
+    makeChart('chartGmvOrders', {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'GMV (€)', data: fin.map(r => r.gmv_eur), borderColor: '#34D186', backgroundColor: '#34D18630', fill: true, tension: 0.3, yAxisID: 'y' },
+          { label: 'Orders', data: fin.map(r => r.orders), borderColor: '#1A1A2E', backgroundColor: '#1A1A2E30', fill: false, tension: 0.3, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: { type: 'linear', position: 'left', title: { display: true, text: 'GMV (€)' }, grid: { color: '#E2E8F020' } },
+          y1: { type: 'linear', position: 'right', title: { display: true, text: 'Orders' }, grid: { drawOnChartArea: false } }
+        },
+        plugins: { legend: { position: 'top' } }
+      }
+    });
+  }
+
+  function drawEaterFeesChart(fin) {
+    if (!fin.length) return;
+    const labels = fin.map(r => r.period);
+    makeChart('chartEaterFees', {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Delivery Fee/Order', data: fin.map(r => r.delivery_fee_per_order), borderColor: '#6366F1', backgroundColor: '#6366F130', fill: true, tension: 0.3, stack: 'fees' },
+          { label: 'Small Order Fee/Order', data: fin.map(r => r.small_order_fee_per_order), borderColor: '#F59E0B', backgroundColor: '#F59E0B30', fill: true, tension: 0.3, stack: 'fees' },
+          { label: 'Service Fee/Order', data: fin.map(r => r.service_fee_per_order), borderColor: '#EF4444', backgroundColor: '#EF444430', fill: true, tension: 0.3, stack: 'fees' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: { stacked: true, title: { display: true, text: '€ per Order' } }
+        },
+        plugins: { legend: { position: 'top' } }
+      }
+    });
+  }
+
+  function drawGmvShareChart() {
+    const tp = safe(D.top_partners_gmv);
+    if (!tp.length) return;
+    const colors = ['#34D186','#1A1A2E','#6366F1','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#64748B','#CBD5E1'];
+    makeChart('chartGmvShare', {
+      type: 'doughnut',
+      data: {
+        labels: tp.map(r => r.group_name),
+        datasets: [{ data: tp.map(r => r.gmv_eur), backgroundColor: colors.slice(0, tp.length) }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => `${ctx.label}: €${fmt(ctx.parsed, 0)} (${fmtPct(ctx.parsed / tp.reduce((a,b)=>a+b.gmv_eur,0)*100,1)})` } }
+        }
+      }
+    });
+  }
+
+  function drawCampaignsChart(camp) {
+    if (!camp.length) return;
+    const labels = camp.map(r => r.period);
+    makeChart('chartCampaigns', {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Campaigns Discount (€)', data: camp.map(r => r.campaigns_discount_eur), backgroundColor: '#34D186' },
+          { label: 'Bolt Spend (€)', data: camp.map(r => r.bolt_spend_eur), backgroundColor: '#1A1A2E' },
+          { label: 'Merchant Spend (€)', data: camp.map(r => r.merchant_spend_eur), backgroundColor: '#F59E0B' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { title: { display: true, text: '€' } } },
+        plugins: { legend: { position: 'top' } }
+      }
+    });
+  }
+
+  render();
+})();
 </script>
 </body>
 </html>
