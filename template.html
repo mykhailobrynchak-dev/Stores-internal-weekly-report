@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3P Stores Ukraine — Weekly Performance Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --primary: #34D186;
+  --primary-light: #e6f9f0;
+  --dark: #1A1A2E;
+  --bg: #F8F9FA;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --muted: #64748b;
+  --green: #16a34a;
+  --red: #dc2626;
+  --yellow: #d97706;
+  --blue: #2563eb;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, system-ui, sans-serif; line-height: 1.5; }
+
+.layout { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--dark);
+  color: #fff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 20px 0;
+  z-index: 100;
+}
+.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; }
+.sidebar-logo h2 { font-size: 15px; font-weight: 700; color: var(--primary); }
+.sidebar-logo p { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+.nav-section { padding: 0 12px; margin-bottom: 16px; }
+.nav-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.4); padding: 0 8px; margin-bottom: 6px; }
+.nav-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: left;
+  transition: all 0.15s;
+}
+.nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.nav-item.active { background: var(--primary); color: var(--dark); font-weight: 600; }
+
+/* Main Content */
+.main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: calc(100vw - var(--sidebar-w)); }
+
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 22px; font-weight: 700; }
+.header-meta { text-align: right; font-size: 12px; color: var(--muted); }
+
+/* Time Selector */
+.time-selector { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; flex-wrap: wrap; }
+.time-toggle { display: flex; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.time-toggle button {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.time-toggle button.active { background: var(--primary); color: var(--dark); font-weight: 600; }
+.period-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-left: 12px; }
+.period-tab {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.period-tab:hover { border-color: var(--primary); color: var(--text); }
+.period-tab.active { background: var(--primary-light); border-color: var(--primary); color: var(--dark); font-weight: 600; }
+
+/* Sections */
+.section { margin-bottom: 32px; }
+.section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.section-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.section-icon.fin { background: #dbeafe; color: var(--blue); }
+.section-icon.ops { background: #fef3c7; color: var(--yellow); }
+.section-icon.camp { background: #e6f9f0; color: var(--green); }
+
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+.kpi-value { font-size: 22px; font-weight: 700; }
+.kpi-change { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kpi-change.up { color: var(--green); }
+.kpi-change.down { color: var(--red); }
+.kpi-change.neutral { color: var(--yellow); }
+
+/* Tables */
+.table-container { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+.table-container table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table-container th { text-align: left; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+.table-container td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
+.table-container tr:last-child td { border-bottom: none; }
+.table-container tr:hover { background: #f8fafc; }
+
+/* Charts */
+.chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.chart-box { position: relative; height: 300px; }
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Utilities */
+.up-color { color: var(--green); }
+.down-color { color: var(--red); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+@media (max-width: 1200px) {
+  .chart-row, .grid-2 { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+@media (max-width: 768px) {
+  .sidebar { width: 60px; }
+  .main { margin-left: 60px; padding: 16px; }
+  .sidebar-logo h2, .sidebar-logo p, .nav-section-title, .nav-item span { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>3P Stores UA</h2>
+      <p>Weekly Performance Report</p>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Overview</div>
+      <button class="nav-item active" data-view="overview">All 3P Stores</button>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Partners</div>
+      <div id="partner-nav"></div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="header">
+      <div>
+        <h1 id="view-title">3P Stores Ukraine — Overview</h1>
+      </div>
+      <div class="header-meta">
+        <div>Last updated: <span id="last-updated"></span></div>
+        <div>Data from: <span id="data-range"></span></div>
+      </div>
+    </div>
+
+    <!-- Time Period Selector -->
+    <div class="time-selector">
+      <div class="time-toggle">
+        <button class="active" data-granularity="monthly">Monthly</button>
+        <button data-granularity="weekly">Weekly</button>
+      </div>
+      <div class="period-tabs" id="period-tabs"></div>
+    </div>
+
+    <!-- Report Content -->
+    <div id="report-content"></div>
+  </main>
+</div>
+
+<script>
+/*__REPORT_DATA__*/
+
+// State
+let currentView = 'overview';
+let currentGranularity = 'monthly';
+let currentPeriodIndex = null;
+let chartInstances = {};
+
+function init() {
+  document.getElementById('last-updated').textContent = new Date(REPORT_DATA.generated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('data-range').textContent = REPORT_DATA.data_start + ' → present';
+  buildPartnerNav();
+  buildPeriodTabs();
+  renderReport();
+  bindEvents();
+}
+
+function buildPartnerNav() {
+  const container = document.getElementById('partner-nav');
+  container.innerHTML = REPORT_DATA.partners_list.map(p =>
+    `<button class="nav-item" data-view="${p}">${p}</button>`
+  ).join('');
+}
+
+function buildPeriodTabs() {
+  const container = document.getElementById('period-tabs');
+  const data = getViewData();
+  if (!data) return;
+  const gran = currentGranularity;
+  const financial = data[gran]?.financial || [];
+  const periods = financial.map(d => d.period);
+
+  container.innerHTML = periods.map((p, i) => {
+    const label = formatPeriodLabel(p, gran);
+    const isActive = currentPeriodIndex === i ? 'active' : '';
+    return `<button class="period-tab ${isActive}" data-period-index="${i}">${label}</button>`;
+  }).join('') + `<button class="period-tab ${currentPeriodIndex === null ? 'active' : ''}" data-period-index="all">All</button>`;
+}
+
+function formatPeriodLabel(period, gran) {
+  if (gran === 'monthly') {
+    const d = new Date(period);
+    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  } else {
+    const d = new Date(period);
+    const weekNum = getWeekNumber(d);
+    return `W${weekNum} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
+  }
+}
+
+function getWeekNumber(d) {
+  const oneJan = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
+}
+
+function getViewData() {
+  if (currentView === 'overview') return REPORT_DATA.overview;
+  return REPORT_DATA.partners?.[currentView];
+}
+
+function getDataForPeriod(arr, periodIndex) {
+  if (!arr || arr.length === 0) return null;
+  if (periodIndex === null || periodIndex === 'all') return arr[arr.length - 1];
+  return arr[periodIndex] || arr[arr.length - 1];
+}
+
+function getAllPeriodsData(arr) {
+  return arr || [];
+}
+
+function fmt(val, type) {
+  if (val === null || val === undefined || val === '') return '—';
+  const n = parseFloat(val);
+  if (isNaN(n)) return val;
+  switch(type) {
+    case 'eur': return '€' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    case 'eur2': return '€' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    case 'pct': return n.toFixed(1) + '%';
+    case 'pct2': return n.toFixed(2) + '%';
+    case 'num': return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    case 'dec1': return n.toFixed(1);
+    case 'dec2': return n.toFixed(2);
+    default: return n.toLocaleString('en-US');
+  }
+}
+
+function calcChange(arr, idx, field) {
+  if (!arr || idx <= 0 || idx >= arr.length) return null;
+  const curr = parseFloat(arr[idx]?.[field]);
+  const prev = parseFloat(arr[idx - 1]?.[field]);
+  if (isNaN(curr) || isNaN(prev) || prev === 0) return null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+function changeHtml(change) {
+  if (change === null) return '';
+  const cls = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
+  const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '—';
+  return `<div class="kpi-change ${cls}">${arrow} ${Math.abs(change).toFixed(1)}%</div>`;
+}
+
+function renderReport() {
+  destroyCharts();
+  const viewData = getViewData();
+  if (!viewData) {
+    document.getElementById('report-content').innerHTML = '<p>No data available for this view.</p>';
+    return;
+  }
+
+  const gran = currentGranularity;
+  const financial = viewData[gran]?.financial || [];
+  const cpMargins = viewData[gran]?.cp_margins || [];
+  const operational = viewData[gran]?.operational || [];
+  const failedOrders = viewData[gran]?.failed_orders || [];
+  const campaigns = viewData[gran]?.campaigns || [];
+
+  const idx = (currentPeriodIndex === null || currentPeriodIndex === 'all')
+    ? financial.length - 1
+    : parseInt(currentPeriodIndex);
+
+  const fin = financial[idx] || {};
+  const cp = cpMargins[idx] || {};
+  const ops = operational[idx] || {};
+  const fail = failedOrders[idx] || {};
+  const camp = campaigns[idx] || {};
+
+  const accAvail = currentView === 'overview'
+    ? REPORT_DATA.acceptance_availability?.overview?.[0]
+    : REPORT_DATA.acceptance_availability?.[currentView]?.[0];
+
+  let html = '';
+
+  // Section 1: Financial Overview
+  html += `<div class="section">
+    <div class="section-title"><div class="section-icon fin">$</div> Financial Overview</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">GMV</div><div class="kpi-value">${fmt(fin.gmv_eur, 'eur')}</div>${changeHtml(calcChange(financial, idx, 'gmv_eur'))}</div>
+      <div class="kpi-card"><div class="kpi-label">Orders</div><div class="kpi-value">${fmt(fin.orders, 'num')}</div>${changeHtml(calcChange(financial, idx, 'orders'))}</div>
+      <div class="kpi-card"><div class="kpi-label">AOV (with Delivery)</div><div class="kpi-value">${fmt(fin.aov_with_delivery, 'eur2')}</div>${changeHtml(calcChange(financial, idx, 'aov_with_delivery'))}</div>
+      <div class="kpi-card"><div class="kpi-label">AOV (Items Only)</div><div class="kpi-value">${fmt(fin.aov_items_only, 'eur2')}</div>${changeHtml(calcChange(financial, idx, 'aov_items_only'))}</div>
+      <div class="kpi-card"><div class="kpi-label">Eater Fees / Order</div><div class="kpi-value">${fmt(fin.eater_fees_per_order, 'eur2')}</div>${changeHtml(calcChange(financial, idx, 'eater_fees_per_order'))}</div>
+      <div class="kpi-card"><div class="kpi-label">CP Margin</div><div class="kpi-value">${fmt(cp.cp_margin_pct, 'pct')}</div>${changeHtml(calcChange(cpMargins, idx, 'cp_margin_pct'))}</div>
+      <div class="kpi-card"><div class="kpi-label">CP L2 Margin</div><div class="kpi-value">${fmt(cp.cp_l2_margin_pct, 'pct')}</div>${changeHtml(calcChange(cpMargins, idx, 'cp_l2_margin_pct'))}</div>
+      <div class="kpi-card"><div class="kpi-label">Bolt Plus GMV Share</div><div class="kpi-value">${fmt(fin.bolt_plus_gmv_share, 'pct')}</div>${changeHtml(calcChange(financial, idx, 'bolt_plus_gmv_share'))}</div>
+    </div>`;
+
+  // Eater Fees Breakdown Table
+  html += `<div class="table-container">
+    <table>
+      <thead><tr><th>Fee Type</th><th>Total (EUR)</th><th>Per Order (EUR)</th></tr></thead>
+      <tbody>
+        <tr><td>Delivery Fee</td><td>${fmt(fin.delivery_fee_total, 'eur')}</td><td>${fmt(fin.delivery_fee_per_order, 'eur2')}</td></tr>
+        <tr><td>Small Order Fee</td><td>${fmt(fin.small_order_fee_total, 'eur')}</td><td>${fmt(fin.small_order_fee_per_order, 'eur2')}</td></tr>
+        <tr><td>Service Fee</td><td>${fmt(fin.service_fee_total, 'eur')}</td><td>${fmt(fin.service_fee_per_order, 'eur2')}</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+
+  // GMV Share by Partner (pie chart) — only for overview
+  if (currentView === 'overview') {
+    html += `<div class="chart-container">
+      <div class="chart-title">GMV Share by Partner</div>
+      <div class="chart-box"><canvas id="gmvPieChart"></canvas></div>
+    </div>`;
+  }
+
+  html += `</div>`;
+
+  // Section 2: Operational Overview
+  html += `<div class="section">
+    <div class="section-title"><div class="section-icon ops">⚡</div> Operational Overview</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Active Stores</div><div class="kpi-value">${fmt(ops.active_stores, 'num')}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Acceptance Rate</div><div class="kpi-value">${fmt(accAvail?.acceptance_rate_30d ? accAvail.acceptance_rate_30d * 100 : null, 'pct')}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Availability</div><div class="kpi-value">${fmt(accAvail?.availability_rate_30d ? accAvail.availability_rate_30d * 100 : null, 'pct')}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Avg Rating</div><div class="kpi-value">${fmt(accAvail?.avg_rating_30d, 'dec2')}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Honey Order Rate</div><div class="kpi-value">${fmt(ops.honey_order_rate, 'pct')}</div>${changeHtml(calcChange(operational, idx, 'honey_order_rate'))}</div>
+      <div class="kpi-card"><div class="kpi-label">Bad Order Rate</div><div class="kpi-value">${fmt(ops.bad_order_rate, 'pct')}</div>${changeHtml(calcChange(operational, idx, 'bad_order_rate'))}</div>
+      <div class="kpi-card"><div class="kpi-label">Item Discrepancy Rate</div><div class="kpi-value">${fmt(ops.item_discrepancy_rate, 'pct')}</div>${changeHtml(calcChange(operational, idx, 'item_discrepancy_rate'))}</div>
+      <div class="kpi-card"><div class="kpi-label">Avg Delivery Time</div><div class="kpi-value">${fmt(ops.avg_delivery_minutes, 'dec1')} min</div>${changeHtml(calcChange(operational, idx, 'avg_delivery_minutes'))}</div>
+    </div>`;
+
+  // Bad Order Breakdown Table
+  const failedMerchantRate = fail.total_placed ? (parseFloat(fail.failed_merchant) / parseFloat(fail.total_placed) * 100) : null;
+  const failedBoltRate = fail.total_placed ? (parseFloat(fail.failed_bolt_courier) / parseFloat(fail.total_placed) * 100) : null;
+
+  html += `<div class="table-container">
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Bad Order Rate</td><td>${fmt(ops.bad_order_rate, 'pct')}</td></tr>
+        <tr><td>Late Delivery (5min+)</td><td>${fmt(ops.late_delivery_rate, 'pct')}</td></tr>
+        <tr><td>Late Pickup (5min+)</td><td>${fmt(ops.late_pickup_rate, 'pct')}</td></tr>
+        <tr><td>Failed — Merchant (rejected/no response)</td><td>${fmt(failedMerchantRate, 'pct')}</td></tr>
+        <tr><td>Failed — Bolt + Courier</td><td>${fmt(failedBoltRate, 'pct')}</td></tr>
+        <tr><td>Failed Rate Total</td><td>${fmt(fail.failed_rate_total, 'pct')}</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+
+  // Additional operational metrics
+  html += `<div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Courier Wait at Provider</div><div class="kpi-value">${fmt(ops.avg_courier_wait_at_provider_min, 'dec1')} min</div></div>
+    <div class="kpi-card"><div class="kpi-label">New User Share</div><div class="kpi-value">${fmt(fin.new_user_share, 'pct')}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Refund Rate</div><div class="kpi-value">${fmt(fin.refund_rate_pct, 'pct2')}</div></div>
+  </div>`;
+
+  html += `</div>`;
+
+  // Section 3: Campaign Analytics
+  const boltTotal = parseFloat(camp.bolt_total_investment_eur) || 0;
+  const partnerTotal = parseFloat(camp.partner_investment_eur) || 0;
+  const gmvForCamp = parseFloat(camp.gmv_eur) || 1;
+
+  html += `<div class="section">
+    <div class="section-title"><div class="section-icon camp">📊</div> Campaign Analytics</div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Bolt Investment</div><div class="kpi-value">${fmt(boltTotal, 'eur')}</div><div class="kpi-change neutral">${fmt(camp.bolt_investment_pct_gmv, 'pct')} of GMV</div></div>
+      <div class="kpi-card"><div class="kpi-label">Partner Investment</div><div class="kpi-value">${fmt(partnerTotal, 'eur')}</div><div class="kpi-change neutral">${fmt(camp.partner_investment_pct_gmv, 'pct')} of GMV</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Campaign Spend</div><div class="kpi-value">${fmt(boltTotal + partnerTotal, 'eur')}</div><div class="kpi-change neutral">${fmt((boltTotal + partnerTotal) / gmvForCamp * 100, 'pct')} of GMV</div></div>
+    </div>`;
+
+  // Campaign Type Breakdown
+  html += `<div class="table-container">
+    <table>
+      <thead><tr><th>Campaign Type</th><th>Bolt Spend (EUR)</th><th>% of GMV</th></tr></thead>
+      <tbody>
+        <tr><td>Demand Incentives (Eater)</td><td>${fmt(camp.bolt_demand_incentives_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_demand_incentives_eur) / gmvForCamp * 100, 'pct2')}</td></tr>
+        <tr><td>Supply Incentives (Courier)</td><td>${fmt(camp.bolt_supply_incentives_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_supply_incentives_eur) / gmvForCamp * 100, 'pct2')}</td></tr>
+        <tr><td>User Activation</td><td>${fmt(camp.bolt_activation_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_activation_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
+        <tr><td>User Reactivation</td><td>${fmt(camp.bolt_reactivation_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_reactivation_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
+        <tr><td>User Engagement</td><td>${fmt(camp.bolt_engagement_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_engagement_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
+        <tr><td>Liquidity</td><td>${fmt(camp.bolt_liquidity_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_liquidity_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
+        <tr><td>Marketing</td><td>${fmt(camp.bolt_marketing_eur, 'eur')}</td><td>${fmt(parseFloat(camp.bolt_marketing_eur || 0) / gmvForCamp * 100, 'pct2')}</td></tr>
+      </tbody>
+    </table>
+  </div>`;
+
+  // Trend chart for campaigns
+  html += `<div class="chart-container">
+    <div class="chart-title">Investment Trend — Bolt vs Partner</div>
+    <div class="chart-box"><canvas id="campaignTrendChart"></canvas></div>
+  </div>`;
+
+  html += `</div>`;
+
+  document.getElementById('report-content').innerHTML = html;
+
+  // Render charts after DOM update
+  setTimeout(() => {
+    if (currentView === 'overview') renderGmvPieChart(gran, idx);
+    renderCampaignTrendChart(campaigns);
+  }, 50);
+}
+
+function renderGmvPieChart(gran, idx) {
+  const canvas = document.getElementById('gmvPieChart');
+  if (!canvas) return;
+
+  const gmvByPartner = REPORT_DATA.overview[gran]?.gmv_by_partner || [];
+  const allPeriods = [...new Set(gmvByPartner.map(d => d.period))];
+  const selectedPeriod = allPeriods[idx] || allPeriods[allPeriods.length - 1];
+
+  const periodData = gmvByPartner.filter(d => d.period === selectedPeriod);
+  periodData.sort((a, b) => parseFloat(b.gmv_eur) - parseFloat(a.gmv_eur));
+
+  const top10 = periodData.slice(0, 10);
+  const others = periodData.slice(10);
+  const othersGmv = others.reduce((sum, d) => sum + parseFloat(d.gmv_eur), 0);
+
+  const labels = [...top10.map(d => d.group_name), ...(othersGmv > 0 ? ['Others'] : [])];
+  const values = [...top10.map(d => parseFloat(d.gmv_eur)), ...(othersGmv > 0 ? [othersGmv] : [])];
+
+  const colors = ['#34D186', '#2563eb', '#7c3aed', '#ea580c', '#0891b2', '#dc2626', '#ca8a04', '#6366f1', '#ec4899', '#14b8a6', '#94a3b8'];
+
+  chartInstances['gmvPie'] = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 1, borderColor: '#fff' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, padding: 8 } },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.label}: €${ctx.parsed.toLocaleString('en-US', {maximumFractionDigits: 0})} (${(ctx.parsed / values.reduce((a,b)=>a+b,0) * 100).toFixed(1)}%)` } }
+      }
+    }
+  });
+}
+
+function renderCampaignTrendChart(campaigns) {
+  const canvas = document.getElementById('campaignTrendChart');
+  if (!canvas || campaigns.length === 0) return;
+
+  const labels = campaigns.map(d => formatPeriodLabel(d.period, currentGranularity));
+  const boltData = campaigns.map(d => parseFloat(d.bolt_total_investment_eur) || 0);
+  const partnerData = campaigns.map(d => parseFloat(d.partner_investment_eur) || 0);
+
+  chartInstances['campaignTrend'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Bolt Investment', data: boltData, backgroundColor: '#34D186', borderRadius: 4 },
+        { label: 'Partner Investment', data: partnerData, backgroundColor: '#2563eb', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, ticks: { callback: v => '€' + v.toLocaleString() } }, x: { grid: { display: false } } },
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: €${ctx.parsed.y.toLocaleString('en-US', {maximumFractionDigits: 0})}` } } }
+    }
+  });
+}
+
+function destroyCharts() {
+  Object.values(chartInstances).forEach(c => c?.destroy());
+  chartInstances = {};
+}
+
+function bindEvents() {
+  // Nav items
+  document.getElementById('sidebar').addEventListener('click', e => {
+    const btn = e.target.closest('.nav-item');
+    if (!btn) return;
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentView = btn.dataset.view;
+    currentPeriodIndex = null;
+    document.getElementById('view-title').textContent = currentView === 'overview' ? '3P Stores Ukraine — Overview' : currentView;
+    buildPeriodTabs();
+    renderReport();
+  });
+
+  // Granularity toggle
+  document.querySelector('.time-toggle').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    document.querySelectorAll('.time-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentGranularity = btn.dataset.granularity;
+    currentPeriodIndex = null;
+    buildPeriodTabs();
+    renderReport();
+  });
+
+  // Period tabs
+  document.getElementById('period-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('.period-tab');
+    if (!btn) return;
+    document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const val = btn.dataset.periodIndex;
+    currentPeriodIndex = val === 'all' ? null : parseInt(val);
+    renderReport();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
