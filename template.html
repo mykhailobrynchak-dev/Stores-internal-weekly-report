@@ -141,10 +141,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   function periodLabel(p, gran) {
     if (!p) return '—';
-    const d = new Date(p);
-    if (isNaN(d)) return p;
-    if (gran === 'monthly') return MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
-    const jan1 = new Date(d.getUTCFullYear(), 0, 1);
+    const parts = p.replace(' 00:00:00','').split('-');
+    if (parts.length < 3) return p;
+    const year = parseInt(parts[0]), month = parseInt(parts[1]) - 1, day = parseInt(parts[2]);
+    if (gran === 'monthly') return MONTHS[month] + ' ' + year;
+    const d = new Date(year, month, day);
+    const jan1 = new Date(year, 0, 1);
     const wk = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
     return 'W' + wk;
   }
