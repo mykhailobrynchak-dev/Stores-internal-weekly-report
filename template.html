@@ -137,7 +137,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   function safe(arr) { return Array.isArray(arr) ? arr : []; }
   function fmt(v, dec=0) { if (v == null || isNaN(v)) return '—'; return Number(v).toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
   function fmtPct(v, dec=1) { if (v == null || isNaN(v)) return '—'; return Number(v).toFixed(dec) + '%'; }
-  function fmtEur(v) { if (v == null || isNaN(v)) return '—'; return '€' + fmt(v, 0); }
+  function fmtEur(v, dec=0) { if (v == null || isNaN(v)) return '—'; return '€' + Number(v).toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function periodLabel(p, gran) {
+    if (!p) return '—';
+    const d = new Date(p);
+    if (isNaN(d)) return p;
+    if (gran === 'monthly') return MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+    const jan1 = new Date(d.getUTCFullYear(), 0, 1);
+    const wk = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    return 'W' + wk;
+  }
   function pctChange(cur, prev) {
     if (prev == null || cur == null || prev === 0) return null;
     return ((cur - prev) / Math.abs(prev)) * 100;
@@ -190,7 +200,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const periods = [...new Set(safe(src.financial).map(r => r.period))].sort();
     const pt = $('periodTabs');
     let ph = `<span class="period-tab ${currentPeriod==='all'?'active':''}" data-p="all">All</span>`;
-    periods.forEach(p => { ph += `<span class="period-tab ${currentPeriod===p?'active':''}" data-p="${p}">${p}</span>`; });
+    periods.forEach(p => { ph += `<span class="period-tab ${currentPeriod===p?'active':''}" data-p="${p}">${periodLabel(p, currentGran)}</span>`; });
     pt.innerHTML = ph;
     pt.querySelectorAll('.period-tab').forEach(t => {
       t.addEventListener('click', () => { currentPeriod = t.dataset.p; render(); });
@@ -243,9 +253,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '<div class="kpi-grid">';
       html += kpi('GMV', fmtEur(c.gmv_eur), c, p, 'gmv_eur');
       html += kpi('Orders', fmt(c.orders), c, p, 'orders');
-      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery), c, p, 'aov_with_delivery');
-      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only), c, p, 'aov_items_only');
-      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order), c, p, 'eater_fees_per_order');
+      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery, 2), c, p, 'aov_with_delivery');
+      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only, 2), c, p, 'aov_items_only');
+      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order, 2), c, p, 'eater_fees_per_order');
       if (cpC) {
         html += kpi('CP Margin', fmtPct(cpC.cp_margin_pct), cpC, cpP, 'cp_margin_pct');
         html += kpi('CP L2 Margin', fmtPct(cpC.cp_l2_margin_pct), cpC, cpP, 'cp_l2_margin_pct');
@@ -253,9 +263,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += kpi('Bolt Plus GMV Share', fmtPct(c.bolt_plus_gmv_share, 1), c, p, 'bolt_plus_gmv_share');
       html += '</div>';
 
-      // Users sub-row
       html += '<div class="sub-row">';
-      html += `<div class="sub-kpi"><div class="label">Users Activated</div><div class="val">${fmt(c.users_activated)}</div><div class="chg">${prevRow => changeHtml(c.users_activated, p ? p.users_activated : null)}</div></div>`;
+      html += `<div class="sub-kpi"><div class="label">Users Activated</div><div class="val">${fmt(c.users_activated)}</div><div class="chg">${changeHtml(c.users_activated, p ? p.users_activated : null)}</div></div>`;
       html += `<div class="sub-kpi"><div class="label">Active Users</div><div class="val">${fmt(c.active_users)}</div><div class="chg">${changeHtml(c.active_users, p ? p.active_users : null)}</div></div>`;
       html += '</div>';
 
@@ -272,9 +281,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '<div class="kpi-grid">';
       html += kpi('GMV', fmtEur(c.gmv_eur), c, p, 'gmv_eur');
       html += kpi('Orders', fmt(c.orders), c, p, 'orders');
-      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery), c, p, 'aov_with_delivery');
-      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only), c, p, 'aov_items_only');
-      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order), c, p, 'eater_fees_per_order');
+      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery, 2), c, p, 'aov_with_delivery');
+      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only, 2), c, p, 'aov_items_only');
+      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order, 2), c, p, 'eater_fees_per_order');
       if (cpC) {
         html += kpi('CP Margin', fmtPct(cpC.cp_margin_pct), cpC, cpP, 'cp_margin_pct');
         html += kpi('CP L2 Margin', fmtPct(cpC.cp_l2_margin_pct), cpC, cpP, 'cp_l2_margin_pct');
@@ -288,12 +297,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '</div>';
     }
 
-    // Eater Fees Breakdown Table
+    // Eater Fees Breakdown Table (per order only)
     const feePeriods = currentPeriod === 'all' ? fin : fin.filter(r => r.period === currentPeriod);
     if (feePeriods.length) {
-      html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Period</th><th>Delivery Fee</th><th>/ Order</th><th>Small Order Fee</th><th>/ Order</th><th>Service Fee</th><th>/ Order</th></tr></thead><tbody>';
+      html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Period</th><th>Delivery Fee / Order</th><th>Small Order Fee / Order</th><th>Service Fee / Order</th><th>Total Eater Fees / Order</th></tr></thead><tbody>';
       feePeriods.forEach(r => {
-        html += `<tr><td>${r.period}</td><td>${fmtEur(r.delivery_fee_total)}</td><td>${fmtEur(r.delivery_fee_per_order)}</td><td>${fmtEur(r.small_order_fee_total)}</td><td>${fmtEur(r.small_order_fee_per_order)}</td><td>${fmtEur(r.service_fee_total)}</td><td>${fmtEur(r.service_fee_per_order)}</td></tr>`;
+        html += `<tr><td>${periodLabel(r.period, currentGran)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)}</td><td>${fmtEur(r.service_fee_per_order, 2)}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td></tr>`;
       });
       html += '</tbody></table></div>';
     }
@@ -344,7 +353,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Period</th><th>Bad Order Rate</th><th>Late Delivery 5min+</th><th>Late Pickup 5min+</th><th>Failed — Merchant</th><th>Failed — Bolt+Courier</th><th>Failed Rate Total</th></tr></thead><tbody>';
       failData.forEach((r, i) => {
         const opsRow = opsData.find(o => o.period === r.period) || {};
-        html += `<tr><td>${r.period}</td><td>${fmtPct(opsRow.bad_order_rate, 2)}</td><td>${fmtPct(opsRow.late_delivery_rate, 2)}</td><td>${fmtPct(opsRow.late_pickup_rate, 2)}</td><td>${fmt(r.failed_merchant)}</td><td>${fmt(r.failed_bolt_courier)}</td><td>${fmtPct(r.failed_rate_total, 2)}</td></tr>`;
+        html += `<tr><td>${periodLabel(r.period, currentGran)}</td><td>${fmtPct(opsRow.bad_order_rate, 2)}</td><td>${fmtPct(opsRow.late_delivery_rate, 2)}</td><td>${fmtPct(opsRow.late_pickup_rate, 2)}</td><td>${fmt(r.failed_merchant)} (${fmtPct(r.total_placed ? r.failed_merchant/r.total_placed*100 : 0, 1)})</td><td>${fmt(r.failed_bolt_courier)} (${fmtPct(r.total_placed ? r.failed_bolt_courier/r.total_placed*100 : 0, 1)})</td><td>${fmtPct(r.failed_rate_total, 2)}</td></tr>`;
       });
       html += '</tbody></table></div>';
     }
@@ -394,7 +403,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
   function drawGmvOrdersChart(fin) {
     if (!fin.length) return;
-    const labels = fin.map(r => r.period);
+    const labels = fin.map(r => periodLabel(r.period, currentGran));
     makeChart('chartGmvOrders', {
       type: 'line',
       data: {
@@ -418,7 +427,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
   function drawEaterFeesChart(fin) {
     if (!fin.length) return;
-    const labels = fin.map(r => r.period);
+    const labels = fin.map(r => periodLabel(r.period, currentGran));
     makeChart('chartEaterFees', {
       type: 'line',
       data: {
@@ -443,18 +452,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   function drawGmvShareChart() {
     const tp = safe(D.top_partners_gmv);
     if (!tp.length) return;
+    const top10 = tp.slice(0, 10);
+    const othersGmv = tp.slice(10).reduce((a, b) => a + b.gmv_eur, 0);
+    const labels = top10.map(r => r.group_name);
+    const data = top10.map(r => r.gmv_eur);
+    if (othersGmv > 0) { labels.push('Others'); data.push(othersGmv); }
+    const totalGmv = data.reduce((a, b) => a + b, 0);
     const colors = ['#34D186','#1A1A2E','#6366F1','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#64748B','#CBD5E1'];
     makeChart('chartGmvShare', {
       type: 'doughnut',
-      data: {
-        labels: tp.map(r => r.group_name),
-        datasets: [{ data: tp.map(r => r.gmv_eur), backgroundColor: colors.slice(0, tp.length) }]
-      },
+      data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, labels.length) }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
-          tooltip: { callbacks: { label: ctx => `${ctx.label}: €${fmt(ctx.parsed, 0)} (${fmtPct(ctx.parsed / tp.reduce((a,b)=>a+b.gmv_eur,0)*100,1)})` } }
+          tooltip: { callbacks: { label: ctx => `${ctx.label}: €${fmt(ctx.parsed, 0)} (${fmtPct(ctx.parsed / totalGmv * 100, 1)})` } }
         }
       }
     });
@@ -462,20 +474,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
   function drawCampaignsChart(camp) {
     if (!camp.length) return;
-    const labels = camp.map(r => r.period);
+    const labels = camp.map(r => periodLabel(r.period, currentGran));
     makeChart('chartCampaigns', {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [
-          { label: 'Campaigns Discount (€)', data: camp.map(r => r.campaigns_discount_eur), backgroundColor: '#34D186' },
-          { label: 'Bolt Spend (€)', data: camp.map(r => r.bolt_spend_eur), backgroundColor: '#1A1A2E' },
-          { label: 'Merchant Spend (€)', data: camp.map(r => r.merchant_spend_eur), backgroundColor: '#F59E0B' }
+          { label: 'Campaigns Discount, % GMV', data: camp.map(r => r.gmv_eur ? (r.campaigns_discount_eur / r.gmv_eur * 100) : 0), borderColor: '#34D186', backgroundColor: '#34D18620', fill: true, tension: 0.3 },
+          { label: 'Bolt Spend, % GMV', data: camp.map(r => r.gmv_eur ? (r.bolt_spend_eur / r.gmv_eur * 100) : 0), borderColor: '#1A1A2E', tension: 0.3 },
+          { label: 'Merchant Spend, % GMV', data: camp.map(r => r.gmv_eur ? (r.merchant_spend_eur / r.gmv_eur * 100) : 0), borderColor: '#F59E0B', tension: 0.3 }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        scales: { y: { title: { display: true, text: '€' } } },
+        interaction: { mode: 'index', intersect: false },
+        scales: { y: { title: { display: true, text: '% of GMV' }, ticks: { callback: v => v.toFixed(1) + '%' } } },
         plugins: { legend: { position: 'top' } }
       }
     });
