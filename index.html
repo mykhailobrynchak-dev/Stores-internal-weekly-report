@@ -626,18 +626,6 @@ const REPORT_DATA = {"generated_at": "2026-05-11T17:30:00Z", "data_start": "2026
     last10.forEach(r => { html += `<th>${periodLabel(r.period, currentGran)}</th>`; });
     html += '</tr></thead><tbody>';
 
-    function row(label, getter, inverted=false) {
-      let tr = `<tr><td>${label}</td>`;
-      last10.forEach((r, i) => {
-        const val = getter(r);
-        const pv = i > 0 ? getter(last10[i-1]) : null;
-        const chg = pctChangeInline(val, pv, inverted);
-        tr += `<td>${val != null ? (typeof val === 'number' ? (val < 1 && val > 0 ? fmtPct(val*100,1) : (val > 100 ? fmt(val) : (Number.isInteger(val) ? fmt(val) : fmtPct(val, 1)))) : '—'} ${chg}</td>`;
-      });
-      tr += '</tr>';
-      return tr;
-    }
-
     function rowFmt(label, getter, formatter, inverted=false) {
       let tr = `<tr><td>${label}</td>`;
       last10.forEach((r, i) => {
