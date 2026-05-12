@@ -347,7 +347,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += kpi('Bolt Plus GMV Share', fmtPct(c.bolt_plus_gmv_share, 1), c, p, 'bolt_plus_gmv_share');
       html += kpi('Commission of AOV, %', fmtPct(commAov, 1), {v: commAov}, pCommAov != null ? {v: pCommAov} : null, 'v');
       html += kpi('Commission of GMV, %', fmtPct(commGmv, 1), {v: commGmv}, pCommGmv != null ? {v: pCommGmv} : null, 'v');
-      html += kpi('Demand Incentives, % GMV', fmtPct(demandPct, 1), {v: demandPct}, pDemandPct != null ? {v: pDemandPct} : null, 'v');
+      if (currentView === 'overview') {
+        html += kpi('Demand Incentives, % GMV', fmtPct(demandPct, 1), {v: demandPct}, pDemandPct != null ? {v: pDemandPct} : null, 'v');
+      }
       html += '</div>';
 
       html += '<div class="sub-row">';
@@ -373,9 +375,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += '<div class="chart-container"><h3>Eater Fees per Order</h3><div class="chart-wrap"><canvas id="chartEaterFees"></canvas></div></div>';
     html += '</div>';
 
-    // GMV by Partner doughnut (overview only)
-    if (currentView === 'overview' && safe(D.top_partners_gmv).length) {
-      html += '<div class="chart-row"><div class="chart-container full"><h3>GMV Share by Partner</h3><div class="chart-wrap" style="height:350px;max-width:500px;margin:0 auto;"><canvas id="chartGmvShare"></canvas></div></div></div>';
+    // GMV by Partner doughnut (overview only, uses period-filtered data)
+    if (currentView === 'overview') {
+      const gmvPart = safe(src.gmv_by_partner).filter(r => r.period === currentPeriod);
+      if (gmvPart.length || safe(D.top_partners_gmv).length) {
+        html += '<div class="chart-row"><div class="chart-container full"><h3>GMV Share by Partner</h3><div class="chart-wrap" style="height:350px;max-width:500px;margin:0 auto;"><canvas id="chartGmvShare"></canvas></div></div></div>';
+      }
     }
     html += '</div>';
 
@@ -390,7 +395,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     if (oc || aaLast) {
       html += '<div class="kpi-grid">';
       if (oc) html += kpi('Active Stores', fmt(oc.active_stores), oc, op, 'active_stores');
-      if (aaLast) {
+      if (oc && oc.acceptance_rate != null) {
+        html += kpi('Acceptance Rate', fmtPct(oc.acceptance_rate, 1), oc, op, 'acceptance_rate');
+        html += kpi('Availability', fmtPct(oc.availability_rate, 1), oc, op, 'availability_rate');
+        html += kpi('Avg Rating', fmt(oc.avg_rating, 2), oc, op, 'avg_rating');
+      } else if (aaLast) {
         const aaPrev = aa.length >= 2 ? aa[aa.length - 2] : null;
         html += kpi('Acceptance Rate', fmtPct(aaLast.acceptance_rate_30d * 100, 1), {v: aaLast.acceptance_rate_30d*100}, aaPrev ? {v: aaPrev.acceptance_rate_30d*100} : null, 'v');
         html += kpi('Availability', fmtPct(aaLast.availability_rate_30d * 100, 1), {v: aaLast.availability_rate_30d*100}, aaPrev ? {v: aaPrev.availability_rate_30d*100} : null, 'v');
@@ -559,27 +568,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += '</div>';
     html += '<div class="run-rate-grid">';
 
-    function rrCard(label, val, prevVal, inverted) {
-      const chg = prevVal != null ? changeHtml({v:val},{v:prevVal},'v') : '';
-      const chgCalc = pctChange(val, prevVal);
-      const chgStr = chgCalc != null ? `<div class="rr-chg">${chg}</div>` : '';
-      const prevStr = prevVal != null ? `<div class="rr-prev">${MONTHS_SHORT[month > 0 ? month - 1 : 11]}: ${typeof prevVal === 'number' && prevVal > 100 ? fmtEur(prevVal) : (typeof prevVal === 'number' ? prevVal.toFixed(1) : prevVal)}</div>` : '';
-      return `<div class="rr-card"><div class="rr-label">${label}</div><div class="rr-value">${val}</div>${chgStr}${prevStr}</div>`;
+    function rrCard(label, displayVal, curRaw, prevRaw) {
+      const chg = (curRaw != null && prevRaw != null) ? changeHtml(curRaw, prevRaw) : '';
+      const hasChg = curRaw != null && prevRaw != null && pctChange(curRaw, prevRaw) != null;
+      const chgStr = hasChg ? `<div class="rr-chg">${chg}</div>` : '';
+      const prevStr = prevRaw != null ? `<div class="rr-prev">${MONTHS_SHORT[month > 0 ? month - 1 : 11]}: ${typeof prevRaw === 'number' && prevRaw > 100 ? fmtEur(prevRaw) : (typeof prevRaw === 'number' ? prevRaw.toFixed(1) : prevRaw)}</div>` : '';
+      return `<div class="rr-card"><div class="rr-label">${label}</div><div class="rr-value">${displayVal}</div>${chgStr}${prevStr}</div>`;
     }
 
-    html += rrCard('GMV', fmtEur(rr.gmv), prevMonth ? prevMonth.gmv_eur : null);
-    html += rrCard('Orders', fmt(Math.round(rr.orders)), prevMonth ? prevMonth.orders : null);
-    html += rrCard('AOV (w/ Delivery)', fmtEur(rr.aov_del, 2), prevMonth ? prevMonth.aov_with_delivery : null);
-    html += rrCard('AOV (Items Only)', fmtEur(rr.aov_items, 2), prevMonth ? prevMonth.aov_items_only : null);
-    html += rrCard('Eater Fees / Order', fmtEur(rr.eater_fees, 2), prevMonth ? prevMonth.eater_fees_per_order : null);
-    html += rrCard('Bolt Plus GMV Share', fmtPct(rr.bolt_plus, 1), prevMonth ? prevMonth.bolt_plus_gmv_share : null);
-    if (rrCampTotal != null) html += rrCard('Campaigns Total', fmtEur(rrCampTotal), campPrev ? campPrev.campaigns_discount_eur : null);
-    if (rrCampBolt != null) html += rrCard('Campaigns Bolt', fmtEur(rrCampBolt), campPrev ? campPrev.bolt_spend_eur : null);
-    if (rrCampMerch != null) html += rrCard('Campaigns Merchant', fmtEur(rrCampMerch), campPrev ? campPrev.merchant_spend_eur : null);
-    if (rrCampPctGmv != null) html += rrCard('Campaigns % GMV', fmtPct(rrCampPctGmv, 1), campPrev && campPrev.gmv_eur ? (campPrev.campaigns_discount_eur / campPrev.gmv_eur * 100) : null);
-    if (commAov != null) html += rrCard('Commission of AOV, %', fmtPct(commAov, 1), prevMonth && prevMonth.aov_with_delivery ? (prevMonth.eater_fees_per_order / prevMonth.aov_with_delivery * 100) : null);
-    if (commGmv != null) html += rrCard('Commission of GMV, %', fmtPct(commGmv, 1), prevMonth && prevMonth.gmv_eur ? (prevMonth.eater_fees_per_order * prevMonth.orders / prevMonth.gmv_eur * 100) : null);
-    html += rrCard('Users Activated', fmt(Math.round(rr.users_activated)), prevMonth ? prevMonth.users_activated : null);
+    html += rrCard('GMV', fmtEur(rr.gmv), rr.gmv, prevMonth ? prevMonth.gmv_eur : null);
+    html += rrCard('Orders', fmt(Math.round(rr.orders)), rr.orders, prevMonth ? prevMonth.orders : null);
+    html += rrCard('AOV (w/ Delivery)', fmtEur(rr.aov_del, 2), rr.aov_del, prevMonth ? prevMonth.aov_with_delivery : null);
+    html += rrCard('AOV (Items Only)', fmtEur(rr.aov_items, 2), rr.aov_items, prevMonth ? prevMonth.aov_items_only : null);
+    html += rrCard('Eater Fees / Order', fmtEur(rr.eater_fees, 2), rr.eater_fees, prevMonth ? prevMonth.eater_fees_per_order : null);
+    html += rrCard('Bolt Plus GMV Share', fmtPct(rr.bolt_plus, 1), rr.bolt_plus, prevMonth ? prevMonth.bolt_plus_gmv_share : null);
+    if (rrCampTotal != null) html += rrCard('Campaigns Total', fmtEur(rrCampTotal), rrCampTotal, campPrev ? campPrev.campaigns_discount_eur : null);
+    if (rrCampBolt != null) html += rrCard('Campaigns Bolt', fmtEur(rrCampBolt), rrCampBolt, campPrev ? campPrev.bolt_spend_eur : null);
+    if (rrCampMerch != null) html += rrCard('Campaigns Merchant', fmtEur(rrCampMerch), rrCampMerch, campPrev ? campPrev.merchant_spend_eur : null);
+    if (rrCampPctGmv != null) html += rrCard('Campaigns % GMV', fmtPct(rrCampPctGmv, 1), rrCampPctGmv, campPrev && campPrev.gmv_eur ? (campPrev.campaigns_discount_eur / campPrev.gmv_eur * 100) : null);
+    if (commAov != null) html += rrCard('Commission of AOV, %', fmtPct(commAov, 1), commAov, prevMonth && prevMonth.aov_with_delivery ? (prevMonth.eater_fees_per_order / prevMonth.aov_with_delivery * 100) : null);
+    if (commGmv != null) html += rrCard('Commission of GMV, %', fmtPct(commGmv, 1), commGmv, prevMonth && prevMonth.gmv_eur ? (prevMonth.eater_fees_per_order * prevMonth.orders / prevMonth.gmv_eur * 100) : null);
+    html += rrCard('Users Activated', fmt(Math.round(rr.users_activated)), rr.users_activated, prevMonth ? prevMonth.users_activated : null);
 
     html += '</div></div>';
     return html;
@@ -793,10 +802,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   }
 
   function drawGmvShareChart() {
-    const tp = safe(D.top_partners_gmv);
-    if (!tp.length) return;
-    const top10 = tp.slice(0, 10);
-    const othersGmv = tp.slice(10).reduce((a, b) => a + b.gmv_eur, 0);
+    const src = getDataSource();
+    let partnerData = safe(src.gmv_by_partner).filter(r => r.period === currentPeriod);
+    if (!partnerData.length) partnerData = safe(D.top_partners_gmv);
+    if (!partnerData.length) return;
+    partnerData.sort((a, b) => b.gmv_eur - a.gmv_eur);
+    const top10 = partnerData.slice(0, 10);
+    const othersGmv = partnerData.slice(10).reduce((a, b) => a + b.gmv_eur, 0);
     const labels = top10.map(r => r.group_name);
     const data = top10.map(r => r.gmv_eur);
     if (othersGmv > 0) { labels.push('Others'); data.push(othersGmv); }
