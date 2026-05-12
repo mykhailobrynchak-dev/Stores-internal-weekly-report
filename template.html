@@ -358,8 +358,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '</div>';
     }
 
-    // RUN RATE block (monthly view only, latest period is partial)
-    if (currentGran === 'monthly' && fin.length >= 2) {
+    // RUN RATE block (monthly view only, only for the current/latest month)
+    if (currentGran === 'monthly' && fin.length >= 2 && currentPeriod === fin[fin.length - 1].period) {
       html += buildRunRateBlock(fin, cp, camp);
     }
 
@@ -409,6 +409,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
+        if (oc.replacement_rate != null) html += kpi('Item Replacement Rate', fmtPct(oc.replacement_rate, 2), oc, op, 'replacement_rate', {inverted: true});
+        if (oc.adjustment_rate != null) html += kpi('Item Adjustment Rate', fmtPct(oc.adjustment_rate, 2), oc, op, 'adjustment_rate', {inverted: true});
       }
       html += '</div>';
     }
@@ -648,6 +650,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     }
 
     html += rowFmt('Stores', r => r.active_stores, v => fmt(v));
+    html += rowFmt('Acceptance Rate, %', r => r.acceptance_rate, v => fmtPct(v, 1));
+    html += rowFmt('Availability, %', r => r.availability_rate, v => fmtPct(v, 1));
+    html += rowFmt('Avg Rating', r => r.avg_rating, v => fmt(v, 2));
     html += rowFmt('Honey %', r => r.honey_order_rate, v => fmtPct(v, 1));
     html += rowFmt('Bad %', r => r.bad_order_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Late Delivery Rate, %', r => r.late_delivery_rate, v => fmtPct(v, 1), true);
@@ -676,6 +681,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     }
 
     html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);
+    html += rowFmt('Replacement Rate, %', r => r.replacement_rate, v => fmtPct(v, 2), true);
+    html += rowFmt('Adjustment Rate, %', r => r.adjustment_rate, v => fmtPct(v, 2), true);
 
     html += '</tbody></table></div>';
     return html;
@@ -787,15 +794,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       data: {
         labels,
         datasets: [
-          { label: 'Delivery Fee/Order', data: fin.map(r => r.delivery_fee_per_order), borderColor: '#6366F1', backgroundColor: '#6366F130', fill: true, tension: 0.3, stack: 'fees' },
-          { label: 'Small Order Fee/Order', data: fin.map(r => r.small_order_fee_per_order), borderColor: '#F59E0B', backgroundColor: '#F59E0B30', fill: true, tension: 0.3, stack: 'fees' },
-          { label: 'Service Fee/Order', data: fin.map(r => r.service_fee_per_order), borderColor: '#EF4444', backgroundColor: '#EF444430', fill: true, tension: 0.3, stack: 'fees' }
+          { label: 'Total Eater Fees/Order', data: fin.map(r => r.eater_fees_per_order), borderColor: '#1A1A2E', borderWidth: 2.5, borderDash: [5, 3], fill: false, tension: 0.3, pointRadius: 3 },
+          { label: 'Delivery Fee/Order', data: fin.map(r => r.delivery_fee_per_order), borderColor: '#6366F1', backgroundColor: '#6366F120', fill: true, tension: 0.3 },
+          { label: 'Small Order Fee/Order', data: fin.map(r => r.small_order_fee_per_order), borderColor: '#F59E0B', fill: false, tension: 0.3 },
+          { label: 'Service Fee/Order', data: fin.map(r => r.service_fee_per_order), borderColor: '#EF4444', fill: false, tension: 0.3 }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        scales: { y: { stacked: true, title: { display: true, text: '€ per Order' } } },
+        scales: { y: { title: { display: true, text: '€ per Order' } } },
         plugins: { legend: { position: 'top' } }
       }
     });
