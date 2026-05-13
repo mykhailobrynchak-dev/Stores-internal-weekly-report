@@ -35,9 +35,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-section-title { padding: 16px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); }
 
 .main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: calc(100vw - var(--sidebar-w)); overflow-x: hidden; box-sizing: border-box; }
-.top-bar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; min-height: 70px; }
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.controls-row { margin-bottom: 20px; }
 .top-bar h1 { font-size: 22px; font-weight: 700; }
-.controls { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .toggle-btn { padding: 6px 16px; font-size: 12px; cursor: pointer; background: var(--card); border: none; color: var(--text-secondary); font-weight: 500; transition: all 0.2s; }
 .toggle-btn.active { background: var(--primary); color: #fff; }
@@ -121,17 +122,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <div class="main">
   <div class="top-bar">
-    <div>
-      <h1 id="pageTitle">All 3P Stores</h1>
-    </div>
-    <div class="controls">
-      <div class="toggle-group" id="granToggle"></div>
-      <div class="period-slider" id="periodSlider">
-        <button class="slider-arrow left hidden" id="sliderLeft">&#9664;</button>
-        <div class="period-tabs" id="periodTabs"></div>
-        <button class="slider-arrow right hidden" id="sliderRight">&#9654;</button>
-      </div>
-    </div>
+    <h1 id="pageTitle">All 3P Stores</h1>
+    <div class="toggle-group" id="granToggle"></div>
+  </div>
+  <div class="controls-row">
+    <div class="period-tabs" id="periodTabs"></div>
   </div>
 
   <div id="content"></div>
@@ -250,28 +245,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     pt.querySelectorAll('.period-tab').forEach(t => {
       t.addEventListener('click', () => { currentPeriod = t.dataset.p; render(); });
     });
-
-    setupSliderArrows(periods.length);
   }
 
-  function setupSliderArrows(count) {
-    const container = $('periodTabs');
-    const leftBtn = $('sliderLeft');
-    const rightBtn = $('sliderRight');
-    const showArrows = count > 10;
-
-    leftBtn.classList.toggle('hidden', !showArrows);
-    rightBtn.classList.toggle('hidden', !showArrows);
-
-    if (showArrows) {
-      leftBtn.onclick = () => { container.scrollBy({left: -200, behavior: 'smooth'}); };
-      rightBtn.onclick = () => { container.scrollBy({left: 200, behavior: 'smooth'}); };
-      setTimeout(() => {
-        const activeTab = container.querySelector('.period-tab.active');
-        if (activeTab) activeTab.scrollIntoView({inline: 'center', behavior: 'smooth', block: 'nearest'});
-      }, 50);
-    }
-  }
 
   function getDataSource() {
     if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
@@ -431,23 +406,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const campIdx2 = camp.findIndex(r => r.period === currentPeriod);
     const cc = campIdx2 >= 0 ? camp[campIdx2] : last(camp);
     const cp2 = campIdx2 > 0 ? camp[campIdx2 - 1] : (campIdx2 === 0 ? null : (camp.length >= 2 ? camp[camp.length - 2] : null));
+    html += '<div class="kpi-grid">';
     if (cc) {
       const gmv = cc.gmv_eur || 1;
-      html += '<div class="kpi-grid">';
       html += kpi('Campaigns Discount', fmtEur(cc.campaigns_discount_eur) + ` (${fmtPct(cc.campaigns_discount_eur / gmv * 100, 1)})`, cc, cp2, 'campaigns_discount_eur');
       html += kpi('Bolt Spend', fmtEur(cc.bolt_spend_eur) + ` (${fmtPct(cc.bolt_spend_eur / gmv * 100, 1)})`, cc, cp2, 'bolt_spend_eur');
       html += kpi('Merchant Spend', fmtEur(cc.merchant_spend_eur) + ` (${fmtPct(cc.merchant_spend_eur / gmv * 100, 1)})`, cc, cp2, 'merchant_spend_eur');
-      if (currentView !== 'overview') {
-        const promoData = safe((D.item_discount_promo || {})[currentView]);
-        if (promoData.length) {
-          const promoIdx = promoData.findIndex(r => r.period === currentPeriod);
-          const promoC = promoIdx >= 0 ? promoData[promoIdx] : last(promoData);
-          const promoP = promoIdx > 0 ? promoData[promoIdx - 1] : (promoIdx === 0 ? null : (promoData.length >= 2 ? promoData[promoData.length - 2] : null));
-          if (promoC) html += kpi('Item-Level Discount Promo Share, %', fmtPct(promoC.value, 2), promoC, promoP, 'value');
-        }
-      }
-      html += '</div>';
     }
+    if (currentView !== 'overview') {
+      const promoData = safe((D.item_discount_promo || {})[currentView]);
+      if (promoData.length) {
+        const promoIdx = promoData.findIndex(r => r.period === currentPeriod);
+        const promoC = promoIdx >= 0 ? promoData[promoIdx] : last(promoData);
+        const promoP = promoIdx > 0 ? promoData[promoIdx - 1] : (promoIdx === 0 ? null : (promoData.length >= 2 ? promoData[promoData.length - 2] : null));
+        if (promoC) html += kpi('Item-Level Discount Promo Share, %', fmtPct(promoC.value, 2), promoC, promoP, 'value');
+      }
+    }
+    html += '</div>';
 
     // Campaign Dynamics Table
     html += buildCampaignDynamicsTable(camp);
