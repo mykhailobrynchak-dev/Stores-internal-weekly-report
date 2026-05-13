@@ -53,6 +53,15 @@ for r in overview_corrected:
         "adjustment_rate": 0
     })
 
+# Prepend January financial weeks to overview weekly financial
+jan_fin_weeks = [
+    {"period":"2026-01-05 00:00:00","orders":3229,"gmv_eur":37517,"aov_with_delivery":12.77,"aov_items_only":11.62,"eater_fees_per_order":1.50,"delivery_fee_per_order":1.0,"small_order_fee_per_order":0.11,"service_fee_per_order":0.40,"bolt_plus_gmv_share":14.97,"users_activated":127,"active_users":0,"delivery_fee_total":0,"small_order_fee_total":0,"service_fee_total":0,"refund_rate_pct":0},
+    {"period":"2026-01-12 00:00:00","orders":3270,"gmv_eur":37295,"aov_with_delivery":12.51,"aov_items_only":11.41,"eater_fees_per_order":1.56,"delivery_fee_per_order":0.89,"small_order_fee_per_order":0.13,"service_fee_per_order":0.53,"bolt_plus_gmv_share":12.03,"users_activated":151,"active_users":0,"delivery_fee_total":0,"small_order_fee_total":0,"service_fee_total":0,"refund_rate_pct":0},
+    {"period":"2026-01-19 00:00:00","orders":3657,"gmv_eur":42997,"aov_with_delivery":12.80,"aov_items_only":11.76,"eater_fees_per_order":1.42,"delivery_fee_per_order":0.73,"small_order_fee_per_order":0.13,"service_fee_per_order":0.56,"bolt_plus_gmv_share":15.66,"users_activated":124,"active_users":0,"delivery_fee_total":0,"small_order_fee_total":0,"service_fee_total":0,"refund_rate_pct":0},
+]
+existing_fin = DATA["overview"]["weekly"]["financial"]
+DATA["overview"]["weekly"]["financial"] = jan_fin_weeks + existing_fin
+
 # Replace overview weekly cp and ops
 DATA["overview"]["weekly"]["cp_margins"] = overview_cp_weekly
 DATA["overview"]["weekly"]["operational"] = overview_ops_weekly
@@ -94,6 +103,37 @@ for period in sorted(monthly_groups.keys()):
         "adjustment_rate": 0
     })
 
+# Compute monthly financial from weekly financial data
+monthly_fin_groups = defaultdict(list)
+for r in DATA["overview"]["weekly"]["financial"]:
+    mkey = r["period"][:7].replace(" ", "") + "-01 00:00:00"
+    if not mkey.startswith("20"):
+        mkey = r["period"].replace(" 00:00:00","")[:7] + "-01 00:00:00"
+    monthly_fin_groups[mkey].append(r)
+
+overview_fin_monthly = []
+for period in sorted(monthly_fin_groups.keys()):
+    rows = monthly_fin_groups[period]
+    total_orders = sum(r["orders"] for r in rows)
+    total_gmv = sum(r["gmv_eur"] for r in rows)
+    if total_orders == 0:
+        continue
+    overview_fin_monthly.append({
+        "period": period,
+        "orders": total_orders,
+        "gmv_eur": round(total_gmv, 0),
+        "aov_with_delivery": round(sum(r["aov_with_delivery"] * r["orders"] for r in rows) / total_orders, 2),
+        "aov_items_only": round(total_gmv / total_orders, 2),
+        "eater_fees_per_order": round(sum(r["eater_fees_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "delivery_fee_per_order": round(sum(r["delivery_fee_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "small_order_fee_per_order": round(sum(r["small_order_fee_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "service_fee_per_order": round(sum(r["service_fee_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "bolt_plus_gmv_share": round(sum(r.get("bolt_plus_gmv_share", 0) * r["orders"] for r in rows) / total_orders, 2),
+        "users_activated": sum(r.get("users_activated", 0) for r in rows),
+        "active_users": max((r.get("active_users", 0) for r in rows), default=0)
+    })
+
+DATA["overview"]["monthly"]["financial"] = overview_fin_monthly
 DATA["overview"]["monthly"]["cp_margins"] = overview_cp_monthly
 DATA["overview"]["monthly"]["operational"] = overview_ops_monthly
 
@@ -136,12 +176,61 @@ for period in sorted(quarterly_groups.keys()):
         "adjustment_rate": 0
     })
 
+# Compute quarterly financial from weekly financial
+quarterly_fin_groups = defaultdict(list)
+for r in DATA["overview"]["weekly"]["financial"]:
+    parts = r["period"].replace(" 00:00:00","").split("-")
+    q = math.ceil(int(parts[1]) / 3)
+    qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+    quarterly_fin_groups[qkey].append(r)
+
+overview_fin_quarterly = []
+for period in sorted(quarterly_fin_groups.keys()):
+    rows = quarterly_fin_groups[period]
+    total_orders = sum(r["orders"] for r in rows)
+    total_gmv = sum(r["gmv_eur"] for r in rows)
+    if total_orders == 0:
+        continue
+    overview_fin_quarterly.append({
+        "period": period,
+        "orders": total_orders,
+        "gmv_eur": round(total_gmv, 0),
+        "aov_with_delivery": round(sum(r["aov_with_delivery"] * r["orders"] for r in rows) / total_orders, 2),
+        "aov_items_only": round(total_gmv / total_orders, 2),
+        "eater_fees_per_order": round(sum(r["eater_fees_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "delivery_fee_per_order": round(sum(r["delivery_fee_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "small_order_fee_per_order": round(sum(r["small_order_fee_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "service_fee_per_order": round(sum(r["service_fee_per_order"] * r["orders"] for r in rows) / total_orders, 2),
+        "bolt_plus_gmv_share": round(sum(r.get("bolt_plus_gmv_share", 0) * r["orders"] for r in rows) / total_orders, 2),
+        "users_activated": sum(r.get("users_activated", 0) for r in rows),
+        "active_users": max((r.get("active_users", 0) for r in rows), default=0)
+    })
+
+# Quarterly campaigns from monthly campaigns
+quarterly_camp_groups = defaultdict(list)
+for r in DATA["overview"]["monthly"].get("campaigns", []):
+    parts = r["period"].replace(" 00:00:00","").split("-")
+    q = math.ceil(int(parts[1]) / 3)
+    qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+    quarterly_camp_groups[qkey].append(r)
+
+overview_camp_quarterly = []
+for period in sorted(quarterly_camp_groups.keys()):
+    rows = quarterly_camp_groups[period]
+    overview_camp_quarterly.append({
+        "period": period,
+        "campaigns_discount_eur": sum(r["campaigns_discount_eur"] for r in rows),
+        "bolt_spend_eur": sum(r["bolt_spend_eur"] for r in rows),
+        "merchant_spend_eur": sum(r["merchant_spend_eur"] for r in rows),
+        "gmv_eur": sum(r["gmv_eur"] for r in rows)
+    })
+
 DATA["overview"]["quarterly"] = {
-    "financial": DATA["overview"]["monthly"].get("financial", []),
+    "financial": overview_fin_quarterly,
     "cp_margins": overview_cp_quarterly,
     "operational": overview_ops_quarterly,
     "failed_orders": [],
-    "campaigns": DATA["overview"]["monthly"].get("campaigns", []),
+    "campaigns": overview_camp_quarterly,
     "gmv_by_partner": DATA["overview"]["monthly"].get("gmv_by_partner", [])
 }
 
