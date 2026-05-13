@@ -323,10 +323,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const cpP = cpIdx > 0 ? cp[cpIdx - 1] : (cpIdx === 0 ? null : prev(cp));
 
     if (c) {
-      const commAov = c.aov_with_delivery ? (c.eater_fees_per_order / c.aov_with_delivery * 100) : null;
-      const commGmv = (c.gmv_eur && c.orders) ? (c.eater_fees_per_order * c.orders / c.gmv_eur * 100) : null;
-      const pCommAov = p && p.aov_with_delivery ? (p.eater_fees_per_order / p.aov_with_delivery * 100) : null;
-      const pCommGmv = (p && p.gmv_eur && p.orders) ? (p.eater_fees_per_order * p.orders / p.gmv_eur * 100) : null;
+      const commAov = cpC ? cpC.commission_aov_pct : null;
+      const commGmv = cpC ? cpC.commission_gmv_pct : null;
+      const pCommAov = cpP ? cpP.commission_aov_pct : null;
+      const pCommGmv = cpP ? cpP.commission_gmv_pct : null;
 
       const campIdx = camp.findIndex(r => r.period === currentPeriod);
       const campC = campIdx >= 0 ? camp[campIdx] : last(camp);
@@ -345,8 +345,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('CP L2 Margin', fmtPct(cpC.cp_l2_margin_pct), cpC, cpP, 'cp_l2_margin_pct');
       }
       html += kpi('Bolt Plus GMV Share', fmtPct(c.bolt_plus_gmv_share, 1), c, p, 'bolt_plus_gmv_share');
-      html += kpi('Commission of AOV, %', fmtPct(commAov, 1), {v: commAov}, pCommAov != null ? {v: pCommAov} : null, 'v');
-      html += kpi('Commission of GMV, %', fmtPct(commGmv, 1), {v: commGmv}, pCommGmv != null ? {v: pCommGmv} : null, 'v');
+      html += kpi('Commission of AOV, %', fmtPct(commAov, 1), cpC, cpP, 'commission_aov_pct');
+      html += kpi('Commission of GMV, %', fmtPct(commGmv, 1), cpC, cpP, 'commission_gmv_pct');
       if (currentView === 'overview') {
         html += kpi('Demand Incentives, % GMV', fmtPct(demandPct, 1), {v: demandPct}, pDemandPct != null ? {v: pDemandPct} : null, 'v');
       }
@@ -409,8 +409,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
-        if (oc.replacement_rate != null) html += kpi('Item Replacement Rate', fmtPct(oc.replacement_rate, 2), oc, op, 'replacement_rate', {inverted: true});
-        if (oc.adjustment_rate != null) html += kpi('Item Adjustment Rate', fmtPct(oc.adjustment_rate, 2), oc, op, 'adjustment_rate', {inverted: true});
+        if (currentView !== 'overview' && oc.replacement_rate != null) html += kpi('Item Replacement Rate', fmtPct(oc.replacement_rate, 2), oc, op, 'replacement_rate', {inverted: true});
+        if (currentView !== 'overview' && oc.adjustment_rate != null) html += kpi('Item Adjustment Rate', fmtPct(oc.adjustment_rate, 2), oc, op, 'adjustment_rate', {inverted: true});
       }
       html += '</div>';
     }
@@ -632,7 +632,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const last10 = ops.slice(-10);
     if (last10.length < 2) return '';
 
-    let html = '<div class="sub-section-title">WoW Comparison</div>';
+    const tableTitle = currentGran === 'monthly' ? 'MoM Comparison' : 'WoW Comparison';
+    let html = `<div class="sub-section-title">${tableTitle}</div>`;
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th></th>';
     last10.forEach(r => { html += `<th>${periodLabel(r.period, currentGran)}</th>`; });
     html += '</tr></thead><tbody>';
