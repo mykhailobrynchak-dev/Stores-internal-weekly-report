@@ -21,7 +21,7 @@
   --sidebar-w: 230px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; overflow-x: hidden; }
 
 .sidebar { width: var(--sidebar-w); background: var(--dark); color: #fff; position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; z-index: 100; display: flex; flex-direction: column; }
 .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -33,7 +33,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-item.active { background: rgba(52,209,134,0.1); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
 .nav-section-title { padding: 16px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); }
 
-.main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: 1400px; }
+.main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: calc(100vw - var(--sidebar-w)); overflow-x: hidden; box-sizing: border-box; }
 .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
 .top-bar h1 { font-size: 22px; font-weight: 700; }
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -41,18 +41,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .toggle-btn { padding: 6px 16px; font-size: 12px; cursor: pointer; background: var(--card); border: none; color: var(--text-secondary); font-weight: 500; transition: all 0.2s; }
 .toggle-btn.active { background: var(--primary); color: #fff; }
 
-.period-slider { position: relative; max-width: 680px; overflow: hidden; }
-.period-tabs { display: flex; gap: 4px; overflow-x: auto; scroll-behavior: smooth; -ms-overflow-style: none; scrollbar-width: none; padding: 2px 0; }
-.period-tabs::-webkit-scrollbar { display: none; }
+.period-slider { position: relative; max-width: 100%; overflow: hidden; }
+.period-tabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 2px 0; }
 .period-tab { padding: 5px 12px; font-size: 11px; border-radius: 6px; cursor: pointer; background: var(--card); border: 1px solid var(--border); color: var(--text-secondary); transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
 .period-tab:hover { border-color: var(--primary); }
 .period-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.slider-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; border-radius: 50%; background: var(--dark); color: #fff; border: none; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 2; opacity: 0.8; }
-.slider-arrow:hover { opacity: 1; }
-.slider-arrow.left { left: 0; }
-.slider-arrow.right { right: 0; }
-.slider-arrow.hidden { display: none; }
-.generated-at { font-size: 11px; color: var(--text-secondary); }
+.slider-arrow { display: none; }
 
 .section { margin-bottom: 32px; }
 .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); display: inline-block; }
@@ -128,7 +122,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div class="top-bar">
     <div>
       <h1 id="pageTitle">All 3P Stores</h1>
-      <span class="generated-at" id="generatedAt"></span>
     </div>
     <div class="controls">
       <div class="toggle-group" id="granToggle"></div>
@@ -300,7 +293,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     buildSidebar();
     buildControls();
     $('pageTitle').textContent = currentView === 'overview' ? 'All 3P Stores' : currentView;
-    $('generatedAt').textContent = D.generated_at ? 'Generated: ' + D.generated_at : '';
 
     const src = getDataSource();
     const fin = safe(src.financial);

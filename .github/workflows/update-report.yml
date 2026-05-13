@@ -1,9 +1,9 @@
-name: Update Weekly Report
+name: Update 3P Stores Weekly Report
 
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
-  workflow_dispatch:  # Allow manual trigger
+    - cron: '0 5 * * 1'  # Monday 05:00 UTC = 08:00 GMT+3
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -23,17 +23,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Generate report
+      - name: Fetch latest data from Databricks
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-        run: python generate_report.py
+          DATABRICKS_WAREHOUSE_ID: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
+        run: python fetch_weekly_data.py
 
-      - name: Commit and push updated report
+      - name: Generate HTML report
+        run: python integrate_data.py
+
+      - name: Commit and push report
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git diff --staged --quiet || git commit -m "Update weekly report — $(date +'%Y-%m-%d')"
+          git add index.html overview_corrected_weekly.json partners_corrected_batch1.json partners_corrected_batch2.json partner_availability_corrected.json
+          git diff --cached --quiet || git commit -m "Weekly update: $(date +'%Y-%m-%d')"
           git push
