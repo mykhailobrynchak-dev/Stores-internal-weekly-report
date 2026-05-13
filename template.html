@@ -31,6 +31,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-item { padding: 10px 20px; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.7); transition: all 0.2s; border-left: 3px solid transparent; }
 .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
 .nav-item.active { background: rgba(52,209,134,0.1); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
+.nav-item.highlighted { color: #F59E0B; font-weight: 600; }
 .nav-section-title { padding: 16px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); }
 
 .main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: calc(100vw - var(--sidebar-w)); overflow-x: hidden; box-sizing: border-box; }
@@ -164,6 +165,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const parts = p.replace(' 00:00:00','').split('-');
     if (parts.length < 3) return p;
     const month = parseInt(parts[1]) - 1, day = parseInt(parts[2]);
+    if (gran === 'quarterly') { const q = Math.ceil((month+1)/3); return `Q${q} ${parts[0]}`; }
     if (gran === 'monthly') return MONTHS_FULL[month] + ' ' + parts[0];
     return MONTHS_SHORT[month] + ' ' + day;
   }
@@ -211,8 +213,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     let html = '<div class="nav-section-title">Overview</div>';
     html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
     html += '<div class="nav-section-title">Partners</div>';
+    const highlightedPartners = new Set(['LOKO', 'VARUS', 'RUKAVYCHKA']);
     safe(D.partners_list).forEach(p => {
-      html += `<div class="nav-item ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+      const hl = highlightedPartners.has(p) ? ' highlighted' : '';
+      html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
     });
     nav.innerHTML = html;
     nav.querySelectorAll('.nav-item').forEach(el => {
@@ -223,7 +227,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   /* ---- granularity & period tabs with slider ---- */
   function buildControls() {
     const gt = $('granToggle');
-    gt.innerHTML = ['monthly','weekly'].map(g =>
+    gt.innerHTML = ['quarterly','monthly','weekly'].map(g =>
       `<button class="toggle-btn ${currentGran===g?'active':''}" data-g="${g}">${g.charAt(0).toUpperCase()+g.slice(1)}</button>`
     ).join('');
     gt.querySelectorAll('.toggle-btn').forEach(b => {
@@ -272,6 +276,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   function getDataSource() {
     if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
     return ((D.partners || {})[currentView] || {})[currentGran] || {};
+  }
+
+  function quarterLabel(period) {
+    const d = period.replace(' 00:00:00','').split('-');
+    const m = parseInt(d[1]);
+    const q = Math.ceil(m / 3);
+    return `Q${q} ${d[0]}`;
   }
 
   /* ---- KPI card builder ---- */
@@ -350,8 +361,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '</div>';
     }
 
-    // RUN RATE block (monthly view only, only for the current/latest month)
-    if (currentGran === 'monthly' && fin.length >= 2 && currentPeriod === fin[fin.length - 1].period) {
+    // RUN RATE block (monthly/quarterly view, only for the current/latest period)
+    if ((currentGran === 'monthly' || currentGran === 'quarterly') && fin.length >= 2 && currentPeriod === fin[fin.length - 1].period) {
       html += buildRunRateBlock(fin, cp, camp);
     }
 
@@ -427,6 +438,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += kpi('Bolt Spend', fmtEur(cc.bolt_spend_eur) + ` (${fmtPct(cc.bolt_spend_eur / gmv * 100, 1)})`, cc, cp2, 'bolt_spend_eur');
       html += kpi('Merchant Spend', fmtEur(cc.merchant_spend_eur) + ` (${fmtPct(cc.merchant_spend_eur / gmv * 100, 1)})`, cc, cp2, 'merchant_spend_eur');
       html += '</div>';
+    }
+
+    // Item-Level Discount Promo Share (brand level only)
+    if (currentView !== 'overview') {
+      const promoData = safe((D.item_discount_promo || {})[currentView]);
+      if (promoData.length) {
+        const promoIdx = promoData.findIndex(r => r.period === currentPeriod);
+        const promoC = promoIdx >= 0 ? promoData[promoIdx] : last(promoData);
+        const promoP = promoIdx > 0 ? promoData[promoIdx - 1] : (promoIdx === 0 ? null : (promoData.length >= 2 ? promoData[promoData.length - 2] : null));
+        if (promoC) {
+          html += '<div class="kpi-grid">';
+          html += kpi('Item-Level Discount Promo Share, %', fmtPct(promoC.value, 2), promoC, promoP, 'value');
+          html += '</div>';
+        }
+      }
     }
 
     // Campaign Dynamics Table
@@ -624,7 +650,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const last10 = ops.slice(-10);
     if (last10.length < 2) return '';
 
-    const tableTitle = currentGran === 'monthly' ? 'MoM Comparison' : 'WoW Comparison';
+    const tableTitle = currentGran === 'quarterly' ? 'QoQ Comparison' : (currentGran === 'monthly' ? 'MoM Comparison' : 'WoW Comparison');
     let html = `<div class="sub-section-title">${tableTitle}</div>`;
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th></th>';
     last10.forEach(r => { html += `<th>${periodLabel(r.period, currentGran)}</th>`; });

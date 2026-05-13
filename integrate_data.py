@@ -97,6 +97,54 @@ for period in sorted(monthly_groups.keys()):
 DATA["overview"]["monthly"]["cp_margins"] = overview_cp_monthly
 DATA["overview"]["monthly"]["operational"] = overview_ops_monthly
 
+# Compute quarterly aggregates from weekly data
+import math
+quarterly_groups = defaultdict(list)
+for r in overview_corrected:
+    parts = r["period"].split("-")
+    q = math.ceil(int(parts[1]) / 3)
+    quarter_key = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"  # Q1=01-01, Q2=04-01
+    quarterly_groups[quarter_key].append(r)
+
+overview_cp_quarterly = []
+overview_ops_quarterly = []
+for period in sorted(quarterly_groups.keys()):
+    rows = quarterly_groups[period]
+    avg = lambda key: round(sum(r[key] for r in rows if r[key] is not None) / max(1, sum(1 for r in rows if r[key] is not None)), 2)
+    total = lambda key: sum(r[key] for r in rows if r[key] is not None)
+
+    overview_cp_quarterly.append({
+        "period": period,
+        "cp_margin_pct": avg("cp_margin_pct"),
+        "cp_l2_margin_pct": avg("cp_l2_margin_pct"),
+        "commission_gmv_pct": avg("commission_gmv_pct"),
+        "commission_aov_pct": avg("commission_aov_pct")
+    })
+    overview_ops_quarterly.append({
+        "period": period,
+        "delivered_orders": int(total("orders")),
+        "active_stores": max(r["active_stores"] for r in rows),
+        "acceptance_rate": avg("acceptance_rate"),
+        "availability_rate": avg("availability_rate"),
+        "avg_rating": avg("avg_rating"),
+        "honey_order_rate": avg("honey_rate"),
+        "bad_order_rate": avg("bad_rate"),
+        "late_delivery_rate": avg("late_delivery_rate"),
+        "late_pickup_rate": avg("late_pickup_rate"),
+        "avg_delivery_minutes": avg("avg_delivery_min"),
+        "replacement_rate": 0,
+        "adjustment_rate": 0
+    })
+
+DATA["overview"]["quarterly"] = {
+    "financial": DATA["overview"]["monthly"].get("financial", []),
+    "cp_margins": overview_cp_quarterly,
+    "operational": overview_ops_quarterly,
+    "failed_orders": [],
+    "campaigns": DATA["overview"]["monthly"].get("campaigns", []),
+    "gmv_by_partner": DATA["overview"]["monthly"].get("gmv_by_partner", [])
+}
+
 # ======== CORRECTED PARTNER DATA ========
 partner_data_raw = load_json("partners_corrected_batch1.json") + load_json("partners_corrected_batch2.json")
 
@@ -220,6 +268,80 @@ if camp_raw:
             "orders": 0
         })
     DATA["overview"]["weekly"]["gmv_by_partner"] = gmv_by_partner
+
+# ======== QUARTERLY DATA FOR PARTNERS ========
+import math as _math
+for pname in ALL_PARTNERS:
+    pw = DATA["partners"][pname]["weekly"]
+    if not pw.get("cp_margins") or not pw.get("operational"):
+        DATA["partners"][pname]["quarterly"] = {"financial": [], "cp_margins": [], "operational": [], "failed_orders": [], "campaigns": []}
+        continue
+
+    p_quarterly_cp_groups = defaultdict(list)
+    for r in pw["cp_margins"]:
+        parts = r["period"].replace(" 00:00:00", "").split("-")
+        q = _math.ceil(int(parts[1]) / 3)
+        qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+        p_quarterly_cp_groups[qkey].append(r)
+
+    p_quarterly_ops_groups = defaultdict(list)
+    for r in pw["operational"]:
+        parts = r["period"].replace(" 00:00:00", "").split("-")
+        q = _math.ceil(int(parts[1]) / 3)
+        qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+        p_quarterly_ops_groups[qkey].append(r)
+
+    def pavg(rows, key):
+        vals = [r[key] for r in rows if r.get(key) is not None]
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    p_cp_q = []
+    for period in sorted(p_quarterly_cp_groups.keys()):
+        rows = p_quarterly_cp_groups[period]
+        p_cp_q.append({
+            "period": period,
+            "cp_margin_pct": pavg(rows, "cp_margin_pct"),
+            "cp_l2_margin_pct": pavg(rows, "cp_l2_margin_pct"),
+            "commission_gmv_pct": pavg(rows, "commission_gmv_pct"),
+            "commission_aov_pct": pavg(rows, "commission_aov_pct")
+        })
+
+    p_ops_q = []
+    for period in sorted(p_quarterly_ops_groups.keys()):
+        rows = p_quarterly_ops_groups[period]
+        p_ops_q.append({
+            "period": period,
+            "delivered_orders": sum(int(r.get("delivered_orders") or 0) for r in rows),
+            "active_stores": max((r.get("active_stores") or 0) for r in rows),
+            "acceptance_rate": pavg(rows, "acceptance_rate"),
+            "availability_rate": pavg(rows, "availability_rate"),
+            "avg_rating": pavg(rows, "avg_rating"),
+            "honey_order_rate": pavg(rows, "honey_order_rate"),
+            "bad_order_rate": pavg(rows, "bad_order_rate"),
+            "late_delivery_rate": pavg(rows, "late_delivery_rate"),
+            "late_pickup_rate": pavg(rows, "late_pickup_rate"),
+            "avg_delivery_minutes": pavg(rows, "avg_delivery_minutes"),
+            "replacement_rate": pavg(rows, "replacement_rate"),
+            "adjustment_rate": pavg(rows, "adjustment_rate")
+        })
+
+    DATA["partners"][pname]["quarterly"] = {
+        "financial": DATA["partners"][pname].get("monthly", {}).get("financial", []),
+        "cp_margins": p_cp_q,
+        "operational": p_ops_q,
+        "failed_orders": [],
+        "campaigns": pw.get("campaigns", [])
+    }
+
+# ======== ITEM-LEVEL DISCOUNT PROMO SHARE ========
+promo_raw = load_json("partner_item_discount_promo.json")
+if promo_raw:
+    item_discount_promo = {}
+    for pname, periods in promo_raw.items():
+        item_discount_promo[pname] = []
+        for period, value in sorted(periods.items()):
+            item_discount_promo[pname].append({"period": period + " 00:00:00", "value": value})
+    DATA["item_discount_promo"] = item_discount_promo
 
 # ======== GENERATE HTML ========
 with open(os.path.join(SCRIPT_DIR, "template.html"), "r") as f:
