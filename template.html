@@ -514,19 +514,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return html;
   }
 
-  /* ---- Run Rate Block (monthly only) ---- */
+  /* ---- Run Rate Block ---- */
   function buildRunRateBlock(fin, cp, camp) {
     const latest = fin[fin.length - 1];
     if (!latest) return '';
     const parts = latest.period.replace(' 00:00:00','').split('-');
     const year = parseInt(parts[0]), month = parseInt(parts[1]) - 1;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = new Date();
-    const dataEndDay = (today.getFullYear() === year && today.getMonth() === month) ? today.getDate() - 1 : daysInMonth;
-    if (dataEndDay <= 0 || dataEndDay >= daysInMonth) return '';
 
-    const multiplier = daysInMonth / dataEndDay;
-    const monthName = MONTHS_FULL[month];
+    let daysInPeriod, dataEndDay, periodLabel;
+
+    if (currentGran === 'quarterly') {
+      const qStart = new Date(year, month, 1);
+      const qEnd = new Date(year, month + 3, 0);
+      daysInPeriod = Math.round((qEnd - qStart) / 86400000) + 1;
+      const elapsed = Math.round((today - qStart) / 86400000) - 1;
+      dataEndDay = Math.min(elapsed, daysInPeriod);
+      const q = Math.ceil((month + 1) / 3);
+      periodLabel = `Q${q} ${year}`;
+    } else {
+      daysInPeriod = new Date(year, month + 1, 0).getDate();
+      dataEndDay = (today.getFullYear() === year && today.getMonth() === month) ? today.getDate() - 1 : daysInPeriod;
+      periodLabel = MONTHS_FULL[month];
+    }
+
+    if (dataEndDay <= 0 || dataEndDay >= daysInPeriod) return '';
+
+    const multiplier = daysInPeriod / dataEndDay;
+    const monthName = currentGran === 'quarterly' ? periodLabel : MONTHS_FULL[month];
     const prevMonth = fin.length >= 2 ? fin[fin.length - 2] : null;
 
     const rr = {
@@ -553,15 +568,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     let html = '<div class="run-rate-block">';
     html += '<div class="run-rate-header">';
     html += `<span class="run-rate-badge">${monthName.toUpperCase()} RUN RATE</span>`;
-    html += `<span class="run-rate-info">${dataEndDay} days of data · ×${multiplier.toFixed(2)} projection to ${monthName} ${daysInMonth}</span>`;
+    const projTarget = currentGran === 'quarterly' ? `end of ${periodLabel}` : `${MONTHS_FULL[month]} ${daysInPeriod}`;
+    html += `<span class="run-rate-info">${dataEndDay} days of data · ×${multiplier.toFixed(2)} projection to ${projTarget}</span>`;
     html += '</div>';
     html += '<div class="run-rate-grid">';
 
+    const prevLabel = currentGran === 'quarterly' ? 'Q' + (Math.ceil((month+1)/3) - 1 || 4) : MONTHS_SHORT[month > 0 ? month - 1 : 11];
     function rrCard(label, displayVal, curRaw, prevRaw) {
       const chg = (curRaw != null && prevRaw != null) ? changeHtml(curRaw, prevRaw) : '';
       const hasChg = curRaw != null && prevRaw != null && pctChange(curRaw, prevRaw) != null;
       const chgStr = hasChg ? `<div class="rr-chg">${chg}</div>` : '';
-      const prevStr = prevRaw != null ? `<div class="rr-prev">${MONTHS_SHORT[month > 0 ? month - 1 : 11]}: ${typeof prevRaw === 'number' && prevRaw > 100 ? fmtEur(prevRaw) : (typeof prevRaw === 'number' ? prevRaw.toFixed(1) : prevRaw)}</div>` : '';
+      const prevStr = prevRaw != null ? `<div class="rr-prev">${prevLabel}: ${typeof prevRaw === 'number' && prevRaw > 100 ? fmtEur(prevRaw) : (typeof prevRaw === 'number' ? prevRaw.toFixed(1) : prevRaw)}</div>` : '';
       return `<div class="rr-card"><div class="rr-label">${label}</div><div class="rr-value">${displayVal}</div>${chgStr}${prevStr}</div>`;
     }
 
