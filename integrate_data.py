@@ -285,6 +285,29 @@ for pname in ALL_PARTNERS:
     pw["cp_margins"] = cp_list
     pw["operational"] = ops_list
 
+    # Compute monthly cp_margins for partner (aggregate from weekly)
+    p_monthly_cp_groups = defaultdict(list)
+    for r in cp_list:
+        mkey = r["period"][:7].replace(" ", "") + "-01 00:00:00"
+        if not mkey.startswith("20"):
+            mkey = r["period"].replace(" 00:00:00","")[:7] + "-01 00:00:00"
+        p_monthly_cp_groups[mkey].append(r)
+
+    p_cp_monthly = []
+    for mperiod in sorted(p_monthly_cp_groups.keys()):
+        mrows = p_monthly_cp_groups[mperiod]
+        def _mavg(key):
+            vals = [r[key] for r in mrows if r.get(key) is not None]
+            return round(sum(vals)/len(vals), 2) if vals else None
+        p_cp_monthly.append({
+            "period": mperiod,
+            "cp_margin_pct": _mavg("cp_margin_pct"),
+            "cp_l2_margin_pct": _mavg("cp_l2_margin_pct"),
+            "commission_gmv_pct": _mavg("commission_gmv_pct"),
+            "commission_aov_pct": _mavg("commission_aov_pct")
+        })
+    DATA["partners"][pname]["monthly"]["cp_margins"] = p_cp_monthly
+
     # Keep existing financial and campaign data
     # (from build_initial.py partner_weekly_data.json and new_partners_fin_raw.json)
 
@@ -410,12 +433,62 @@ for pname in ALL_PARTNERS:
             "adjustment_rate": pavg(rows, "adjustment_rate")
         })
 
+    # Aggregate partner monthly financial into quarterly
+    p_monthly_fin = DATA["partners"][pname].get("monthly", {}).get("financial", [])
+    p_qfin_groups = defaultdict(list)
+    for r in p_monthly_fin:
+        parts = r["period"].replace(" 00:00:00", "").split("-")
+        q = _math.ceil(int(parts[1]) / 3)
+        qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+        p_qfin_groups[qkey].append(r)
+
+    p_fin_q = []
+    for period in sorted(p_qfin_groups.keys()):
+        rows = p_qfin_groups[period]
+        total_orders = sum(r.get("orders", 0) for r in rows)
+        total_gmv = sum(r.get("gmv_eur", 0) for r in rows)
+        if total_orders == 0:
+            continue
+        p_fin_q.append({
+            "period": period,
+            "orders": total_orders,
+            "gmv_eur": round(total_gmv, 0),
+            "aov_with_delivery": round(sum(r.get("aov_with_delivery", 0) * r.get("orders", 0) for r in rows) / total_orders, 2),
+            "aov_items_only": round(total_gmv / total_orders, 2),
+            "eater_fees_per_order": round(sum(r.get("eater_fees_per_order", 0) * r.get("orders", 0) for r in rows) / total_orders, 2),
+            "delivery_fee_per_order": round(sum(r.get("delivery_fee_per_order", 0) * r.get("orders", 0) for r in rows) / total_orders, 2),
+            "small_order_fee_per_order": round(sum(r.get("small_order_fee_per_order", 0) * r.get("orders", 0) for r in rows) / total_orders, 2),
+            "service_fee_per_order": round(sum(r.get("service_fee_per_order", 0) * r.get("orders", 0) for r in rows) / total_orders, 2),
+            "bolt_plus_gmv_share": round(sum(r.get("bolt_plus_gmv_share", 0) * r.get("orders", 0) for r in rows) / total_orders, 2),
+            "users_activated": sum(r.get("users_activated", 0) for r in rows),
+            "active_users": max((r.get("active_users", 0) for r in rows), default=0)
+        })
+
+    # Aggregate partner weekly campaigns into quarterly
+    p_camp_q_groups = defaultdict(list)
+    for r in pw.get("campaigns", []):
+        parts = r["period"].replace(" 00:00:00", "").split("-")
+        q = _math.ceil(int(parts[1]) / 3)
+        qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+        p_camp_q_groups[qkey].append(r)
+
+    p_camp_q = []
+    for period in sorted(p_camp_q_groups.keys()):
+        rows = p_camp_q_groups[period]
+        p_camp_q.append({
+            "period": period,
+            "campaigns_discount_eur": sum(r.get("campaigns_discount_eur", 0) for r in rows),
+            "bolt_spend_eur": sum(r.get("bolt_spend_eur", 0) for r in rows),
+            "merchant_spend_eur": sum(r.get("merchant_spend_eur", 0) for r in rows),
+            "gmv_eur": sum(r.get("gmv_eur", 0) for r in rows)
+        })
+
     DATA["partners"][pname]["quarterly"] = {
-        "financial": DATA["partners"][pname].get("monthly", {}).get("financial", []),
+        "financial": p_fin_q,
         "cp_margins": p_cp_q,
         "operational": p_ops_q,
         "failed_orders": [],
-        "campaigns": pw.get("campaigns", [])
+        "campaigns": p_camp_q
     }
 
 # ======== ITEM-LEVEL DISCOUNT PROMO SHARE ========
