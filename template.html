@@ -414,7 +414,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += kpi('Merchant Spend', fmtEur(cc.merchant_spend_eur) + ` (${fmtPct(cc.merchant_spend_eur / gmv * 100, 1)})`, cc, cp2, 'merchant_spend_eur');
     }
     if (currentView !== 'overview') {
-      const promoData = safe((D.item_discount_promo || {})[currentView]);
+      const promoStore = (D.item_discount_promo || {})[currentGran] || (D.item_discount_promo || {});
+      const promoData = safe(promoStore[currentView]);
       if (promoData.length) {
         const promoIdx = promoData.findIndex(r => r.period === currentPeriod);
         const promoC = promoIdx >= 0 ? promoData[promoIdx] : last(promoData);
@@ -756,7 +757,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     // Item-Level Discount Promo Share (brand level)
     if (currentView !== 'overview') {
-      const promoData = safe((D.item_discount_promo || {})[currentView]);
+      const promoStore = (D.item_discount_promo || {})[currentGran] || (D.item_discount_promo || {});
+      const promoData = safe(promoStore[currentView]);
       if (promoData.length) {
         html += '<tr><td>Item Discount Promo, %</td>';
         last10.forEach((r, i) => {

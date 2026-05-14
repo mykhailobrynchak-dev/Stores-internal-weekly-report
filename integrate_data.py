@@ -494,11 +494,38 @@ for pname in ALL_PARTNERS:
 # ======== ITEM-LEVEL DISCOUNT PROMO SHARE ========
 promo_raw = load_json("partner_item_discount_promo.json")
 if promo_raw:
-    item_discount_promo = {}
+    item_discount_promo = {"weekly": {}, "monthly": {}, "quarterly": {}}
     for pname, periods in promo_raw.items():
-        item_discount_promo[pname] = []
+        # Weekly
+        weekly_entries = []
         for period, value in sorted(periods.items()):
-            item_discount_promo[pname].append({"period": period + " 00:00:00", "value": value})
+            weekly_entries.append({"period": period + " 00:00:00", "value": value})
+        item_discount_promo["weekly"][pname] = weekly_entries
+
+        # Monthly (average of weeks in each month)
+        monthly_groups = defaultdict(list)
+        for period, value in periods.items():
+            mkey = period[:7] + "-01 00:00:00"
+            monthly_groups[mkey].append(value)
+        monthly_entries = []
+        for mperiod in sorted(monthly_groups.keys()):
+            vals = monthly_groups[mperiod]
+            monthly_entries.append({"period": mperiod, "value": round(sum(vals) / len(vals), 2)})
+        item_discount_promo["monthly"][pname] = monthly_entries
+
+        # Quarterly (average of weeks in each quarter)
+        quarterly_groups = defaultdict(list)
+        for period, value in periods.items():
+            parts = period.split("-")
+            q = _math.ceil(int(parts[1]) / 3)
+            qkey = f"{parts[0]}-{q*3-2:02d}-01 00:00:00"
+            quarterly_groups[qkey].append(value)
+        quarterly_entries = []
+        for qperiod in sorted(quarterly_groups.keys()):
+            vals = quarterly_groups[qperiod]
+            quarterly_entries.append({"period": qperiod, "value": round(sum(vals) / len(vals), 2)})
+        item_discount_promo["quarterly"][pname] = quarterly_entries
+
     DATA["item_discount_promo"] = item_discount_promo
 
 # ======== GENERATE HTML ========
