@@ -10,6 +10,14 @@ NAMED_PARTNERS = [
     "BEER MARKET", "TAISTRA", "RUKAVYCHKA", "PYVNA BORODA"
 ]
 
+ALL_TRACKED_PARTNERS = [
+    "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK",
+    "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
+    "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
+    "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP", "MAXBEER GROUP",
+    "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR"
+]
+
 
 def load_json(filename):
     path = os.path.join(SCRIPT_DIR, filename)
@@ -113,7 +121,7 @@ partner_camp_monthly = load_json("data_partner_camp_monthly.json")
 partner_camp_weekly = load_json("data_partner_camp_weekly.json")
 acceptance = load_json("data_acceptance.json")
 
-partners_list = metadata.get("partners_list", NAMED_PARTNERS)
+partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
 
 # Normalize all periods

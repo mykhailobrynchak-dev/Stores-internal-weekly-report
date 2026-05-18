@@ -15,6 +15,14 @@ NAMED_PARTNERS = [
     "BEER MARKET", "TAISTRA", "RUKAVYCHKA", "PYVNA BORODA"
 ]
 
+ALL_TRACKED_PARTNERS = [
+    "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK",
+    "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
+    "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
+    "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP", "MAXBEER GROUP",
+    "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR"
+]
+
 
 def run_query(cursor, query):
     cursor.execute(query)
@@ -62,9 +70,9 @@ def financial_query(granularity, group_filter=None):
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
         ROUND(SUM(f.total_price_before_discount_eur) / COUNT(*), 2) as aov_with_delivery,
         ROUND(SUM(f.provider_price_before_discount_eur) / COUNT(*), 2) as aov_items_only,
-        ROUND((SUM(f.delivery_price_eur) + SUM(f.small_order_fee_eur) + SUM(f.order_service_fee_eur)) / COUNT(*), 2) as eater_fees_per_order,
-        ROUND(SUM(f.delivery_price_eur), 2) as delivery_fee_total,
-        ROUND(SUM(f.delivery_price_eur) / COUNT(*), 2) as delivery_fee_per_order,
+        ROUND(SUM(f.delivery_price_eur) / COUNT(*), 2) as eater_fees_per_order,
+        ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur), 2) as delivery_fee_total,
+        ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur) / COUNT(*), 2) as delivery_fee_per_order,
         ROUND(SUM(f.small_order_fee_eur), 2) as small_order_fee_total,
         ROUND(SUM(f.small_order_fee_eur) / COUNT(*), 2) as small_order_fee_per_order,
         ROUND(SUM(f.order_service_fee_eur), 2) as service_fee_total,
@@ -88,7 +96,7 @@ def financial_query(granularity, group_filter=None):
 
 
 def campaign_query(granularity, group_filter=None):
-    time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
+    time_col = "DATE_TRUNC('week', CAST(m.order_created_date AS DATE))" if granularity == "week" else "DATE_TRUNC('month', CAST(m.order_created_date AS DATE))"
     group_col = ", p.group_name" if group_filter == "ALL_BY_GROUP" else ""
     group_select = "p.group_name, " if group_filter == "ALL_BY_GROUP" else ""
     group_clause = ""
@@ -98,15 +106,14 @@ def campaign_query(granularity, group_filter=None):
     return f"""
     SELECT
         {group_select}CAST({time_col} AS STRING) as period,
-        ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
-        ROUND(SUM(f.demand_incentives_eur) + SUM(f.supply_incentives_eur) + COALESCE(SUM(f.order_provider_spend_provider_campaign_eur), 0), 2) as campaigns_discount_eur,
-        ROUND(SUM(f.demand_incentives_eur) + SUM(f.supply_incentives_eur), 2) as bolt_spend_eur,
-        ROUND(COALESCE(SUM(f.order_provider_spend_provider_campaign_eur), 0), 2) as merchant_spend_eur
-    FROM ng_delivery_spark.fact_order_delivery f
-    JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
-    WHERE f.city_country_code = 'ua'
-      AND f.order_state = 'delivered'
-      AND f.order_created_date >= '{DATA_START}'
+        ROUND(SUM(m.gmv_eur), 2) as gmv_eur,
+        ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
+        ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
+        ROUND(SUM(m.provider_delivery_campaign_cost_eur) + SUM(m.provider_menu_campaign_cost_eur), 2) as merchant_spend_eur
+    FROM ng_public_spark.etl_delivery_order_monetary_metrics m
+    JOIN ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
+    WHERE m.country = 'ua'
+      AND m.order_created_date >= '{DATA_START}'
       AND p.delivery_vertical LIKE 'store_3p%'
       {group_clause}
     GROUP BY {time_col}{group_col}
@@ -299,8 +306,8 @@ def main():
         if p["group_name"] not in NAMED_PARTNERS:
             tenth_partner = p["group_name"]
             break
-    all_partners = NAMED_PARTNERS + ([tenth_partner] if tenth_partner else [])
-    print(f"  Partners: {all_partners}")
+    all_partners = list(dict.fromkeys(NAMED_PARTNERS + ([tenth_partner] if tenth_partner else []) + ALL_TRACKED_PARTNERS))
+    print(f"  Partners ({len(all_partners)}): {all_partners[:10]}...")
 
     # 2. Overview financial (weekly + monthly)
     print("2. Fetching overview financial...")
