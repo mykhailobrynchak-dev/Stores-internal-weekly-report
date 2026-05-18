@@ -131,6 +131,13 @@ for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, ove
     for r in lst:
         r["period"] = fmt_period(r["period"])
 
+# Sanitize campaign data: clamp negative values to 0 (data quality issues in source)
+for lst in [overview_camp_weekly, overview_camp_monthly, partner_camp_monthly, partner_camp_weekly]:
+    for r in lst:
+        for key in ["campaigns_discount_eur", "bolt_spend_eur", "merchant_spend_eur"]:
+            if r.get(key) is not None and r[key] < 0:
+                r[key] = 0.0
+
 # ======== BUILD OVERVIEW CP/OPS FROM fact_provider_weekly ========
 overview_cp_weekly = []
 overview_ops_weekly = []
