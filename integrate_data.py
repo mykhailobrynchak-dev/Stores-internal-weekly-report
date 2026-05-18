@@ -65,8 +65,9 @@ def aggregate_financial(rows):
         "service_fee_total": round(sum(r.get("service_fee_total", 0) or 0 for r in rows), 2),
         "service_fee_per_order": round(sum((r.get("service_fee_per_order", 0) or 0) * (r.get("orders", 0) or 0) for r in rows) / total_orders, 2),
         "bolt_plus_gmv_share": round(sum((r.get("bolt_plus_gmv_share", 0) or 0) * (r.get("orders", 0) or 0) for r in rows) / total_orders, 2),
-        "new_user_orders": sum(r.get("new_user_orders", 0) or 0 for r in rows),
-        "new_user_share": round(sum(r.get("new_user_orders", 0) or 0 for r in rows) * 100.0 / total_orders, 2),
+        "users_activated": sum(r.get("users_activated", 0) or 0 for r in rows),
+        "new_user_share": round(sum(r.get("users_activated", 0) or 0 for r in rows) * 100.0 / total_orders, 2),
+        "active_users": sum(r.get("active_users", 0) or 0 for r in rows),
         "total_refunds_eur": round(sum(r.get("total_refunds_eur", 0) or 0 for r in rows), 2),
         "refund_rate_pct": round(sum(r.get("total_refunds_eur", 0) or 0 for r in rows) / total_gmv * 100, 2) if total_gmv > 0 else 0,
     }
@@ -74,14 +75,14 @@ def aggregate_financial(rows):
 
 def aggregate_campaigns(rows):
     total_gmv = sum(r.get("gmv_eur", 0) or 0 for r in rows)
+    total_discount = sum(r.get("campaigns_discount_eur", 0) or 0 for r in rows)
+    total_bolt = sum(r.get("bolt_spend_eur", 0) or 0 for r in rows)
+    total_merch = sum(r.get("merchant_spend_eur", 0) or 0 for r in rows)
     return {
         "gmv_eur": round(total_gmv, 2),
-        "bolt_demand_incentives_eur": round(sum(r.get("bolt_demand_incentives_eur", 0) or 0 for r in rows), 2),
-        "bolt_supply_incentives_eur": round(sum(r.get("bolt_supply_incentives_eur", 0) or 0 for r in rows), 2),
-        "bolt_total_investment_eur": round(sum(r.get("bolt_total_investment_eur", 0) or 0 for r in rows), 2),
-        "bolt_investment_pct_gmv": round(sum(r.get("bolt_total_investment_eur", 0) or 0 for r in rows) / total_gmv * 100, 2) if total_gmv > 0 else 0,
-        "partner_investment_eur": round(sum(r.get("partner_investment_eur", 0) or 0 for r in rows), 2),
-        "partner_investment_pct_gmv": round(sum(r.get("partner_investment_eur", 0) or 0 for r in rows) / total_gmv * 100, 2) if total_gmv > 0 else 0,
+        "campaigns_discount_eur": round(total_discount, 2),
+        "bolt_spend_eur": round(total_bolt, 2),
+        "merchant_spend_eur": round(total_merch, 2),
     }
 
 

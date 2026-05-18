@@ -70,8 +70,9 @@ def financial_query(granularity, group_filter=None):
         ROUND(SUM(f.order_service_fee_eur), 2) as service_fee_total,
         ROUND(SUM(f.order_service_fee_eur) / COUNT(*), 2) as service_fee_per_order,
         ROUND(SUM(CASE WHEN f.is_bolt_plus_order THEN f.order_gmv_eur ELSE 0 END) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as bolt_plus_gmv_share,
-        SUM(CASE WHEN f.is_first_delivery_order THEN 1 ELSE 0 END) as new_user_orders,
+        SUM(CASE WHEN f.is_first_delivery_order THEN 1 ELSE 0 END) as users_activated,
         ROUND(SUM(CASE WHEN f.is_first_delivery_order THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as new_user_share,
+        COUNT(DISTINCT f.user_id) as active_users,
         ROUND(SUM(f.total_refunds_eur), 2) as total_refunds_eur,
         ROUND(SUM(f.total_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as refund_rate_pct
     FROM ng_delivery_spark.fact_order_delivery f
@@ -98,12 +99,9 @@ def campaign_query(granularity, group_filter=None):
     SELECT
         {group_select}CAST({time_col} AS STRING) as period,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
-        ROUND(SUM(f.demand_incentives_eur), 2) as bolt_demand_incentives_eur,
-        ROUND(SUM(f.supply_incentives_eur), 2) as bolt_supply_incentives_eur,
-        ROUND(SUM(f.demand_incentives_eur) + SUM(f.supply_incentives_eur), 2) as bolt_total_investment_eur,
-        ROUND((SUM(f.demand_incentives_eur) + SUM(f.supply_incentives_eur)) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as bolt_investment_pct_gmv,
-        ROUND(SUM(f.order_provider_spend_provider_campaign_eur), 2) as partner_investment_eur,
-        ROUND(SUM(f.order_provider_spend_provider_campaign_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as partner_investment_pct_gmv
+        ROUND(SUM(f.demand_incentives_eur) + SUM(f.supply_incentives_eur) + COALESCE(SUM(f.order_provider_spend_provider_campaign_eur), 0), 2) as campaigns_discount_eur,
+        ROUND(SUM(f.demand_incentives_eur) + SUM(f.supply_incentives_eur), 2) as bolt_spend_eur,
+        ROUND(COALESCE(SUM(f.order_provider_spend_provider_campaign_eur), 0), 2) as merchant_spend_eur
     FROM ng_delivery_spark.fact_order_delivery f
     JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
