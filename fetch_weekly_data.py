@@ -62,6 +62,7 @@ def financial_query(granularity, group_filter=None):
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
         group_clause = f"AND p.group_name = '{group_filter}'"
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
 
     return f"""
     SELECT
@@ -88,6 +89,7 @@ def financial_query(granularity, group_filter=None):
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
+      {week_filter}
       AND p.delivery_vertical LIKE 'store_3p%'
       {group_clause}
     GROUP BY {time_col}{group_col}
@@ -102,6 +104,7 @@ def campaign_query(granularity, group_filter=None):
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
         group_clause = f"AND p.group_name = '{group_filter}'"
+    week_filter = "AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
 
     return f"""
     SELECT
@@ -114,6 +117,7 @@ def campaign_query(granularity, group_filter=None):
     JOIN ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
     WHERE m.country = 'ua'
       AND m.order_created_date >= '{DATA_START}'
+      {week_filter}
       AND p.delivery_vertical LIKE 'store_3p%'
       {group_clause}
     GROUP BY {time_col}{group_col}
@@ -123,6 +127,7 @@ def campaign_query(granularity, group_filter=None):
 
 def failed_orders_query(granularity):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
     return f"""
     SELECT
         CAST({time_col} AS STRING) as period,
@@ -135,6 +140,7 @@ def failed_orders_query(granularity):
     JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}'
+      {week_filter}
       AND p.delivery_vertical LIKE 'store_3p%'
     GROUP BY {time_col}
     ORDER BY period
@@ -143,6 +149,7 @@ def failed_orders_query(granularity):
 
 def gmv_by_partner_query(granularity):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
     return f"""
     SELECT
         CAST({time_col} AS STRING) as period,
@@ -154,6 +161,7 @@ def gmv_by_partner_query(granularity):
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
+      {week_filter}
       AND p.delivery_vertical LIKE 'store_3p%'
     GROUP BY {time_col}, p.group_name
     ORDER BY period, gmv_eur DESC
