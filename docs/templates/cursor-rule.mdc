@@ -1,0 +1,59 @@
+---
+description: Звіт {{PARTNER}} — після правок завжди publish (генерація + push на GitHub Pages)
+globs:
+  - "Reports/{{PARTNER}}/**"
+alwaysApply: true
+---
+
+# {{PARTNER}} — завжди push і publish
+
+**Live:** https://mykhailobrynchak-dev.github.io/{{PUBLIC_REPO}}/
+
+**Розробка:** `Reports/{{PARTNER}}/` (локально).
+**Публікація:** лише `index.html` → `{{PUBLIC_REPO}}` репо (GitHub Pages).
+
+## Обов'язково після КОЖНОЇ зміни звіту {{PARTNER}}
+
+Не завершуй задачу, поки звіт не опублікований. Користувач **не** повинен натискати Run workflow вручну.
+
+### 1. Синхронізуй код
+
+Правки лише в **`Reports/{{PARTNER}}/`**.
+
+### 2. Publish (пріоритет — локально)
+
+```bash
+cd "Reports/{{PARTNER}}"
+./publish.sh
+```
+
+`publish.sh` = `generate_report.py` (Databricks) + commit `index.html` + `git push origin main`.
+
+### 3. Якщо `publish.sh` не вдався (токен / SSL / Databricks)
+
+Запусти workflow у `{{PUBLIC_REPO}}`:
+
+```bash
+gh workflow run update-report.yml --repo mykhailobrynchak-dev/{{PUBLIC_REPO}}
+```
+
+Або повтори `./publish.sh` після виправлення `.env`.
+
+### 4. У фінальній відповіді
+
+- Посилання https://mykhailobrynchak-dev.github.io/{{PUBLIC_REPO}}/
+- Чи успішний `publish.sh` або запущений workflow
+- Cmd+Shift+R для перегляду
+
+## SQL правила (специфічні для звіту)
+
+- Всі WHERE мають `country_code='ua'` AND `group_name='{{PARTNER_DB_NAME}}'`
+- Усі фінансові метрики — з `order_state='delivered'`
+- Партиційна колонка `order_created_date` обов'язково в WHERE
+- LIMIT обов'язково (для top-stores та per-store запитів — LIMIT 5000 або менше)
+
+## Заборонено
+
+- Залишати зміни без push у `{{PUBLIC_REPO}}`
+- Просити користувача Run workflow, якщо `publish.sh` міг би спрацювати
+- Комітити `.env` або `report_data.json` у git
