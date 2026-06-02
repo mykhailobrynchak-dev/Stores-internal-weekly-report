@@ -337,11 +337,13 @@ for r in item_defects_raw:
     if pname:
         defects_by_partner[pname].append(r)
 
-DEFECT_FIELDS = ["quantity_defect_rate", "item_replacement_rate", "weighted_defect_rate", "price_defect_rate"]
+DEFECT_RAW_FIELDS = ["quantity_defect_rate", "item_replacement_rate", "weighted_defect_rate", "price_defect_rate"]
+DEFECT_OUT_FIELDS = ["item_quantity_defect_rate", "item_replacement_rate", "item_weight_defect_rate", "item_price_defect_rate"]
+DEFECT_MAP = dict(zip(DEFECT_RAW_FIELDS, DEFECT_OUT_FIELDS))
 item_defects = {"weekly": {}, "monthly": {}, "quarterly": {}}
 for pname, rows in defects_by_partner.items():
     weekly_d = sorted([
-        {"period": r["period"], **{f: r.get(f) for f in DEFECT_FIELDS}}
+        {"period": r["period"], **{DEFECT_MAP[f]: r.get(f) for f in DEFECT_RAW_FIELDS}}
         for r in rows
     ], key=lambda x: x["period"])
     item_defects["weekly"][pname] = weekly_d
@@ -350,7 +352,7 @@ for pname, rows in defects_by_partner.items():
     for r in weekly_d:
         monthly_groups[r["period"][:7] + "-01 00:00:00"].append(r)
     item_defects["monthly"][pname] = sorted([
-        {"period": p, **{f: avg_vals(g, f) for f in DEFECT_FIELDS}}
+        {"period": p, **{f: avg_vals(g, f) for f in DEFECT_OUT_FIELDS}}
         for p, g in monthly_groups.items()
     ], key=lambda x: x["period"])
 
@@ -358,7 +360,7 @@ for pname, rows in defects_by_partner.items():
     for r in weekly_d:
         quarterly_groups_d[quarter_key(r["period"])].append(r)
     item_defects["quarterly"][pname] = sorted([
-        {"period": p, **{f: avg_vals(g, f) for f in DEFECT_FIELDS}}
+        {"period": p, **{f: avg_vals(g, f) for f in DEFECT_OUT_FIELDS}}
         for p, g in quarterly_groups_d.items()
     ], key=lambda x: x["period"])
 

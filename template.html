@@ -397,11 +397,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Demand Refunds % GMV', fmtPct(c.demand_refund_gmv_pct, 2), c, p, 'demand_refund_gmv_pct', {inverted: true});
       }
 
-      html += '</div>';
-
-      html += '<div class="sub-row">';
-      html += `<div class="sub-kpi"><div class="label">Users Activated</div><div class="val">${fmt(c.users_activated)}</div><div class="chg">${changeHtml(c.users_activated, p ? p.users_activated : null)}</div></div>`;
-      html += `<div class="sub-kpi"><div class="label">Active Users</div><div class="val">${fmt(c.active_users)}</div><div class="chg">${changeHtml(c.active_users, p ? p.active_users : null)}</div></div>`;
+      html += kpi('Users Activated', fmt(c.users_activated), c, p, 'users_activated');
+      html += kpi('Active Users', fmt(c.active_users), c, p, 'active_users');
       html += '</div>';
     }
 
@@ -409,9 +406,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     if ((currentGran === 'monthly' || currentGran === 'quarterly') && fin.length >= 2 && currentPeriod === fin[fin.length - 1].period) {
       html += buildRunRateBlock(fin, cp, camp);
     }
-
-    // Bolt+ Dynamics Table
-    html += buildBoltPlusDynamicsTable(fin);
 
     // City GMV breakdown (overview only, collapsible)
     if (currentView === 'overview') {
@@ -627,19 +621,26 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return html;
   }
 
-  /* ---- City-level Eater Fees Table ---- */
+  /* ---- City-level Eater Fees Table with deltas ---- */
   function buildCityEaterFeesTable() {
     const allWeekly = safe(D.city_eater_fees_weekly);
     if (!allWeekly.length) return '';
     const cityFeeData = aggregateCityFeeData(allWeekly, currentPeriod, currentGran);
     if (!cityFeeData.length) return '';
+
+    const prevPeriod = getPrevPeriod(currentPeriod, currentGran);
+    const prevFeeData = prevPeriod ? aggregateCityFeeData(allWeekly, prevPeriod, currentGran) : [];
+    const prevMap = {};
+    prevFeeData.forEach(r => { prevMap[r.city] = r; });
+
     cityFeeData.sort((a, b) => (b.orders || 0) - (a.orders || 0));
     const top = cityFeeData.slice(0, 10);
     const others = cityFeeData.slice(10);
     let html = '<div class="sub-section-title">Eater Fees Dynamics by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
-    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Eater Fees / Order, €</th><th>Delivery Fee / Order, €</th><th>Service Fee / Order, €</th><th>Small Order Fee / Order, €</th></tr></thead><tbody>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Eater Fees / Order</th><th>Delivery Fee</th><th>Service Fee</th><th>Small Order Fee</th></tr></thead><tbody>';
     top.forEach(r => {
-      html += `<tr><td>${r.city}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)}</td><td>${fmtEur(r.service_fee_per_order, 2)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)}</td></tr>`;
+      const pr = prevMap[r.city];
+      html += `<tr><td>${r.city}</td><td>${fmtEur(r.eater_fees_per_order, 2)} ${pctChangeInline(r.eater_fees_per_order, pr ? pr.eater_fees_per_order : null)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)} ${pctChangeInline(r.delivery_fee_per_order, pr ? pr.delivery_fee_per_order : null)}</td><td>${fmtEur(r.service_fee_per_order, 2)} ${pctChangeInline(r.service_fee_per_order, pr ? pr.service_fee_per_order : null)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)} ${pctChangeInline(r.small_order_fee_per_order, pr ? pr.small_order_fee_per_order : null)}</td></tr>`;
     });
     if (others.length) {
       html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
@@ -680,7 +681,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     }));
   }
 
-  /* ---- City Breakdown Section (Change 4) ---- */
+  /* ---- City Breakdown Section with deltas ---- */
   function buildCityBreakdownSection() {
     const rawWeekly = safe(D.city_breakdown_weekly);
     if (!rawWeekly.length) return '';
@@ -688,25 +689,42 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     let cityData = aggregateCityData(rawWeekly, currentPeriod, currentGran);
     if (!cityData.length) return '';
 
+    const prevPeriod = getPrevPeriod(currentPeriod, currentGran);
+    let prevCityData = prevPeriod ? aggregateCityData(rawWeekly, prevPeriod, currentGran) : [];
+    const prevMap = {};
+    prevCityData.forEach(r => { prevMap[r.city] = r; });
+
     cityData.sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
     const totalGmv = cityData.reduce((a, b) => a + (b.gmv_eur || 0), 0);
     const top = cityData.slice(0, 10);
     const others = cityData.slice(10);
 
     let html = '<div class="sub-section-title">GMV by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
-    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>GMV, €</th><th>% of Total GMV</th></tr></thead><tbody>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>GMV, €</th><th>% of Total</th></tr></thead><tbody>';
     top.forEach(r => {
       const pct = totalGmv ? (r.gmv_eur / totalGmv * 100) : 0;
-      html += `<tr><td>${r.city}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.gmv_eur)}</td><td>${fmtPct(pct, 1)}</td></tr>`;
+      const pr = prevMap[r.city];
+      const ordChg = pctChangeInline(r.orders, pr ? pr.orders : null);
+      const gmvChg = pctChangeInline(r.gmv_eur, pr ? pr.gmv_eur : null);
+      html += `<tr><td>${r.city}</td><td>${fmt(r.orders)} ${ordChg}</td><td>${fmtEur(r.gmv_eur)} ${gmvChg}</td><td>${fmtPct(pct, 1)}</td></tr>`;
     });
     if (others.length) {
-      const oOrders = others.reduce((a, b) => a + (b.orders || 0), 0);
+      const oOrd = others.reduce((a, b) => a + (b.orders || 0), 0);
       const oGmv = others.reduce((a, b) => a + (b.gmv_eur || 0), 0);
-      const oPct = totalGmv ? (oGmv / totalGmv * 100) : 0;
-      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>${fmt(oOrders)}</td><td>${fmtEur(oGmv)}</td><td>${fmtPct(oPct, 1)}</td></tr>`;
+      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>${fmt(oOrd)}</td><td>${fmtEur(oGmv)}</td><td>${fmtPct(totalGmv ? oGmv/totalGmv*100 : 0, 1)}</td></tr>`;
     }
     html += '</tbody></table></div>';
     return html;
+  }
+
+  function getPrevPeriod(period, gran) {
+    const parts = period.replace(' 00:00:00','').split('-');
+    const yr = parseInt(parts[0]), mo = parseInt(parts[1]) - 1, day = parseInt(parts[2]);
+    let d;
+    if (gran === 'weekly') d = new Date(yr, mo, day - 7);
+    else if (gran === 'monthly') d = new Date(yr, mo - 1, 1);
+    else d = new Date(yr, mo - 3, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} 00:00:00`;
   }
 
   /* ---- Run Rate Block ---- */
@@ -912,9 +930,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += defectRow('Item Weight Defect, %', 'item_weight_defect_rate');
         html += defectRow('Item Price Defect, %', 'item_price_defect_rate');
       }
-    } else {
-      html += rowFmt('Replacement Rate, %', r => r.replacement_rate, v => fmtPct(v, 2), true);
-      html += rowFmt('Adjustment Rate, %', r => r.adjustment_rate, v => fmtPct(v, 2), true);
     }
 
     html += '</tbody></table></div>';
