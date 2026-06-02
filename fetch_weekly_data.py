@@ -337,10 +337,19 @@ def main():
     save_json("data_overview_camp_weekly.json", overview_camp_weekly)
     save_json("data_overview_camp_monthly.json", overview_camp_monthly)
 
-    # 4. Overview CP margins (monthly from monetary metrics)
+    # 4. Overview CP margins (weekly + monthly from monetary metrics)
     print("4. Fetching overview CP margins...")
+    overview_cp_weekly = [clean_row(r) for r in run_query(cursor, cp_margins_query("week"))]
     overview_cp_monthly = [clean_row(r) for r in run_query(cursor, cp_margins_query("month"))]
+    save_json("data_overview_cp_weekly.json", overview_cp_weekly)
     save_json("data_overview_cp_monthly.json", overview_cp_monthly)
+
+    # 4b. Partner CP margins (weekly + monthly from monetary metrics)
+    print("   Fetching partner CP margins...")
+    partner_cp_weekly = [clean_row(r) for r in run_query(cursor, cp_margins_query("week", "ALL_BY_GROUP"))]
+    partner_cp_monthly = [clean_row(r) for r in run_query(cursor, cp_margins_query("month", "ALL_BY_GROUP"))]
+    save_json("data_partner_cp_weekly.json", partner_cp_weekly)
+    save_json("data_partner_cp_monthly.json", partner_cp_monthly)
 
     # 5. Overview failed orders (monthly)
     print("5. Fetching failed orders...")

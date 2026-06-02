@@ -109,7 +109,10 @@ overview_fin_weekly = load_json("data_overview_fin_weekly.json")
 overview_fin_monthly = load_json("data_overview_fin_monthly.json")
 overview_camp_weekly = load_json("data_overview_camp_weekly.json")
 overview_camp_monthly = load_json("data_overview_camp_monthly.json")
+overview_cp_weekly_monetary = load_json("data_overview_cp_weekly.json")
 overview_cp_monthly = load_json("data_overview_cp_monthly.json")
+partner_cp_weekly_monetary = load_json("data_partner_cp_weekly.json")
+partner_cp_monthly_monetary = load_json("data_partner_cp_monthly.json")
 failed_monthly = load_json("data_failed_orders_monthly.json")
 gmv_monthly = load_json("data_gmv_by_partner_monthly.json")
 gmv_weekly = load_json("data_gmv_by_partner_weekly.json")
@@ -126,7 +129,8 @@ tenth_partner = metadata.get("tenth_partner")
 
 # Normalize all periods
 for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, overview_camp_monthly,
-            overview_cp_monthly, failed_monthly, gmv_monthly, gmv_weekly,
+            overview_cp_weekly_monetary, overview_cp_monthly, partner_cp_weekly_monetary, partner_cp_monthly_monetary,
+            failed_monthly, gmv_monthly, gmv_weekly,
             partner_fin_monthly, partner_fin_weekly, partner_camp_monthly, partner_camp_weekly]:
     for r in lst:
         r["period"] = fmt_period(r["period"])
@@ -138,18 +142,25 @@ for lst in [overview_camp_weekly, overview_camp_monthly, partner_camp_monthly, p
             if r.get(key) is not None and r[key] < 0:
                 r[key] = 0.0
 
-# ======== BUILD OVERVIEW CP/OPS FROM fact_provider_weekly ========
+# ======== BUILD OVERVIEW CP (from monetary metrics) & OPS (from fact_provider_weekly) ========
+# CP margins: use monetary metrics (accurate), add commission from ops
+ops_by_period = {fmt_period(r["period"]): r for r in ops_overview}
+
 overview_cp_weekly = []
+for r in overview_cp_weekly_monetary:
+    period = r["period"]
+    ops_r = ops_by_period.get(period, {})
+    overview_cp_weekly.append({
+        "period": period,
+        "cp_margin_pct": r.get("cp_margin_pct"),
+        "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+        "commission_gmv_pct": ops_r.get("commission_gmv_pct"),
+        "commission_aov_pct": ops_r.get("commission_aov_pct")
+    })
+
 overview_ops_weekly = []
 for r in ops_overview:
     period = fmt_period(r["period"])
-    overview_cp_weekly.append({
-        "period": period,
-        "cp_margin_pct": r["cp_margin_pct"],
-        "cp_l2_margin_pct": r["cp_l2_margin_pct"],
-        "commission_gmv_pct": r["commission_gmv_pct"],
-        "commission_aov_pct": r["commission_aov_pct"]
-    })
     overview_ops_weekly.append({
         "period": period,
         "delivered_orders": r["orders"],
@@ -166,23 +177,27 @@ for r in ops_overview:
         "adjustment_rate": 0
     })
 
-# Monthly CP/OPS aggregated from weekly
+# Monthly CP from monetary metrics, OPS from fact_provider_weekly
 monthly_ops_groups = defaultdict(list)
 for r in ops_overview:
     mkey = r["period"][:7] + "-01 00:00:00"
     monthly_ops_groups[mkey].append(r)
 
 overview_cp_monthly_computed = []
+for r in overview_cp_monthly:
+    period = r["period"]
+    ops_r = ops_by_period.get(period, {})
+    overview_cp_monthly_computed.append({
+        "period": period,
+        "cp_margin_pct": r.get("cp_margin_pct"),
+        "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+        "commission_gmv_pct": avg_vals([ops_by_period[fmt_period(o["period"])] for o in ops_overview if fmt_period(o["period"])[:7] == period[:7] and fmt_period(o["period"]) in ops_by_period], "commission_gmv_pct") if any(fmt_period(o["period"])[:7] == period[:7] for o in ops_overview) else None,
+        "commission_aov_pct": avg_vals([ops_by_period[fmt_period(o["period"])] for o in ops_overview if fmt_period(o["period"])[:7] == period[:7] and fmt_period(o["period"]) in ops_by_period], "commission_aov_pct") if any(fmt_period(o["period"])[:7] == period[:7] for o in ops_overview) else None,
+    })
+
 overview_ops_monthly_computed = []
 for period in sorted(monthly_ops_groups.keys()):
     rows = monthly_ops_groups[period]
-    overview_cp_monthly_computed.append({
-        "period": period,
-        "cp_margin_pct": avg_vals(rows, "cp_margin_pct"),
-        "cp_l2_margin_pct": avg_vals(rows, "cp_l2_margin_pct"),
-        "commission_gmv_pct": avg_vals(rows, "commission_gmv_pct"),
-        "commission_aov_pct": avg_vals(rows, "commission_aov_pct")
-    })
     overview_ops_monthly_computed.append({
         "period": period,
         "delivered_orders": sum(r["orders"] for r in rows),
@@ -288,22 +303,39 @@ pcamp_weekly_by_partner = defaultdict(list)
 for r in partner_camp_weekly:
     pcamp_weekly_by_partner[r["group_name"]].append(r)
 
+pcp_weekly_by_partner = defaultdict(list)
+for r in partner_cp_weekly_monetary:
+    pcp_weekly_by_partner[r["group_name"]].append(r)
+
+pcp_monthly_by_partner = defaultdict(list)
+for r in partner_cp_monthly_monetary:
+    pcp_monthly_by_partner[r["group_name"]].append(r)
+
 partners_data = {}
 for pname in partners_list:
-    rows = sorted(ops_by_partner.get(pname, []), key=lambda x: x["period"])
+    ops_rows = sorted(ops_by_partner.get(pname, []), key=lambda x: x["period"])
+    cp_monetary_w = sorted(pcp_weekly_by_partner.get(pname, []), key=lambda x: x["period"])
+    cp_monetary_m = sorted(pcp_monthly_by_partner.get(pname, []), key=lambda x: x["period"])
 
-    # Weekly CP + OPS
+    ops_by_p_period = {fmt_period(r["period"]): r for r in ops_rows}
+
+    # Weekly CP from monetary metrics, with commission from ops
     weekly_cp = []
-    weekly_ops = []
-    for r in rows:
-        period = fmt_period(r["period"])
+    for r in cp_monetary_w:
+        period = r["period"]
+        ops_r = ops_by_p_period.get(period, {})
         weekly_cp.append({
             "period": period,
-            "cp_margin_pct": r["cp_margin_pct"],
-            "cp_l2_margin_pct": r["cp_l2_margin_pct"],
-            "commission_gmv_pct": r["commission_gmv_pct"],
-            "commission_aov_pct": r["commission_aov_pct"]
+            "cp_margin_pct": r.get("cp_margin_pct"),
+            "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+            "commission_gmv_pct": ops_r.get("commission_gmv_pct"),
+            "commission_aov_pct": ops_r.get("commission_aov_pct")
         })
+
+    # Weekly OPS from fact_provider_weekly
+    weekly_ops = []
+    for r in ops_rows:
+        period = fmt_period(r["period"])
         weekly_ops.append({
             "period": period,
             "delivered_orders": r["orders"],
@@ -320,18 +352,17 @@ for pname in partners_list:
             "adjustment_rate": r.get("adjustment_rate", 0)
         })
 
-    # Monthly CP (from weekly)
-    m_cp_groups = defaultdict(list)
-    for r in weekly_cp:
-        m_cp_groups[r["period"][:7] + "-01 00:00:00"].append(r)
+    # Monthly CP from monetary metrics
     monthly_cp = []
-    for mp in sorted(m_cp_groups.keys()):
+    for r in cp_monetary_m:
+        period = r["period"]
+        ops_month = [ops_by_p_period[fmt_period(o["period"])] for o in ops_rows if fmt_period(o["period"])[:7] == period[:7] and fmt_period(o["period"]) in ops_by_p_period]
         monthly_cp.append({
-            "period": mp,
-            "cp_margin_pct": avg_vals(m_cp_groups[mp], "cp_margin_pct"),
-            "cp_l2_margin_pct": avg_vals(m_cp_groups[mp], "cp_l2_margin_pct"),
-            "commission_gmv_pct": avg_vals(m_cp_groups[mp], "commission_gmv_pct"),
-            "commission_aov_pct": avg_vals(m_cp_groups[mp], "commission_aov_pct")
+            "period": period,
+            "cp_margin_pct": r.get("cp_margin_pct"),
+            "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+            "commission_gmv_pct": avg_vals(ops_month, "commission_gmv_pct") if ops_month else None,
+            "commission_aov_pct": avg_vals(ops_month, "commission_aov_pct") if ops_month else None,
         })
 
     # Monthly OPS (from weekly)
