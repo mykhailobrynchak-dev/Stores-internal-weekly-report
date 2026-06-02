@@ -15,7 +15,8 @@ ALL_TRACKED_PARTNERS = [
     "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
     "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP", "MAXBEER GROUP",
-    "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM"
+    "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM",
+    "BRSM"
 ]
 
 
@@ -78,6 +79,8 @@ def aggregate_financial(rows):
         "active_users": sum(r.get("active_users", 0) or 0 for r in rows),
         "total_refunds_eur": round(sum(r.get("total_refunds_eur", 0) or 0 for r in rows), 2),
         "refund_rate_pct": round(sum(r.get("total_refunds_eur", 0) or 0 for r in rows) / total_gmv * 100, 2) if total_gmv > 0 else 0,
+        "supply_refund_gmv_pct": round(sum((r.get("supply_refund_gmv_pct", 0) or 0) * (r.get("gmv_eur", 0) or 0) for r in rows) / total_gmv, 2) if total_gmv > 0 else 0,
+        "demand_refund_gmv_pct": round(sum((r.get("demand_refund_gmv_pct", 0) or 0) * (r.get("gmv_eur", 0) or 0) for r in rows) / total_gmv, 2) if total_gmv > 0 else 0,
     }
 
 
@@ -91,6 +94,21 @@ def aggregate_campaigns(rows):
         "campaigns_discount_eur": round(total_discount, 2),
         "bolt_spend_eur": round(total_bolt, 2),
         "merchant_spend_eur": round(total_merch, 2),
+    }
+
+
+def aggregate_failed(rows):
+    """Aggregate failed-order rows (monthly->quarterly)."""
+    total_placed = sum(r.get("total_placed", 0) or 0 for r in rows)
+    delivered = sum(r.get("delivered", 0) or 0 for r in rows)
+    failed_merchant = sum(r.get("failed_merchant", 0) or 0 for r in rows)
+    failed_bolt_courier = sum(r.get("failed_bolt_courier", 0) or 0 for r in rows)
+    return {
+        "total_placed": total_placed,
+        "delivered": delivered,
+        "failed_merchant": failed_merchant,
+        "failed_bolt_courier": failed_bolt_courier,
+        "failed_rate_total": round((failed_merchant + failed_bolt_courier) / max(1, total_placed) * 100, 2),
     }
 
 
@@ -109,10 +127,6 @@ overview_fin_weekly = load_json("data_overview_fin_weekly.json")
 overview_fin_monthly = load_json("data_overview_fin_monthly.json")
 overview_camp_weekly = load_json("data_overview_camp_weekly.json")
 overview_camp_monthly = load_json("data_overview_camp_monthly.json")
-overview_cp_weekly_monetary = load_json("data_overview_cp_weekly.json")
-overview_cp_monthly = load_json("data_overview_cp_monthly.json")
-partner_cp_weekly_monetary = load_json("data_partner_cp_weekly.json")
-partner_cp_monthly_monetary = load_json("data_partner_cp_monthly.json")
 failed_monthly = load_json("data_failed_orders_monthly.json")
 gmv_monthly = load_json("data_gmv_by_partner_monthly.json")
 gmv_weekly = load_json("data_gmv_by_partner_weekly.json")
@@ -123,15 +137,22 @@ partner_fin_weekly = load_json("data_partner_fin_weekly.json")
 partner_camp_monthly = load_json("data_partner_camp_monthly.json")
 partner_camp_weekly = load_json("data_partner_camp_weekly.json")
 acceptance = load_json("data_acceptance.json")
+item_defects_raw = load_json("data_item_defects_weekly.json")
+city_breakdown_weekly = load_json("data_city_breakdown_weekly.json")
+city_eater_fees_weekly = load_json("data_city_eater_fees_weekly.json")
+failed_overview_weekly = load_json("data_failed_orders_weekly.json")
+partner_failed_weekly = load_json("data_partner_failed_weekly.json")
+partner_failed_monthly = load_json("data_partner_failed_monthly.json")
 
 partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
 
 # Normalize all periods
 for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, overview_camp_monthly,
-            overview_cp_weekly_monetary, overview_cp_monthly, partner_cp_weekly_monetary, partner_cp_monthly_monetary,
             failed_monthly, gmv_monthly, gmv_weekly,
-            partner_fin_monthly, partner_fin_weekly, partner_camp_monthly, partner_camp_weekly]:
+            partner_fin_monthly, partner_fin_weekly, partner_camp_monthly, partner_camp_weekly,
+            failed_overview_weekly, partner_failed_weekly, partner_failed_monthly,
+            item_defects_raw]:
     for r in lst:
         r["period"] = fmt_period(r["period"])
 
@@ -142,20 +163,18 @@ for lst in [overview_camp_weekly, overview_camp_monthly, partner_camp_monthly, p
             if r.get(key) is not None and r[key] < 0:
                 r[key] = 0.0
 
-# ======== BUILD OVERVIEW CP (from monetary metrics) & OPS (from fact_provider_weekly) ========
-# CP margins: use monetary metrics (accurate), add commission from ops
+# ======== BUILD OVERVIEW CP (from ops data) & OPS (from fact_provider_weekly) ========
 ops_by_period = {fmt_period(r["period"]): r for r in ops_overview}
 
 overview_cp_weekly = []
-for r in overview_cp_weekly_monetary:
-    period = r["period"]
-    ops_r = ops_by_period.get(period, {})
+for r in ops_overview:
+    period = fmt_period(r["period"])
     overview_cp_weekly.append({
         "period": period,
         "cp_margin_pct": r.get("cp_margin_pct"),
         "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
-        "commission_gmv_pct": ops_r.get("commission_gmv_pct"),
-        "commission_aov_pct": ops_r.get("commission_aov_pct")
+        "commission_gmv_pct": r.get("commission_gmv_pct"),
+        "commission_aov_pct": r.get("commission_aov_pct"),
     })
 
 overview_ops_weekly = []
@@ -164,7 +183,8 @@ for r in ops_overview:
     overview_ops_weekly.append({
         "period": period,
         "delivered_orders": r["orders"],
-        "active_stores": r["active_stores"],
+        "total_stores": r.get("total_stores"),
+        "stores_with_orders": r.get("stores_with_orders"),
         "acceptance_rate": r["acceptance_rate"],
         "availability_rate": r["availability_rate"],
         "avg_rating": r["avg_rating"],
@@ -174,25 +194,24 @@ for r in ops_overview:
         "late_pickup_rate": r["late_pickup_rate"],
         "avg_delivery_minutes": r["avg_delivery_min"],
         "replacement_rate": 0,
-        "adjustment_rate": 0
+        "adjustment_rate": 0,
     })
 
-# Monthly CP from monetary metrics, OPS from fact_provider_weekly
+# Monthly CP from ops weekly (averaged), OPS from fact_provider_weekly
 monthly_ops_groups = defaultdict(list)
 for r in ops_overview:
-    mkey = r["period"][:7] + "-01 00:00:00"
+    mkey = fmt_period(r["period"])[:7] + "-01 00:00:00"
     monthly_ops_groups[mkey].append(r)
 
 overview_cp_monthly_computed = []
-for r in overview_cp_monthly:
-    period = r["period"]
-    ops_r = ops_by_period.get(period, {})
+for period in sorted(monthly_ops_groups.keys()):
+    rows = monthly_ops_groups[period]
     overview_cp_monthly_computed.append({
         "period": period,
-        "cp_margin_pct": r.get("cp_margin_pct"),
-        "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
-        "commission_gmv_pct": avg_vals([ops_by_period[fmt_period(o["period"])] for o in ops_overview if fmt_period(o["period"])[:7] == period[:7] and fmt_period(o["period"]) in ops_by_period], "commission_gmv_pct") if any(fmt_period(o["period"])[:7] == period[:7] for o in ops_overview) else None,
-        "commission_aov_pct": avg_vals([ops_by_period[fmt_period(o["period"])] for o in ops_overview if fmt_period(o["period"])[:7] == period[:7] and fmt_period(o["period"]) in ops_by_period], "commission_aov_pct") if any(fmt_period(o["period"])[:7] == period[:7] for o in ops_overview) else None,
+        "cp_margin_pct": avg_vals(rows, "cp_margin_pct"),
+        "cp_l2_margin_pct": avg_vals(rows, "cp_l2_margin_pct"),
+        "commission_gmv_pct": avg_vals(rows, "commission_gmv_pct"),
+        "commission_aov_pct": avg_vals(rows, "commission_aov_pct"),
     })
 
 overview_ops_monthly_computed = []
@@ -201,7 +220,8 @@ for period in sorted(monthly_ops_groups.keys()):
     overview_ops_monthly_computed.append({
         "period": period,
         "delivered_orders": sum(r["orders"] for r in rows),
-        "active_stores": max(r["active_stores"] for r in rows),
+        "total_stores": max((r.get("total_stores") or 0) for r in rows),
+        "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in rows),
         "acceptance_rate": avg_vals(rows, "acceptance_rate"),
         "availability_rate": avg_vals(rows, "availability_rate"),
         "avg_rating": avg_vals(rows, "avg_rating"),
@@ -211,7 +231,7 @@ for period in sorted(monthly_ops_groups.keys()):
         "late_pickup_rate": avg_vals(rows, "late_pickup_rate"),
         "avg_delivery_minutes": avg_vals(rows, "avg_delivery_min"),
         "replacement_rate": 0,
-        "adjustment_rate": 0
+        "adjustment_rate": 0,
     })
 
 # ======== QUARTERLY AGGREGATION ========
@@ -237,12 +257,13 @@ for period in sorted(q_ops_groups.keys()):
         "cp_margin_pct": avg_vals(rows, "cp_margin_pct"),
         "cp_l2_margin_pct": avg_vals(rows, "cp_l2_margin_pct"),
         "commission_gmv_pct": avg_vals(rows, "commission_gmv_pct"),
-        "commission_aov_pct": avg_vals(rows, "commission_aov_pct")
+        "commission_aov_pct": avg_vals(rows, "commission_aov_pct"),
     })
     overview_ops_quarterly.append({
         "period": period,
         "delivered_orders": sum(r["orders"] for r in rows),
-        "active_stores": max(r["active_stores"] for r in rows),
+        "total_stores": max((r.get("total_stores") or 0) for r in rows),
+        "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in rows),
         "acceptance_rate": avg_vals(rows, "acceptance_rate"),
         "availability_rate": avg_vals(rows, "availability_rate"),
         "avg_rating": avg_vals(rows, "avg_rating"),
@@ -252,7 +273,7 @@ for period in sorted(q_ops_groups.keys()):
         "late_pickup_rate": avg_vals(rows, "late_pickup_rate"),
         "avg_delivery_minutes": avg_vals(rows, "avg_delivery_min"),
         "replacement_rate": 0,
-        "adjustment_rate": 0
+        "adjustment_rate": 0,
     })
 
 # Campaigns quarterly
@@ -265,21 +286,57 @@ for period in sorted(q_camp_groups.keys()):
     agg["period"] = period
     overview_camp_quarterly.append(agg)
 
-# Failed orders quarterly
+# Failed orders quarterly (overview)
 q_fail_groups = defaultdict(list)
 for r in failed_monthly:
     q_fail_groups[quarter_key(r["period"])].append(r)
 failed_quarterly = []
 for period in sorted(q_fail_groups.keys()):
-    rows = q_fail_groups[period]
-    failed_quarterly.append({
-        "period": period,
-        "total_placed": sum(r.get("total_placed", 0) or 0 for r in rows),
-        "delivered": sum(r.get("delivered", 0) or 0 for r in rows),
-        "failed_merchant": sum(r.get("failed_merchant", 0) or 0 for r in rows),
-        "failed_bolt_courier": sum(r.get("failed_bolt_courier", 0) or 0 for r in rows),
-        "failed_rate_total": round(sum(r.get("failed_merchant", 0) or 0 for r in rows) + sum(r.get("failed_bolt_courier", 0) or 0 for r in rows)) / max(1, sum(r.get("total_placed", 0) or 0 for r in rows)) * 100
-    })
+    agg = aggregate_failed(q_fail_groups[period])
+    agg["period"] = period
+    failed_quarterly.append(agg)
+
+# ======== ITEM DEFECTS ========
+print("Processing item defects...")
+defects_by_partner = defaultdict(list)
+for r in item_defects_raw:
+    pname = r.get("group_name") or r.get("partner_name")
+    if pname:
+        defects_by_partner[pname].append(r)
+
+DEFECT_FIELDS = ["quantity_defect_rate", "item_replacement_rate", "weighted_defect_rate", "price_defect_rate"]
+item_defects = {"weekly": {}, "monthly": {}, "quarterly": {}}
+for pname, rows in defects_by_partner.items():
+    weekly_d = sorted([
+        {"period": r["period"], **{f: r.get(f) for f in DEFECT_FIELDS}}
+        for r in rows
+    ], key=lambda x: x["period"])
+    item_defects["weekly"][pname] = weekly_d
+
+    monthly_groups = defaultdict(list)
+    for r in weekly_d:
+        monthly_groups[r["period"][:7] + "-01 00:00:00"].append(r)
+    item_defects["monthly"][pname] = sorted([
+        {"period": p, **{f: avg_vals(g, f) for f in DEFECT_FIELDS}}
+        for p, g in monthly_groups.items()
+    ], key=lambda x: x["period"])
+
+    quarterly_groups_d = defaultdict(list)
+    for r in weekly_d:
+        quarterly_groups_d[quarter_key(r["period"])].append(r)
+    item_defects["quarterly"][pname] = sorted([
+        {"period": p, **{f: avg_vals(g, f) for f in DEFECT_FIELDS}}
+        for p, g in quarterly_groups_d.items()
+    ], key=lambda x: x["period"])
+
+# ======== FAILED ORDERS BY PARTNER ========
+pfailed_weekly_by_partner = defaultdict(list)
+for r in partner_failed_weekly:
+    pfailed_weekly_by_partner[r["group_name"]].append(r)
+
+pfailed_monthly_by_partner = defaultdict(list)
+for r in partner_failed_monthly:
+    pfailed_monthly_by_partner[r["group_name"]].append(r)
 
 # ======== BUILD PARTNER DATA ========
 print("Building partner data...")
@@ -303,33 +360,21 @@ pcamp_weekly_by_partner = defaultdict(list)
 for r in partner_camp_weekly:
     pcamp_weekly_by_partner[r["group_name"]].append(r)
 
-pcp_weekly_by_partner = defaultdict(list)
-for r in partner_cp_weekly_monetary:
-    pcp_weekly_by_partner[r["group_name"]].append(r)
-
-pcp_monthly_by_partner = defaultdict(list)
-for r in partner_cp_monthly_monetary:
-    pcp_monthly_by_partner[r["group_name"]].append(r)
-
 partners_data = {}
 for pname in partners_list:
     ops_rows = sorted(ops_by_partner.get(pname, []), key=lambda x: x["period"])
-    cp_monetary_w = sorted(pcp_weekly_by_partner.get(pname, []), key=lambda x: x["period"])
-    cp_monetary_m = sorted(pcp_monthly_by_partner.get(pname, []), key=lambda x: x["period"])
-
     ops_by_p_period = {fmt_period(r["period"]): r for r in ops_rows}
 
-    # Weekly CP from monetary metrics, with commission from ops
+    # Weekly CP from ops data (cp_margin_pct, cp_l2_margin_pct, commission fields)
     weekly_cp = []
-    for r in cp_monetary_w:
-        period = r["period"]
-        ops_r = ops_by_p_period.get(period, {})
+    for r in ops_rows:
+        period = fmt_period(r["period"])
         weekly_cp.append({
             "period": period,
             "cp_margin_pct": r.get("cp_margin_pct"),
             "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
-            "commission_gmv_pct": ops_r.get("commission_gmv_pct"),
-            "commission_aov_pct": ops_r.get("commission_aov_pct")
+            "commission_gmv_pct": r.get("commission_gmv_pct"),
+            "commission_aov_pct": r.get("commission_aov_pct"),
         })
 
     # Weekly OPS from fact_provider_weekly
@@ -339,7 +384,8 @@ for pname in partners_list:
         weekly_ops.append({
             "period": period,
             "delivered_orders": r["orders"],
-            "active_stores": r["active_stores"],
+            "total_stores": r.get("total_stores"),
+            "stores_with_orders": r.get("stores_with_orders"),
             "acceptance_rate": r["acceptance_rate"],
             "availability_rate": r["availability_rate"],
             "avg_rating": r["avg_rating"],
@@ -349,20 +395,22 @@ for pname in partners_list:
             "late_pickup_rate": r["late_pickup_rate"],
             "avg_delivery_minutes": r["avg_delivery_minutes"],
             "replacement_rate": r.get("replacement_rate", 0),
-            "adjustment_rate": r.get("adjustment_rate", 0)
+            "adjustment_rate": r.get("adjustment_rate", 0),
         })
 
-    # Monthly CP from monetary metrics
+    # Monthly CP (averaged from weekly ops)
+    m_cp_groups = defaultdict(list)
+    for r in weekly_cp:
+        m_cp_groups[r["period"][:7] + "-01 00:00:00"].append(r)
     monthly_cp = []
-    for r in cp_monetary_m:
-        period = r["period"]
-        ops_month = [ops_by_p_period[fmt_period(o["period"])] for o in ops_rows if fmt_period(o["period"])[:7] == period[:7] and fmt_period(o["period"]) in ops_by_p_period]
+    for mp in sorted(m_cp_groups.keys()):
+        g = m_cp_groups[mp]
         monthly_cp.append({
-            "period": period,
-            "cp_margin_pct": r.get("cp_margin_pct"),
-            "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
-            "commission_gmv_pct": avg_vals(ops_month, "commission_gmv_pct") if ops_month else None,
-            "commission_aov_pct": avg_vals(ops_month, "commission_aov_pct") if ops_month else None,
+            "period": mp,
+            "cp_margin_pct": avg_vals(g, "cp_margin_pct"),
+            "cp_l2_margin_pct": avg_vals(g, "cp_l2_margin_pct"),
+            "commission_gmv_pct": avg_vals(g, "commission_gmv_pct"),
+            "commission_aov_pct": avg_vals(g, "commission_aov_pct"),
         })
 
     # Monthly OPS (from weekly)
@@ -375,7 +423,8 @@ for pname in partners_list:
         monthly_ops.append({
             "period": mp,
             "delivered_orders": sum(r["delivered_orders"] for r in g),
-            "active_stores": max(r["active_stores"] for r in g),
+            "total_stores": max((r.get("total_stores") or 0) for r in g),
+            "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in g),
             "acceptance_rate": avg_vals(g, "acceptance_rate"),
             "availability_rate": avg_vals(g, "availability_rate"),
             "avg_rating": avg_vals(g, "avg_rating"),
@@ -385,7 +434,7 @@ for pname in partners_list:
             "late_pickup_rate": avg_vals(g, "late_pickup_rate"),
             "avg_delivery_minutes": avg_vals(g, "avg_delivery_minutes"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
-            "adjustment_rate": avg_vals(g, "adjustment_rate")
+            "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })
 
     # Weekly/Monthly financial from fact_order_delivery
@@ -396,20 +445,31 @@ for pname in partners_list:
     p_camp_w = [{"period": fmt_period(r["period"]), **{k: v for k, v in r.items() if k not in ("period", "group_name")}} for r in pcamp_weekly_by_partner.get(pname, [])]
     p_camp_m = [{"period": fmt_period(r["period"]), **{k: v for k, v in r.items() if k not in ("period", "group_name")}} for r in pcamp_monthly_by_partner.get(pname, [])]
 
+    # Failed orders per partner
+    p_failed_w = sorted([
+        {"period": fmt_period(r["period"]), **{k: v for k, v in r.items() if k not in ("period", "group_name")}}
+        for r in pfailed_weekly_by_partner.get(pname, [])
+    ], key=lambda x: x["period"])
+    p_failed_m = sorted([
+        {"period": fmt_period(r["period"]), **{k: v for k, v in r.items() if k not in ("period", "group_name")}}
+        for r in pfailed_monthly_by_partner.get(pname, [])
+    ], key=lambda x: x["period"])
+
     # Quarterly aggregation
-    q_cp_groups = group_by_quarter(weekly_cp)
+    q_cp_groups_p = group_by_quarter(weekly_cp)
     q_ops_groups_p = group_by_quarter(weekly_ops)
     q_fin_groups_p = group_by_quarter(p_fin_m) if p_fin_m else {}
     q_camp_groups_p = group_by_quarter(p_camp_m) if p_camp_m else {}
+    q_failed_groups_p = group_by_quarter(p_failed_m) if p_failed_m else {}
 
     quarterly_cp = []
-    for qp in sorted(q_cp_groups.keys()):
+    for qp in sorted(q_cp_groups_p.keys()):
         quarterly_cp.append({
             "period": qp,
-            "cp_margin_pct": avg_vals(q_cp_groups[qp], "cp_margin_pct"),
-            "cp_l2_margin_pct": avg_vals(q_cp_groups[qp], "cp_l2_margin_pct"),
-            "commission_gmv_pct": avg_vals(q_cp_groups[qp], "commission_gmv_pct"),
-            "commission_aov_pct": avg_vals(q_cp_groups[qp], "commission_aov_pct")
+            "cp_margin_pct": avg_vals(q_cp_groups_p[qp], "cp_margin_pct"),
+            "cp_l2_margin_pct": avg_vals(q_cp_groups_p[qp], "cp_l2_margin_pct"),
+            "commission_gmv_pct": avg_vals(q_cp_groups_p[qp], "commission_gmv_pct"),
+            "commission_aov_pct": avg_vals(q_cp_groups_p[qp], "commission_aov_pct"),
         })
 
     quarterly_ops = []
@@ -418,7 +478,8 @@ for pname in partners_list:
         quarterly_ops.append({
             "period": qp,
             "delivered_orders": sum(r["delivered_orders"] for r in g),
-            "active_stores": max(r["active_stores"] for r in g),
+            "total_stores": max((r.get("total_stores") or 0) for r in g),
+            "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in g),
             "acceptance_rate": avg_vals(g, "acceptance_rate"),
             "availability_rate": avg_vals(g, "availability_rate"),
             "avg_rating": avg_vals(g, "avg_rating"),
@@ -428,7 +489,7 @@ for pname in partners_list:
             "late_pickup_rate": avg_vals(g, "late_pickup_rate"),
             "avg_delivery_minutes": avg_vals(g, "avg_delivery_minutes"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
-            "adjustment_rate": avg_vals(g, "adjustment_rate")
+            "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })
 
     quarterly_fin = []
@@ -444,10 +505,16 @@ for pname in partners_list:
         agg["period"] = qp
         quarterly_camp.append(agg)
 
+    quarterly_failed = []
+    for qp in sorted(q_failed_groups_p.keys()):
+        agg = aggregate_failed(q_failed_groups_p[qp])
+        agg["period"] = qp
+        quarterly_failed.append(agg)
+
     partners_data[pname] = {
-        "weekly": {"financial": p_fin_w, "cp_margins": weekly_cp, "operational": weekly_ops, "failed_orders": [], "campaigns": p_camp_w},
-        "monthly": {"financial": p_fin_m, "cp_margins": monthly_cp, "operational": monthly_ops, "failed_orders": [], "campaigns": p_camp_m},
-        "quarterly": {"financial": quarterly_fin, "cp_margins": quarterly_cp, "operational": quarterly_ops, "failed_orders": [], "campaigns": quarterly_camp}
+        "weekly": {"financial": p_fin_w, "cp_margins": weekly_cp, "operational": weekly_ops, "failed_orders": p_failed_w, "campaigns": p_camp_w},
+        "monthly": {"financial": p_fin_m, "cp_margins": monthly_cp, "operational": monthly_ops, "failed_orders": p_failed_m, "campaigns": p_camp_m},
+        "quarterly": {"financial": quarterly_fin, "cp_margins": quarterly_cp, "operational": quarterly_ops, "failed_orders": quarterly_failed, "campaigns": quarterly_camp},
     }
 
 # ======== ITEM DISCOUNT PROMO SHARE ========
@@ -472,6 +539,13 @@ for pname in partners_list:
     item_discount_promo["monthly"][pname] = [{"period": p, "value": round(sum(v) / len(v), 2)} for p, v in sorted(monthly_groups.items())]
     item_discount_promo["quarterly"][pname] = [{"period": p, "value": round(sum(v) / len(v), 2)} for p, v in sorted(quarterly_groups_promo.items())]
 
+# ======== EMPLOYEE GROUPS ========
+EMPLOYEE_GROUPS = {
+    "Krystyna": ["LEPRUKON", "DIMPYVA", "CHILL TIME", "RODYNNA KOVBASKA", "NO TABOO"],
+    "Mykhailo": ["HOP HEY", "BEER MARKET", "KOPIYKA", "LOKO", "PYVNA BORODA", "BRSM", "ANRI-PHARM", "CAFE RYNOK", "BEERLAND K", "WINETIME", "SPRAGA", "MAXBEER", "FLOWER SHOP"],
+    "Viktor": ["TAISTRA", "SPAR", "RUKAVYCHKA", "REMESLO BREWERY", "VARUS", "TOCHKA"],
+}
+
 # ======== ASSEMBLE FINAL DATA ========
 DATA = {
     "generated_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
@@ -484,9 +558,9 @@ DATA = {
             "financial": overview_fin_weekly,
             "cp_margins": overview_cp_weekly,
             "operational": overview_ops_weekly,
-            "failed_orders": [],
+            "failed_orders": failed_overview_weekly,
             "campaigns": overview_camp_weekly,
-            "gmv_by_partner": gmv_weekly
+            "gmv_by_partner": gmv_weekly,
         },
         "monthly": {
             "financial": overview_fin_monthly,
@@ -494,7 +568,7 @@ DATA = {
             "operational": overview_ops_monthly_computed,
             "failed_orders": failed_monthly,
             "campaigns": overview_camp_monthly,
-            "gmv_by_partner": gmv_monthly
+            "gmv_by_partner": gmv_monthly,
         },
         "quarterly": {
             "financial": overview_fin_quarterly,
@@ -502,12 +576,16 @@ DATA = {
             "operational": overview_ops_quarterly,
             "failed_orders": failed_quarterly,
             "campaigns": overview_camp_quarterly,
-            "gmv_by_partner": gmv_monthly
-        }
+            "gmv_by_partner": gmv_monthly,
+        },
     },
     "acceptance_availability": acceptance if acceptance else {"overview": []},
     "partners": partners_data,
-    "item_discount_promo": item_discount_promo
+    "item_discount_promo": item_discount_promo,
+    "item_defects": item_defects,
+    "city_breakdown_weekly": city_breakdown_weekly,
+    "city_eater_fees_weekly": city_eater_fees_weekly,
+    "employee_groups": EMPLOYEE_GROUPS,
 }
 
 # ======== GENERATE HTML ========

@@ -100,6 +100,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .view-toggle button { padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; background: var(--card); color: var(--text-secondary); font-weight: 500; }
 .view-toggle button.active { background: var(--dark); color: #fff; }
 
+.city-toggle-btn { display: inline-block; padding: 4px 14px; font-size: 11px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: var(--card); color: var(--text-secondary); font-weight: 500; margin: 8px 0; transition: all 0.2s; }
+.city-toggle-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+
 @media (max-width: 1000px) {
   .chart-row { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
@@ -143,6 +146,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   let currentGran = 'weekly';
   let currentPeriod = null;
   let charts = [];
+  let showCityBreakdown = false;
+  let showCityEaterFees = false;
 
   const $ = id => document.getElementById(id);
 
@@ -202,17 +207,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   function last(arr) { return arr.length ? arr[arr.length - 1] : null; }
   function prev(arr) { return arr.length >= 2 ? arr[arr.length - 2] : null; }
 
-  /* ---- sidebar ---- */
+  /* ---- sidebar (Change 1: employee grouping) ---- */
   function buildSidebar() {
     const nav = $('sidebarNav');
+    const highlightedPartners = new Set(['LOKO', 'VARUS', 'RUKAVYCHKA']);
+    const partnerSet = new Set(safe(D.partners_list));
     let html = '<div class="nav-section-title">Overview</div>';
     html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
-    html += '<div class="nav-section-title">Partners</div>';
-    const highlightedPartners = new Set(['LOKO', 'VARUS', 'RUKAVYCHKA']);
-    safe(D.partners_list).forEach(p => {
-      const hl = highlightedPartners.has(p) ? ' highlighted' : '';
-      html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
-    });
+
+    const groups = D.employee_groups || {};
+    const groupNames = Object.keys(groups);
+
+    if (groupNames.length) {
+      const listed = new Set();
+      groupNames.forEach(emp => {
+        html += `<div class="nav-section-title">${emp}</div>`;
+        safe(groups[emp]).forEach(p => {
+          if (!partnerSet.has(p)) return;
+          listed.add(p);
+          const hl = highlightedPartners.has(p) ? ' highlighted' : '';
+          html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+        });
+      });
+      const unlisted = safe(D.partners_list).filter(p => !listed.has(p));
+      if (unlisted.length) {
+        html += '<div class="nav-section-title">Other</div>';
+        unlisted.forEach(p => {
+          const hl = highlightedPartners.has(p) ? ' highlighted' : '';
+          html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+        });
+      }
+    } else {
+      html += '<div class="nav-section-title">Partners</div>';
+      safe(D.partners_list).forEach(p => {
+        const hl = highlightedPartners.has(p) ? ' highlighted' : '';
+        html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+      });
+    }
+
     nav.innerHTML = html;
     nav.querySelectorAll('.nav-item').forEach(el => {
       el.addEventListener('click', () => { currentView = el.dataset.view; currentPeriod = null; render(); });
@@ -273,6 +305,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return safe((D.acceptance_availability || {})[currentView]);
   }
 
+  /* ---- aggregate weekly city data for non-weekly granularity ---- */
+  function aggregateCityData(weeklyData, targetPeriod, targetGran) {
+    if (targetGran === 'weekly') {
+      return safe(weeklyData).filter(r => r.period === targetPeriod);
+    }
+    const parts = targetPeriod.replace(' 00:00:00','').split('-');
+    const yr = parseInt(parts[0]), mo = parseInt(parts[1]) - 1;
+    let startDate, endDate;
+    if (targetGran === 'monthly') {
+      startDate = new Date(yr, mo, 1);
+      endDate = new Date(yr, mo + 1, 0);
+    } else {
+      const qStartMonth = Math.floor(mo / 3) * 3;
+      startDate = new Date(yr, qStartMonth, 1);
+      endDate = new Date(yr, qStartMonth + 3, 0);
+    }
+    const cityMap = {};
+    safe(weeklyData).forEach(r => {
+      const rDate = new Date(r.period.replace(' 00:00:00',''));
+      if (rDate >= startDate && rDate <= endDate) {
+        if (!cityMap[r.city]) cityMap[r.city] = { city: r.city, orders: 0, gmv_eur: 0 };
+        cityMap[r.city].orders += (r.orders || 0);
+        cityMap[r.city].gmv_eur += (r.gmv_eur || 0);
+      }
+    });
+    return Object.values(cityMap);
+  }
+
   /* ---- render ---- */
   function render() {
     destroyCharts();
@@ -328,6 +388,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       if (currentView === 'overview') {
         html += kpi('Demand Incentives, % GMV', fmtPct(demandPct, 1), {v: demandPct}, pDemandPct != null ? {v: pDemandPct} : null, 'v');
       }
+
+      /* Change 2: Refund metrics */
+      if (c.supply_refund_gmv_pct != null) {
+        html += kpi('Supply Refunds GMV Share, %', fmtPct(c.supply_refund_gmv_pct, 2), c, p, 'supply_refund_gmv_pct', {inverted: true});
+      }
+      if (c.demand_refund_gmv_pct != null) {
+        html += kpi('Demand Refunds % GMV', fmtPct(c.demand_refund_gmv_pct, 2), c, p, 'demand_refund_gmv_pct', {inverted: true});
+      }
+
       html += '</div>';
 
       html += '<div class="sub-row">';
@@ -347,6 +416,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     // Eater Fees Dynamics Table
     html += buildEaterFeesDynamicsTable(fin);
 
+    /* Change 6: City-level Eater Fees toggle */
+    if (currentView === 'overview' && currentGran === 'weekly' && safe(D.city_eater_fees_weekly).length) {
+      html += `<div><span class="city-toggle-btn ${showCityEaterFees?'active':''}" id="cityEaterFeesToggle">By City</span></div>`;
+      if (showCityEaterFees) {
+        html += buildCityEaterFeesTable();
+      }
+    }
+
     // Charts row
     html += '<div class="chart-row">';
     html += '<div class="chart-container"><h3>GMV &amp; Orders Trend</h3><div class="chart-wrap"><canvas id="chartGmvOrders"></canvas></div></div>';
@@ -359,6 +436,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       if (gmvPart.length || safe(D.top_partners_gmv).length) {
         html += '<div class="chart-row"><div class="chart-container full"><h3>GMV Share by Partner</h3><div class="chart-wrap" style="height:350px;max-width:500px;margin:0 auto;"><canvas id="chartGmvShare"></canvas></div></div></div>';
       }
+
+      /* Change 4: City breakdown table (overview only) */
+      html += buildCityBreakdownSection();
     }
     html += '</div>';
 
@@ -372,7 +452,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     if (oc || aaLast) {
       html += '<div class="kpi-grid">';
-      if (oc) html += kpi('Active Stores', fmt(oc.active_stores), oc, op, 'active_stores');
+      if (oc) {
+        /* Change 7: Active Stores split */
+        if (oc.total_stores != null) {
+          html += kpi('Active Stores', fmt(oc.total_stores), oc, op, 'total_stores');
+        } else {
+          html += kpi('Active Stores', fmt(oc.active_stores), oc, op, 'active_stores');
+        }
+        if (oc.stores_with_orders != null) {
+          html += kpi('Stores with Orders', fmt(oc.stores_with_orders), oc, op, 'stores_with_orders');
+        }
+      }
       if (oc && oc.acceptance_rate != null) {
         html += kpi('Acceptance Rate', fmtPct(oc.acceptance_rate, 1), oc, op, 'acceptance_rate');
         html += kpi('Availability', fmtPct(oc.availability_rate, 1), oc, op, 'availability_rate');
@@ -387,8 +477,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
-        if (currentView !== 'overview' && oc.replacement_rate != null) html += kpi('Item Replacement Rate', fmtPct(oc.replacement_rate, 2), oc, op, 'replacement_rate', {inverted: true});
-        if (currentView !== 'overview' && oc.adjustment_rate != null) html += kpi('Item Adjustment Rate', fmtPct(oc.adjustment_rate, 2), oc, op, 'adjustment_rate', {inverted: true});
+
+        /* Change 3: Item defect metrics for brand views */
+        if (currentView !== 'overview') {
+          const defectsArr = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
+          const defRow = defectsArr.find(r => r.period === currentPeriod) || last(defectsArr);
+          const defRowPIdx = defRow ? defectsArr.indexOf(defRow) : -1;
+          const defPrev = defRowPIdx > 0 ? defectsArr[defRowPIdx - 1] : null;
+          if (defRow) {
+            if (defRow.item_quantity_defect_rate != null) html += kpi('Item Quantity Defect Rate, %', fmtPct(defRow.item_quantity_defect_rate, 2), defRow, defPrev, 'item_quantity_defect_rate', {inverted: true});
+            if (defRow.item_replacement_rate != null) html += kpi('Item Replacement Rate, %', fmtPct(defRow.item_replacement_rate, 2), defRow, defPrev, 'item_replacement_rate', {inverted: true});
+            if (defRow.item_weight_defect_rate != null) html += kpi('Item Weight Defect Rate, %', fmtPct(defRow.item_weight_defect_rate, 2), defRow, defPrev, 'item_weight_defect_rate', {inverted: true});
+            if (defRow.item_price_defect_rate != null) html += kpi('Item Price Defect Rate, %', fmtPct(defRow.item_price_defect_rate, 2), defRow, defPrev, 'item_price_defect_rate', {inverted: true});
+          }
+        }
       }
       html += '</div>';
     }
@@ -433,6 +535,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     $('content').innerHTML = html;
 
+    /* ---- attach city toggle event listeners ---- */
+    const cityToggle = document.getElementById('cityBreakdownToggle');
+    if (cityToggle) {
+      cityToggle.addEventListener('click', () => { showCityBreakdown = !showCityBreakdown; render(); });
+    }
+    const cityEfToggle = document.getElementById('cityEaterFeesToggle');
+    if (cityEfToggle) {
+      cityEfToggle.addEventListener('click', () => { showCityEaterFees = !showCityEaterFees; render(); });
+    }
+
     /* ---- draw charts ---- */
     drawGmvOrdersChart(fin);
     drawEaterFeesChart(fin);
@@ -468,7 +580,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     html += '<tr class="section-row"><td colspan="' + (last10.length + 1) + '">Eater Fees Summary</td></tr>';
 
-    // Eater Fees / Order
     html += '<tr><td>Eater Fees / Order, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].eater_fees_per_order : null;
@@ -476,7 +587,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Total Eater Fees
     html += '<tr><td>Total Eater Fees, €</td>';
     last10.forEach((r, i) => {
       const total = r.eater_fees_per_order * r.orders;
@@ -487,7 +597,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     html += '<tr class="section-row"><td colspan="' + (last10.length + 1) + '">Breakdown — Per Order</td></tr>';
 
-    // Service Fee / Order
     html += '<tr><td>Service Fee / Order, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].service_fee_per_order : null;
@@ -495,7 +604,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Small Order Fee / Order
     html += '<tr><td>Small Order Fee / Order, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].small_order_fee_per_order : null;
@@ -503,7 +611,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Delivery Fee / Order
     html += '<tr><td>Delivery Fee / Order, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].delivery_fee_per_order : null;
@@ -511,6 +618,57 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  /* ---- City-level Eater Fees Table (Change 6) ---- */
+  function buildCityEaterFeesTable() {
+    const raw = safe(D.city_eater_fees_weekly).filter(r => r.period === currentPeriod);
+    if (!raw.length) return '';
+    raw.sort((a, b) => (b.total_eater_fees || 0) - (a.total_eater_fees || 0));
+    const top = raw.slice(0, 10);
+    const others = raw.slice(10);
+    let html = '<div class="sub-section-title">Eater Fees by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>Eater Fees / Order, €</th><th>Total Eater Fees, €</th><th>Delivery Fee / Order, €</th><th>Service Fee / Order, €</th><th>Small Order Fee / Order, €</th></tr></thead><tbody>';
+    top.forEach(r => {
+      html += `<tr><td>${r.city}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td><td>${fmtEur(r.total_eater_fees)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)}</td><td>${fmtEur(r.service_fee_per_order, 2)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)}</td></tr>`;
+    });
+    if (others.length) {
+      const oOrders = others.reduce((a, b) => a + (b.orders || 0), 0);
+      const oFees = others.reduce((a, b) => a + (b.total_eater_fees || 0), 0);
+      const oFeePer = oOrders ? (oFees / oOrders) : 0;
+      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>${fmt(oOrders)}</td><td>${fmtEur(oFeePer, 2)}</td><td>${fmtEur(oFees)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  /* ---- City Breakdown Section (Change 4) ---- */
+  function buildCityBreakdownSection() {
+    const rawWeekly = safe(D.city_breakdown_weekly);
+    if (!rawWeekly.length) return '';
+
+    let cityData = aggregateCityData(rawWeekly, currentPeriod, currentGran);
+    if (!cityData.length) return '';
+
+    cityData.sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    const totalGmv = cityData.reduce((a, b) => a + (b.gmv_eur || 0), 0);
+    const top = cityData.slice(0, 10);
+    const others = cityData.slice(10);
+
+    let html = '<div class="sub-section-title">GMV by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>GMV, €</th><th>% of Total GMV</th></tr></thead><tbody>';
+    top.forEach(r => {
+      const pct = totalGmv ? (r.gmv_eur / totalGmv * 100) : 0;
+      html += `<tr><td>${r.city}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.gmv_eur)}</td><td>${fmtPct(pct, 1)}</td></tr>`;
+    });
+    if (others.length) {
+      const oOrders = others.reduce((a, b) => a + (b.orders || 0), 0);
+      const oGmv = others.reduce((a, b) => a + (b.gmv_eur || 0), 0);
+      const oPct = totalGmv ? (oGmv / totalGmv * 100) : 0;
+      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>${fmt(oOrders)}</td><td>${fmtEur(oGmv)}</td><td>${fmtPct(oPct, 1)}</td></tr>`;
+    }
     html += '</tbody></table></div>';
     return html;
   }
@@ -632,7 +790,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return html;
   }
 
-  /* ---- WoW Comparison Table ---- */
+  /* ---- WoW Comparison Table (Changes 5, 7, 8) ---- */
   function buildWoWComparisonTable(ops, fail) {
     const last10 = ops.slice(-10);
     if (last10.length < 2) return '';
@@ -655,7 +813,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       return tr;
     }
 
-    html += rowFmt('Stores', r => r.active_stores, v => fmt(v));
+    /* Change 7: Active Stores split in WoW table */
+    if (last10[0] && last10[0].total_stores != null) {
+      html += rowFmt('Active Stores', r => r.total_stores, v => fmt(v));
+      html += rowFmt('Stores with Orders', r => r.stores_with_orders, v => fmt(v));
+    } else {
+      html += rowFmt('Stores', r => r.active_stores, v => fmt(v));
+    }
     html += rowFmt('Acceptance Rate, %', r => r.acceptance_rate, v => fmtPct(v, 1));
     html += rowFmt('Availability, %', r => r.availability_rate, v => fmtPct(v, 1));
     html += rowFmt('Avg Rating', r => r.avg_rating, v => fmt(v, 2));
@@ -664,10 +828,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += rowFmt('Late Delivery Rate, %', r => r.late_delivery_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Late Pickup Rate, %', r => r.late_pickup_rate, v => fmtPct(v, 1), true);
 
-    // Failed rates from fail data
+    /* Change 5: Failed order rows for all views (overview + brands) */
     const failSlice = safe(fail).slice(-10);
     if (failSlice.length) {
-      let tr = '<tr><td>Failed (Bolt+Courier), %</td>';
+      let tr = '<tr><td>Failed Merchant, %</td>';
+      failSlice.forEach((r, i) => {
+        const val = r.total_placed ? (r.failed_merchant / r.total_placed * 100) : 0;
+        const pv = i > 0 && failSlice[i-1].total_placed ? (failSlice[i-1].failed_merchant / failSlice[i-1].total_placed * 100) : null;
+        tr += `<td>${fmtPct(val, 1)} ${pctChangeInline(val, pv, true)}</td>`;
+      });
+      tr += '</tr>';
+      html += tr;
+
+      tr = '<tr><td>Failed Bolt+Courier, %</td>';
       failSlice.forEach((r, i) => {
         const val = r.total_placed ? (r.failed_bolt_courier / r.total_placed * 100) : 0;
         const pv = i > 0 && failSlice[i-1].total_placed ? (failSlice[i-1].failed_bolt_courier / failSlice[i-1].total_placed * 100) : null;
@@ -687,8 +860,33 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     }
 
     html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);
-    html += rowFmt('Replacement Rate, %', r => r.replacement_rate, v => fmtPct(v, 2), true);
-    html += rowFmt('Adjustment Rate, %', r => r.adjustment_rate, v => fmtPct(v, 2), true);
+
+    /* Change 8: Replace replacement/adjustment with item defect metrics for brands */
+    if (currentView !== 'overview') {
+      const defectsAll = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
+      if (defectsAll.length) {
+        function defectRow(label, field) {
+          let tr = `<tr><td>${label}</td>`;
+          last10.forEach(r => {
+            const d = defectsAll.find(x => x.period === r.period);
+            const val = d ? d[field] : null;
+            const dIdx = d ? defectsAll.indexOf(d) : -1;
+            const dPrev = dIdx > 0 ? defectsAll[dIdx - 1] : null;
+            const pv = dPrev ? dPrev[field] : null;
+            tr += `<td>${val != null ? fmtPct(val, 2) : '—'} ${pctChangeInline(val, pv, true)}</td>`;
+          });
+          tr += '</tr>';
+          return tr;
+        }
+        html += defectRow('Item Quantity Defect, %', 'item_quantity_defect_rate');
+        html += defectRow('Item Replacement, %', 'item_replacement_rate');
+        html += defectRow('Item Weight Defect, %', 'item_weight_defect_rate');
+        html += defectRow('Item Price Defect, %', 'item_price_defect_rate');
+      }
+    } else {
+      html += rowFmt('Replacement Rate, %', r => r.replacement_rate, v => fmtPct(v, 2), true);
+      html += rowFmt('Adjustment Rate, %', r => r.adjustment_rate, v => fmtPct(v, 2), true);
+    }
 
     html += '</tbody></table></div>';
     return html;
@@ -704,7 +902,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     last10.forEach(r => { html += `<th>${periodLabel(r.period, currentGran)}</th>`; });
     html += '</tr></thead><tbody>';
 
-    // Total Discount
     html += '<tr><td>Total Discount, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].campaigns_discount_eur : null;
@@ -712,7 +909,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Bolt Spend
     html += '<tr><td>Bolt Spend, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].bolt_spend_eur : null;
@@ -720,7 +916,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Merchant Spend
     html += '<tr><td>Merchant Spend, €</td>';
     last10.forEach((r, i) => {
       const pv = i > 0 ? last10[i-1].merchant_spend_eur : null;
@@ -728,7 +923,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // % of GMV
     html += '<tr><td>Campaigns % GMV</td>';
     last10.forEach((r, i) => {
       const val = r.gmv_eur ? (r.campaigns_discount_eur / r.gmv_eur * 100) : 0;
@@ -737,7 +931,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Bolt % GMV
     html += '<tr><td>Bolt % GMV</td>';
     last10.forEach((r, i) => {
       const val = r.gmv_eur ? (r.bolt_spend_eur / r.gmv_eur * 100) : 0;
@@ -746,7 +939,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Merchant % GMV
     html += '<tr><td>Merchant % GMV</td>';
     last10.forEach((r, i) => {
       const val = r.gmv_eur ? (r.merchant_spend_eur / r.gmv_eur * 100) : 0;
@@ -755,7 +947,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
     html += '</tr>';
 
-    // Item-Level Discount Promo Share (brand level)
     if (currentView !== 'overview') {
       const promoStore = (D.item_discount_promo || {})[currentGran] || (D.item_discount_promo || {});
       const promoData = safe(promoStore[currentView]);
