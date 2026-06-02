@@ -634,17 +634,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     prevFeeData.forEach(r => { prevMap[r.city] = r; });
 
     cityFeeData.sort((a, b) => (b.orders || 0) - (a.orders || 0));
-    const top = cityFeeData.slice(0, 10);
-    const others = cityFeeData.slice(10);
     let html = '<div class="sub-section-title">Eater Fees Dynamics by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Eater Fees / Order</th><th>Delivery Fee</th><th>Service Fee</th><th>Small Order Fee</th></tr></thead><tbody>';
-    top.forEach(r => {
+    cityFeeData.forEach(r => {
       const pr = prevMap[r.city];
       html += `<tr><td>${r.city}</td><td>${fmtEur(r.eater_fees_per_order, 2)} ${pctChangeInline(r.eater_fees_per_order, pr ? pr.eater_fees_per_order : null)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)} ${pctChangeInline(r.delivery_fee_per_order, pr ? pr.delivery_fee_per_order : null)}</td><td>${fmtEur(r.service_fee_per_order, 2)} ${pctChangeInline(r.service_fee_per_order, pr ? pr.service_fee_per_order : null)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)} ${pctChangeInline(r.small_order_fee_per_order, pr ? pr.small_order_fee_per_order : null)}</td></tr>`;
     });
-    if (others.length) {
-      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
-    }
     html += '</tbody></table></div>';
     return html;
   }

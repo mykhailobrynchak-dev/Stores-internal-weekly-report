@@ -296,6 +296,7 @@ JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.pro
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   AND f.metric_timestamp_local >= '2026-01-01'
+  AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())
 GROUP BY DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 ORDER BY period
 """.format(VERTICAL_LIST_OPS=VERTICAL_LIST_OPS, extra_partners_sql=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
@@ -325,6 +326,7 @@ JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.pro
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   AND f.metric_timestamp_local >= '2026-01-01'
+  AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())
 GROUP BY p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY p.group_name, period
