@@ -20,8 +20,14 @@ ALL_TRACKED_PARTNERS = [
     "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
     "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP", "MAXBEER GROUP",
-    "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR"
+    "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM"
 ]
+
+EXTRA_PARTNERS = ["ANRI-PHARM"]
+
+VERTICAL_FILTER = "(p.delivery_vertical LIKE 'store_3p%' OR p.group_name IN ({extra}))"
+VERTICAL_FILTER_SQL = VERTICAL_FILTER.format(extra=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
+VERTICAL_LIST_OPS = "('store_3p_ent', 'store_3p_mm_smb')"
 
 
 def run_query(cursor, query):
@@ -84,13 +90,13 @@ def financial_query(granularity, group_filter=None):
         COUNT(DISTINCT f.user_id) as active_users,
         ROUND(SUM(f.total_refunds_eur), 2) as total_refunds_eur,
         ROUND(SUM(f.total_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as refund_rate_pct
-    FROM ng_delivery_spark.fact_order_delivery f
-    JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
-      AND p.delivery_vertical LIKE 'store_3p%'
+      AND {VERTICAL_FILTER_SQL}
       {group_clause}
     GROUP BY {time_col}{group_col}
     ORDER BY period
@@ -113,12 +119,12 @@ def campaign_query(granularity, group_filter=None):
         ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
         ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
         ROUND(SUM(m.provider_delivery_campaign_cost_eur) + SUM(m.provider_menu_campaign_cost_eur), 2) as merchant_spend_eur
-    FROM ng_public_spark.etl_delivery_order_monetary_metrics m
-    JOIN ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
+    FROM hive_metastore.ng_public_spark.etl_delivery_order_monetary_metrics m
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
     WHERE m.country = 'ua'
       AND m.order_created_date >= '{DATA_START}'
       {week_filter}
-      AND p.delivery_vertical LIKE 'store_3p%'
+      AND {VERTICAL_FILTER_SQL}
       {group_clause}
     GROUP BY {time_col}{group_col}
     ORDER BY period
@@ -136,12 +142,12 @@ def failed_orders_query(granularity):
         SUM(CASE WHEN f.order_state != 'delivered' AND (f.is_rejected_by_provider = true OR f.is_not_responded_by_provider = true) THEN 1 ELSE 0 END) as failed_merchant,
         SUM(CASE WHEN f.order_state != 'delivered' AND f.is_rejected_by_provider = false AND (f.is_not_responded_by_provider = false OR f.is_not_responded_by_provider IS NULL) THEN 1 ELSE 0 END) as failed_bolt_courier,
         ROUND(SUM(CASE WHEN f.order_state != 'delivered' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as failed_rate_total
-    FROM ng_delivery_spark.fact_order_delivery f
-    JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
-      AND p.delivery_vertical LIKE 'store_3p%'
+      AND {VERTICAL_FILTER_SQL}
     GROUP BY {time_col}
     ORDER BY period
     """
@@ -156,13 +162,13 @@ def gmv_by_partner_query(granularity):
         p.group_name,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
         COUNT(*) as orders
-    FROM ng_delivery_spark.fact_order_delivery f
-    JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
-      AND p.delivery_vertical LIKE 'store_3p%'
+      AND {VERTICAL_FILTER_SQL}
     GROUP BY {time_col}, p.group_name
     ORDER BY period, gmv_eur DESC
     """
@@ -187,11 +193,11 @@ def cp_margins_query(granularity, group_filter=None):
         ROUND(SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_menu_campaign_eur,
         ROUND(SUM(m.provider_delivery_campaign_cost_eur), 2) as provider_delivery_campaign_eur,
         ROUND(SUM(m.provider_menu_campaign_cost_eur), 2) as provider_menu_campaign_eur
-    FROM ng_public_spark.etl_delivery_order_monetary_metrics m
-    JOIN ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
+    FROM hive_metastore.ng_public_spark.etl_delivery_order_monetary_metrics m
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
     WHERE m.country = 'ua'
       AND m.order_created_date >= '{DATA_START}'
-      AND p.delivery_vertical LIKE 'store_3p%'
+      AND {VERTICAL_FILTER_SQL}
       {group_clause}
     GROUP BY {time_col}{group_col}
     ORDER BY period
@@ -214,14 +220,14 @@ SELECT DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
   ROUND(SUM(f.order_total_minutes_per_order_value * f.order_total_minutes_per_order_weight) / NULLIF(SUM(f.order_total_minutes_per_order_weight), 0), 1) as avg_delivery_min,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as active_stores
-FROM ng_delivery_spark.fact_provider_weekly f
-JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
+JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
-  AND p.delivery_vertical IN ('store_3p_ent', 'store_3p_mm_smb')
+  AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   AND f.metric_timestamp_local >= '2026-01-01'
 GROUP BY DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 ORDER BY period
-"""
+""".format(VERTICAL_LIST_OPS=VERTICAL_LIST_OPS, extra_partners_sql=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
 
 OPERATIONAL_PARTNER_QUERY = f"""
 SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
@@ -242,52 +248,52 @@ SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as peri
   ROUND(SUM(f.provider_campaign_discount_gmv_share_value * f.provider_campaign_discount_gmv_share_weight) / NULLIF(SUM(f.provider_campaign_discount_gmv_share_weight), 0) * 100, 2) as item_discount_promo_share,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as active_stores
-FROM ng_delivery_spark.fact_provider_weekly f
-JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
+JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
-  AND p.delivery_vertical IN ('store_3p_ent', 'store_3p_mm_smb')
+  AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   AND f.metric_timestamp_local >= '2026-01-01'
 GROUP BY p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY p.group_name, period
-"""
+""".format(VERTICAL_LIST_OPS=VERTICAL_LIST_OPS, extra_partners_sql=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
 
 TOP_PARTNERS_QUERY = f"""
 SELECT p.group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
-FROM ng_delivery_spark.fact_order_delivery f
-JOIN ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE f.city_country_code = 'ua'
   AND f.order_state = 'delivered'
   AND f.order_created_date >= '{DATA_START}'
-  AND p.delivery_vertical LIKE 'store_3p%'
+  AND {VERTICAL_FILTER_SQL}
 GROUP BY p.group_name
 ORDER BY gmv_eur DESC
 LIMIT 20
 """
 
-ACCEPTANCE_AVAILABILITY_QUERY = """
+ACCEPTANCE_AVAILABILITY_QUERY = f"""
 SELECT p.group_name,
   ROUND(AVG(t.acceptance_rate_last_30d), 3) as acceptance_rate_30d,
   ROUND(AVG(t.availability_rate_last_30d), 3) as availability_rate_30d,
   ROUND(AVG(t.avg_rating_last_30d), 2) as avg_rating_30d
-FROM ng_public_spark.etl_incentives_provider_targeting_features t
-JOIN ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.provider_id
+FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features t
+JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.provider_id
 WHERE t.provider_country_code = 'ua'
-  AND p.delivery_vertical LIKE 'store_3p%'
-  AND t.date = (SELECT MAX(date) FROM ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
+  AND {VERTICAL_FILTER_SQL}
+  AND t.date = (SELECT MAX(date) FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
 GROUP BY p.group_name
 """
 
-ACCEPTANCE_OVERVIEW_QUERY = """
+ACCEPTANCE_OVERVIEW_QUERY = f"""
 SELECT
   ROUND(AVG(t.acceptance_rate_last_30d), 3) as acceptance_rate_30d,
   ROUND(AVG(t.availability_rate_last_30d), 3) as availability_rate_30d,
   ROUND(AVG(t.avg_rating_last_30d), 2) as avg_rating_30d
-FROM ng_public_spark.etl_incentives_provider_targeting_features t
-JOIN ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.provider_id
+FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features t
+JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.provider_id
 WHERE t.provider_country_code = 'ua'
-  AND p.delivery_vertical LIKE 'store_3p%'
-  AND t.date = (SELECT MAX(date) FROM ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
+  AND {VERTICAL_FILTER_SQL}
+  AND t.date = (SELECT MAX(date) FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
 """
 
 
