@@ -204,7 +204,7 @@ def cp_margins_query(granularity, group_filter=None):
     """
 
 
-OPERATIONAL_OVERVIEW_QUERY = f"""
+OPERATIONAL_OVERVIEW_QUERY = """
 SELECT DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
   ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
@@ -229,7 +229,7 @@ GROUP BY DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 ORDER BY period
 """.format(VERTICAL_LIST_OPS=VERTICAL_LIST_OPS, extra_partners_sql=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
 
-OPERATIONAL_PARTNER_QUERY = f"""
+OPERATIONAL_PARTNER_QUERY = """
 SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
   ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
