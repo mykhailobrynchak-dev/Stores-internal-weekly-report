@@ -143,6 +143,11 @@ city_eater_fees_weekly = load_json("data_city_eater_fees_weekly.json")
 failed_overview_weekly = load_json("data_failed_orders_weekly.json")
 partner_failed_weekly = load_json("data_partner_failed_weekly.json")
 partner_failed_monthly = load_json("data_partner_failed_monthly.json")
+refund_weekly = load_json("data_refund_weekly.json")
+refund_monthly = load_json("data_refund_monthly.json")
+refund_partner_weekly = load_json("data_refund_partner_weekly.json")
+refund_partner_monthly = load_json("data_refund_partner_monthly.json")
+active_stores_data = load_json("data_active_stores.json")
 
 partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
@@ -152,9 +157,37 @@ for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, ove
             failed_monthly, gmv_monthly, gmv_weekly,
             partner_fin_monthly, partner_fin_weekly, partner_camp_monthly, partner_camp_weekly,
             failed_overview_weekly, partner_failed_weekly, partner_failed_monthly,
-            item_defects_raw]:
+            item_defects_raw,
+            refund_weekly, refund_monthly, refund_partner_weekly, refund_partner_monthly]:
     for r in lst:
         r["period"] = fmt_period(r["period"])
+
+# Merge refund data (from all orders) into financial data (delivered only)
+refund_w_by_period = {r["period"]: r for r in refund_weekly}
+for r in overview_fin_weekly:
+    ref = refund_w_by_period.get(r["period"], {})
+    r["supply_refund_gmv_pct"] = ref.get("supply_refund_gmv_pct", 0)
+    r["demand_refund_gmv_pct"] = ref.get("demand_refund_gmv_pct", 0)
+refund_m_by_period = {r["period"]: r for r in refund_monthly}
+for r in overview_fin_monthly:
+    ref = refund_m_by_period.get(r["period"], {})
+    r["supply_refund_gmv_pct"] = ref.get("supply_refund_gmv_pct", 0)
+    r["demand_refund_gmv_pct"] = ref.get("demand_refund_gmv_pct", 0)
+
+refund_pw_by_key = {}
+for r in refund_partner_weekly:
+    refund_pw_by_key[(r.get("group_name"), r["period"])] = r
+refund_pm_by_key = {}
+for r in refund_partner_monthly:
+    refund_pm_by_key[(r.get("group_name"), r["period"])] = r
+for r in partner_fin_weekly:
+    ref = refund_pw_by_key.get((r.get("group_name"), r["period"]), {})
+    r["supply_refund_gmv_pct"] = ref.get("supply_refund_gmv_pct", 0)
+    r["demand_refund_gmv_pct"] = ref.get("demand_refund_gmv_pct", 0)
+for r in partner_fin_monthly:
+    ref = refund_pm_by_key.get((r.get("group_name"), r["period"]), {})
+    r["supply_refund_gmv_pct"] = ref.get("supply_refund_gmv_pct", 0)
+    r["demand_refund_gmv_pct"] = ref.get("demand_refund_gmv_pct", 0)
 
 # Sanitize campaign data: clamp negative values to 0 (data quality issues in source)
 for lst in [overview_camp_weekly, overview_camp_monthly, partner_camp_monthly, partner_camp_weekly]:
@@ -542,7 +575,7 @@ for pname in partners_list:
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
     "Krystyna": ["LEPRUKON", "DIMPYVA", "CHILL TIME", "RODYNNA KOVBASKA", "NO TABOO"],
-    "Mykhailo": ["HOP HEY", "BEER MARKET", "KOPIYKA", "LOKO", "PYVNA BORODA", "BRSM", "ANRI-PHARM", "CAFE RYNOK", "BEERLAND K", "WINETIME", "SPRAGA", "MAXBEER", "FLOWER SHOP"],
+    "Mykhailo": ["HOP HEY", "BEER MARKET", "KOPIYKA", "LOKO", "PYVNA BORODA", "BRSM", "ANRI-PHARM", "CAFE RYNOK", "BEERLAND K", "WINETIME", "SPRAGA", "MAXBEER", "MAXBEER GROUP", "BEERLAND", "FLOWER SHOP"],
     "Viktor": ["TAISTRA", "SPAR", "RUKAVYCHKA", "REMESLO BREWERY", "VARUS", "TOCHKA"],
 }
 
@@ -586,6 +619,7 @@ DATA = {
     "city_breakdown_weekly": city_breakdown_weekly,
     "city_eater_fees_weekly": city_eater_fees_weekly,
     "employee_groups": EMPLOYEE_GROUPS,
+    "active_stores_snapshot": active_stores_data if isinstance(active_stores_data, dict) else {},
 }
 
 # ======== GENERATE HTML ========

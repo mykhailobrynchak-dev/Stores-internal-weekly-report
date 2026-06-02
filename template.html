@@ -147,7 +147,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   let currentPeriod = null;
   let charts = [];
   let showCityBreakdown = false;
-  let showCityEaterFees = false;
 
   const $ = id => document.getElementById(id);
 
@@ -308,7 +307,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   /* ---- aggregate weekly city data for non-weekly granularity ---- */
   function aggregateCityData(weeklyData, targetPeriod, targetGran) {
     if (targetGran === 'weekly') {
-      return safe(weeklyData).filter(r => r.period === targetPeriod);
+      return safe(weeklyData).filter(r => r.period === targetPeriod).map(r => ({...r, city: r.city_name || r.city || 'Unknown'}));
     }
     const parts = targetPeriod.replace(' 00:00:00','').split('-');
     const yr = parseInt(parts[0]), mo = parseInt(parts[1]) - 1;
@@ -324,10 +323,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const cityMap = {};
     safe(weeklyData).forEach(r => {
       const rDate = new Date(r.period.replace(' 00:00:00',''));
+      const cname = r.city_name || r.city || 'Unknown';
       if (rDate >= startDate && rDate <= endDate) {
-        if (!cityMap[r.city]) cityMap[r.city] = { city: r.city, orders: 0, gmv_eur: 0 };
-        cityMap[r.city].orders += (r.orders || 0);
-        cityMap[r.city].gmv_eur += (r.gmv_eur || 0);
+        if (!cityMap[cname]) cityMap[cname] = { city: cname, orders: 0, gmv_eur: 0 };
+        cityMap[cname].orders += (r.orders || 0);
+        cityMap[cname].gmv_eur += (r.gmv_eur || 0);
       }
     });
     return Object.values(cityMap);
@@ -413,14 +413,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     // Bolt+ Dynamics Table
     html += buildBoltPlusDynamicsTable(fin);
 
+    // City GMV breakdown (overview only, collapsible)
+    if (currentView === 'overview') {
+      const cityHtml = buildCityBreakdownSection();
+      if (cityHtml) {
+        html += '<div style="margin-bottom:16px;"><button class="toggle-btn" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\';this.textContent=t.style.display===\'none\'?\'Show GMV by City\':\'Hide GMV by City\'">Show GMV by City</button>';
+        html += '<div style="display:none;">' + cityHtml + '</div></div>';
+      }
+    }
+
+    // Bolt+ Dynamics Table
+    html += buildBoltPlusDynamicsTable(fin);
+
     // Eater Fees Dynamics Table
     html += buildEaterFeesDynamicsTable(fin);
 
-    /* Change 6: City-level Eater Fees toggle */
-    if (currentView === 'overview' && currentGran === 'weekly' && safe(D.city_eater_fees_weekly).length) {
-      html += `<div><span class="city-toggle-btn ${showCityEaterFees?'active':''}" id="cityEaterFeesToggle">By City</span></div>`;
-      if (showCityEaterFees) {
-        html += buildCityEaterFeesTable();
+    // City Eater Fees (overview only, collapsible)
+    if (currentView === 'overview') {
+      const cityFeesHtml = buildCityEaterFeesTable();
+      if (cityFeesHtml) {
+        html += '<div style="margin-bottom:16px;"><button class="toggle-btn" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\';this.textContent=t.style.display===\'none\'?\'Show Eater Fees by City\':\'Hide Eater Fees by City\'">Show Eater Fees by City</button>';
+        html += '<div style="display:none;">' + cityFeesHtml + '</div></div>';
       }
     }
 
@@ -430,15 +443,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += '<div class="chart-container"><h3>Eater Fees per Order</h3><div class="chart-wrap"><canvas id="chartEaterFees"></canvas></div></div>';
     html += '</div>';
 
-    // GMV by Partner doughnut (overview only, uses period-filtered data)
+    // GMV by Partner doughnut (overview only)
     if (currentView === 'overview') {
       const gmvPart = safe(src.gmv_by_partner).filter(r => r.period === currentPeriod);
       if (gmvPart.length || safe(D.top_partners_gmv).length) {
         html += '<div class="chart-row"><div class="chart-container full"><h3>GMV Share by Partner</h3><div class="chart-wrap" style="height:350px;max-width:500px;margin:0 auto;"><canvas id="chartGmvShare"></canvas></div></div></div>';
       }
-
-      /* Change 4: City breakdown table (overview only) */
-      html += buildCityBreakdownSection();
     }
     html += '</div>';
 
@@ -453,11 +463,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     if (oc || aaLast) {
       html += '<div class="kpi-grid">';
       if (oc) {
-        /* Change 7: Active Stores split */
-        if (oc.total_stores != null) {
-          html += kpi('Active Stores', fmt(oc.total_stores), oc, op, 'total_stores');
-        } else {
-          html += kpi('Active Stores', fmt(oc.active_stores), oc, op, 'active_stores');
+        const snap = D.active_stores_snapshot || {};
+        const activeCount = currentView === 'overview' ? snap.total : (snap[currentView] || null);
+        if (activeCount != null) {
+          html += `<div class="kpi-card"><div class="kpi-label">ACTIVE STORES</div><div class="kpi-value">${fmt(activeCount)}</div><span class="kpi-change neutral">status: active</span></div>`;
         }
         if (oc.stores_with_orders != null) {
           html += kpi('Stores with Orders', fmt(oc.stores_with_orders), oc, op, 'stores_with_orders');
@@ -540,10 +549,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     if (cityToggle) {
       cityToggle.addEventListener('click', () => { showCityBreakdown = !showCityBreakdown; render(); });
     }
-    const cityEfToggle = document.getElementById('cityEaterFeesToggle');
-    if (cityEfToggle) {
-      cityEfToggle.addEventListener('click', () => { showCityEaterFees = !showCityEaterFees; render(); });
-    }
 
     /* ---- draw charts ---- */
     drawGmvOrdersChart(fin);
@@ -622,26 +627,57 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return html;
   }
 
-  /* ---- City-level Eater Fees Table (Change 6) ---- */
+  /* ---- City-level Eater Fees Table ---- */
   function buildCityEaterFeesTable() {
-    const raw = safe(D.city_eater_fees_weekly).filter(r => r.period === currentPeriod);
-    if (!raw.length) return '';
-    raw.sort((a, b) => (b.total_eater_fees || 0) - (a.total_eater_fees || 0));
-    const top = raw.slice(0, 10);
-    const others = raw.slice(10);
-    let html = '<div class="sub-section-title">Eater Fees by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
-    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>Eater Fees / Order, €</th><th>Total Eater Fees, €</th><th>Delivery Fee / Order, €</th><th>Service Fee / Order, €</th><th>Small Order Fee / Order, €</th></tr></thead><tbody>';
+    const allWeekly = safe(D.city_eater_fees_weekly);
+    if (!allWeekly.length) return '';
+    const cityFeeData = aggregateCityFeeData(allWeekly, currentPeriod, currentGran);
+    if (!cityFeeData.length) return '';
+    cityFeeData.sort((a, b) => (b.orders || 0) - (a.orders || 0));
+    const top = cityFeeData.slice(0, 10);
+    const others = cityFeeData.slice(10);
+    let html = '<div class="sub-section-title">Eater Fees Dynamics by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Eater Fees / Order, €</th><th>Delivery Fee / Order, €</th><th>Service Fee / Order, €</th><th>Small Order Fee / Order, €</th></tr></thead><tbody>';
     top.forEach(r => {
-      html += `<tr><td>${r.city}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td><td>${fmtEur(r.total_eater_fees)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)}</td><td>${fmtEur(r.service_fee_per_order, 2)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)}</td></tr>`;
+      html += `<tr><td>${r.city}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td><td>${fmtEur(r.delivery_fee_per_order, 2)}</td><td>${fmtEur(r.service_fee_per_order, 2)}</td><td>${fmtEur(r.small_order_fee_per_order, 2)}</td></tr>`;
     });
     if (others.length) {
-      const oOrders = others.reduce((a, b) => a + (b.orders || 0), 0);
-      const oFees = others.reduce((a, b) => a + (b.total_eater_fees || 0), 0);
-      const oFeePer = oOrders ? (oFees / oOrders) : 0;
-      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>${fmt(oOrders)}</td><td>${fmtEur(oFeePer, 2)}</td><td>${fmtEur(oFees)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+      html += `<tr style="font-weight:600;"><td>Others (${others.length})</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
     }
     html += '</tbody></table></div>';
     return html;
+  }
+
+  function aggregateCityFeeData(weeklyData, targetPeriod, targetGran) {
+    if (targetGran === 'weekly') {
+      return safe(weeklyData).filter(r => r.period === targetPeriod).map(r => ({...r, city: r.city_name || r.city || 'Unknown'}));
+    }
+    const parts = targetPeriod.replace(' 00:00:00','').split('-');
+    const yr = parseInt(parts[0]), mo = parseInt(parts[1]) - 1;
+    let startDate, endDate;
+    if (targetGran === 'monthly') { startDate = new Date(yr, mo, 1); endDate = new Date(yr, mo + 1, 0); }
+    else { const qs = Math.floor(mo / 3) * 3; startDate = new Date(yr, qs, 1); endDate = new Date(yr, qs + 3, 0); }
+    const m = {};
+    safe(weeklyData).forEach(r => {
+      const rDate = new Date(r.period.replace(' 00:00:00',''));
+      const cn = r.city_name || r.city || 'Unknown';
+      if (rDate >= startDate && rDate <= endDate) {
+        if (!m[cn]) m[cn] = {city: cn, orders: 0, total_eater: 0, total_del: 0, total_sof: 0, total_svc: 0};
+        const ord = r.orders || 0;
+        m[cn].orders += ord;
+        m[cn].total_eater += (r.eater_fees_per_order || 0) * ord;
+        m[cn].total_del += (r.delivery_fee_per_order || 0) * ord;
+        m[cn].total_sof += (r.small_order_fee_per_order || 0) * ord;
+        m[cn].total_svc += (r.service_fee_per_order || 0) * ord;
+      }
+    });
+    return Object.values(m).map(c => ({
+      city: c.city, orders: c.orders,
+      eater_fees_per_order: c.orders ? c.total_eater / c.orders : 0,
+      delivery_fee_per_order: c.orders ? c.total_del / c.orders : 0,
+      small_order_fee_per_order: c.orders ? c.total_sof / c.orders : 0,
+      service_fee_per_order: c.orders ? c.total_svc / c.orders : 0
+    }));
   }
 
   /* ---- City Breakdown Section (Change 4) ---- */
@@ -759,7 +795,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return html;
   }
 
-  /* ---- Bad Order Breakdown ---- */
+  /* ---- Failed Order Breakdown ---- */
   function buildBadOrderBreakdown(ops, fail, opsIdx) {
     const oc = opsIdx >= 0 ? ops[opsIdx] : last(ops);
     const op = opsIdx > 0 ? ops[opsIdx - 1] : (opsIdx === 0 ? null : prev(ops));
@@ -770,21 +806,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     if (!oc && !fc) return '';
 
-    let html = '<div class="sub-section-title">Bad Order Breakdown</div>';
+    let html = '<div class="sub-section-title">Failed Order Breakdown</div>';
     html += '<div class="kpi-grid">';
-    if (oc) {
-      html += kpi('Bad Rate', fmtPct(oc.bad_order_rate, 1), oc, op, 'bad_order_rate', {inverted: true});
-      html += kpi('Late Delivery', fmtPct(oc.late_delivery_rate, 1), oc, op, 'late_delivery_rate', {inverted: true});
-      html += kpi('Late Pickup', fmtPct(oc.late_pickup_rate, 1), oc, op, 'late_pickup_rate', {inverted: true});
-    }
     if (fc) {
+      html += kpi('Failed Rate Total', fmtPct(fc.failed_rate_total, 1), fc, fp, 'failed_rate_total', {inverted: true});
       const fmPct = fc.total_placed ? (fc.failed_merchant / fc.total_placed * 100) : 0;
       const fpMPct = fp && fp.total_placed ? (fp.failed_merchant / fp.total_placed * 100) : null;
+      html += kpi('Failed (Merchant)', fmtPct(fmPct, 1), {v: fmPct}, fpMPct != null ? {v: fpMPct} : null, 'v', {inverted: true});
       const fbPct = fc.total_placed ? (fc.failed_bolt_courier / fc.total_placed * 100) : 0;
       const fpBPct = fp && fp.total_placed ? (fp.failed_bolt_courier / fp.total_placed * 100) : null;
-      html += kpi('Failed (Merchant)', fmtPct(fmPct, 1), {v: fmPct}, fpMPct != null ? {v: fpMPct} : null, 'v', {inverted: true});
       html += kpi('Failed (Bolt+Courier)', fmtPct(fbPct, 1), {v: fbPct}, fpBPct != null ? {v: fpBPct} : null, 'v', {inverted: true});
-      html += kpi('Failed Rate Total', fmtPct(fc.failed_rate_total, 1), fc, fp, 'failed_rate_total', {inverted: true});
+    }
+    if (oc) {
+      html += kpi('Late Delivery', fmtPct(oc.late_delivery_rate, 1), oc, op, 'late_delivery_rate', {inverted: true});
+      html += kpi('Late Pickup', fmtPct(oc.late_pickup_rate, 1), oc, op, 'late_pickup_rate', {inverted: true});
     }
     html += '</div>';
     return html;
@@ -813,13 +848,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       return tr;
     }
 
-    /* Change 7: Active Stores split in WoW table */
-    if (last10[0] && last10[0].total_stores != null) {
-      html += rowFmt('Active Stores', r => r.total_stores, v => fmt(v));
-      html += rowFmt('Stores with Orders', r => r.stores_with_orders, v => fmt(v));
-    } else {
-      html += rowFmt('Stores', r => r.active_stores, v => fmt(v));
-    }
+    html += rowFmt('Stores with Orders', r => r.stores_with_orders || r.active_stores, v => fmt(v));
     html += rowFmt('Acceptance Rate, %', r => r.acceptance_rate, v => fmtPct(v, 1));
     html += rowFmt('Availability, %', r => r.availability_rate, v => fmtPct(v, 1));
     html += rowFmt('Avg Rating', r => r.avg_rating, v => fmt(v, 2));

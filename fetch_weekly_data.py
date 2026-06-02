@@ -91,12 +91,39 @@ def financial_query(granularity, group_filter=None):
         COUNT(DISTINCT f.user_id) as active_users,
         ROUND(SUM(f.total_refunds_eur), 2) as total_refunds_eur,
         ROUND(SUM(f.total_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as refund_rate_pct,
-        ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as supply_refund_gmv_pct,
-        ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as demand_refund_gmv_pct
+        ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 3) as supply_refund_gmv_pct,
+        ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 3) as demand_refund_gmv_pct
     FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
+      AND f.order_created_date >= '{DATA_START}'
+      {week_filter}
+      AND {VERTICAL_FILTER_SQL}
+      {group_clause}
+    GROUP BY {time_col}{group_col}
+    ORDER BY period
+    """
+
+
+def refund_query(granularity, group_filter=None):
+    """Refunds from ALL orders (not just delivered) to capture supply refunds."""
+    time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
+    group_col = ", p.group_name" if group_filter == "ALL_BY_GROUP" else ""
+    group_select = "p.group_name, " if group_filter == "ALL_BY_GROUP" else ""
+    group_clause = ""
+    if group_filter and group_filter != "ALL_BY_GROUP":
+        group_clause = f"AND p.group_name = '{group_filter}'"
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
+
+    return f"""
+    SELECT
+        {group_select}CAST({time_col} AS STRING) as period,
+        ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state = 'delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as supply_refund_gmv_pct,
+        ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state = 'delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as demand_refund_gmv_pct
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
       AND {VERTICAL_FILTER_SQL}
@@ -498,7 +525,34 @@ def main():
     city_fees = [clean_row(r) for r in run_query(cursor, city_eater_fees_query())]
     save_json("data_city_eater_fees_weekly.json", city_fees)
 
-    # 13. Metadata
+    # 13. Refunds from all orders (supply refunds only on non-delivered)
+    print("13. Fetching refund metrics (all orders)...")
+    refund_weekly = [clean_row(r) for r in run_query(cursor, refund_query("week"))]
+    refund_monthly = [clean_row(r) for r in run_query(cursor, refund_query("month"))]
+    save_json("data_refund_weekly.json", refund_weekly)
+    save_json("data_refund_monthly.json", refund_monthly)
+    refund_partner_weekly = [clean_row(r) for r in run_query(cursor, refund_query("week", "ALL_BY_GROUP"))]
+    refund_partner_monthly = [clean_row(r) for r in run_query(cursor, refund_query("month", "ALL_BY_GROUP"))]
+    save_json("data_refund_partner_weekly.json", refund_partner_weekly)
+    save_json("data_refund_partner_monthly.json", refund_partner_monthly)
+
+    # 14. Active Stores count (providers with status='active')
+    print("14. Fetching active stores count...")
+    active_stores_query = f"""
+    SELECT p.group_name, COUNT(DISTINCT p.provider_id) as active_stores
+    FROM hive_metastore.ng_delivery_spark.dim_provider_v2 p
+    WHERE p.country_code = 'ua'
+      AND p.provider_status = 'active'
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY p.group_name
+    """
+    active_stores_rows = run_query(cursor, active_stores_query)
+    active_stores_data = {"total": sum(to_int(r["active_stores"]) for r in active_stores_rows)}
+    for r in active_stores_rows:
+        active_stores_data[r["group_name"]] = to_int(r["active_stores"])
+    save_json("data_active_stores.json", active_stores_data)
+
+    # 15. Metadata
     from datetime import datetime, timezone
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
