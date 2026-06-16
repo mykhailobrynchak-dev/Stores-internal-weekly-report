@@ -221,8 +221,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       const listed = new Set();
       groupNames.forEach(emp => {
         html += `<div class="nav-section-title">${emp}</div>`;
-        safe(groups[emp]).forEach(p => {
-          if (!partnerSet.has(p)) return;
+        const brands = safe(groups[emp]).filter(p => partnerSet.has(p));
+        brands.sort((a, b) => (highlightedPartners.has(b) ? 1 : 0) - (highlightedPartners.has(a) ? 1 : 0));
+        brands.forEach(p => {
           listed.add(p);
           const hl = highlightedPartners.has(p) ? ' highlighted' : '';
           html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
@@ -416,6 +417,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       }
     }
 
+    // Partner city breakdown (brand views with 2+ cities)
+    if (currentView !== 'overview') {
+      const partnerCityData = safe(D.partner_city_weekly).filter(r => r.group_name === currentView);
+      const cityMap = {};
+      partnerCityData.forEach(r => {
+        if (r.period !== currentPeriod) return;
+        const cn = r.city_name || r.city || 'Unknown';
+        if (!cityMap[cn]) cityMap[cn] = {city: cn, orders: 0, gmv_eur: 0};
+        cityMap[cn].orders += (r.orders || 0);
+        cityMap[cn].gmv_eur += (r.gmv_eur || 0);
+      });
+      const cities = Object.values(cityMap).sort((a, b) => b.gmv_eur - a.gmv_eur);
+      if (cities.length >= 2) {
+        const totalGmv = cities.reduce((a, b) => a + b.gmv_eur, 0);
+        let cityHtml = '<div class="sub-section-title">GMV by City</div>';
+        cityHtml += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>GMV, €</th><th>% of Total</th></tr></thead><tbody>';
+        cities.forEach(r => {
+          const pct = totalGmv ? (r.gmv_eur / totalGmv * 100) : 0;
+          cityHtml += `<tr><td>${r.city}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.gmv_eur)}</td><td>${fmtPct(pct, 1)}</td></tr>`;
+        });
+        cityHtml += '</tbody></table></div>';
+        html += '<div style="margin-bottom:16px;"><button class="toggle-btn" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\';this.textContent=t.style.display===\'none\'?\'Show GMV by City\':\'Hide GMV by City\'">Show GMV by City</button>';
+        html += '<div style="display:none;">' + cityHtml + '</div></div>';
+      }
+    }
+
     // Bolt+ Dynamics Table
     html += buildBoltPlusDynamicsTable(fin);
 
@@ -480,6 +507,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
+        if (oc.batching_rate != null) html += kpi('Batching Rate', fmtPct(oc.batching_rate, 1), oc, op, 'batching_rate');
+        if (oc.courier_acceptance_rate != null) html += kpi('Courier Acceptance Rate', fmtPct(oc.courier_acceptance_rate, 1), oc, op, 'courier_acceptance_rate');
 
         /* Change 3: Item defect metrics for brand views */
         if (currentView !== 'overview') {
@@ -902,6 +931,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     }
 
     html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);
+    html += rowFmt('Batching Rate, %', r => r.batching_rate, v => fmtPct(v, 1));
+    html += rowFmt('Courier Acceptance Rate, %', r => r.courier_acceptance_rate, v => fmtPct(v, 1));
 
     /* Change 8: Replace replacement/adjustment with item defect metrics for brands */
     if (currentView !== 'overview') {

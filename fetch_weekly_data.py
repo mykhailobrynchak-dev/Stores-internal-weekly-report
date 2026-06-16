@@ -19,12 +19,12 @@ ALL_TRACKED_PARTNERS = [
     "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK",
     "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
-    "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP", "MAXBEER GROUP",
+    "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP",
     "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM",
-    "BRSM"
+    "BRSM", "VAPORS", "PYVNE REMESLO"
 ]
 
-EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM"]
+EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS", "PYVNE REMESLO"]
 
 VERTICAL_FILTER = "(p.delivery_vertical LIKE 'store_3p%' OR p.group_name IN ({extra}))"
 VERTICAL_FILTER_SQL = VERTICAL_FILTER.format(extra=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
@@ -69,7 +69,7 @@ def financial_query(granularity, group_filter=None):
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
         group_clause = f"AND p.group_name = '{group_filter}'"
-    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
     SELECT
@@ -114,7 +114,7 @@ def refund_query(granularity, group_filter=None):
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
         group_clause = f"AND p.group_name = '{group_filter}'"
-    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
     SELECT
@@ -140,7 +140,7 @@ def campaign_query(granularity, group_filter=None):
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
         group_clause = f"AND p.group_name = '{group_filter}'"
-    week_filter = "AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
+    week_filter = "AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE()) AND CAST(m.order_created_date AS DATE) >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
     SELECT
@@ -168,7 +168,7 @@ def failed_orders_query(granularity, group_filter=None):
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
         group_clause = f"AND p.group_name = '{group_filter}'"
-    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
     SELECT
@@ -192,7 +192,7 @@ def failed_orders_query(granularity, group_filter=None):
 
 def gmv_by_partner_query(granularity):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())" if granularity == "week" else ""
+    week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
     return f"""
     SELECT
         CAST({time_col} AS STRING) as period,
@@ -225,7 +225,7 @@ def item_defect_query():
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
-      AND b.basket_item_created_date >= '{DATA_START}'
+      AND b.basket_item_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
       AND b.basket_item_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND b.basket_item_is_dish = true
       AND {VERTICAL_FILTER_SQL}
@@ -245,7 +245,7 @@ def city_breakdown_query():
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
-      AND f.order_created_date >= '{DATA_START}'
+      AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
       AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND {VERTICAL_FILTER_SQL}
     GROUP BY DATE_TRUNC('week', f.order_created_date), f.city_name
@@ -266,7 +266,7 @@ def city_eater_fees_query():
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
-      AND f.order_created_date >= '{DATA_START}'
+      AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
       AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND {VERTICAL_FILTER_SQL}
     GROUP BY DATE_TRUNC('week', f.order_created_date), f.city_name
@@ -288,6 +288,8 @@ SELECT DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
   ROUND(SUM(f.late_delivery_order_rate_value * f.late_delivery_order_rate_weight) / NULLIF(SUM(f.late_delivery_order_rate_weight), 0) * 100, 1) as late_delivery_rate,
   ROUND(SUM(f.late_pickup_order_rate_value * f.late_pickup_order_rate_weight) / NULLIF(SUM(f.late_pickup_order_rate_weight), 0) * 100, 1) as late_pickup_rate,
   ROUND(SUM(f.order_total_minutes_per_order_value * f.order_total_minutes_per_order_weight) / NULLIF(SUM(f.order_total_minutes_per_order_weight), 0), 1) as avg_delivery_min,
+  ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
+  ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
@@ -295,7 +297,7 @@ FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
 JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
-  AND f.metric_timestamp_local >= '2026-01-01'
+  AND f.metric_timestamp_local >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
   AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())
 GROUP BY DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 ORDER BY period
@@ -315,6 +317,8 @@ SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as peri
   ROUND(SUM(f.late_delivery_order_rate_value * f.late_delivery_order_rate_weight) / NULLIF(SUM(f.late_delivery_order_rate_weight), 0) * 100, 1) as late_delivery_rate,
   ROUND(SUM(f.late_pickup_order_rate_value * f.late_pickup_order_rate_weight) / NULLIF(SUM(f.late_pickup_order_rate_weight), 0) * 100, 1) as late_pickup_rate,
   ROUND(SUM(f.order_total_minutes_per_order_value * f.order_total_minutes_per_order_weight) / NULLIF(SUM(f.order_total_minutes_per_order_weight), 0), 1) as avg_delivery_minutes,
+  ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
+  ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
   ROUND(SUM(f.order_item_replacement_rate_value * f.order_item_replacement_rate_weight) / NULLIF(SUM(f.order_item_replacement_rate_weight), 0) * 100, 2) as replacement_rate,
   ROUND(SUM(f.order_item_adjustment_rate_value * f.order_item_adjustment_rate_weight) / NULLIF(SUM(f.order_item_adjustment_rate_weight), 0) * 100, 2) as adjustment_rate,
   ROUND(SUM(f.provider_campaign_discount_gmv_share_value * f.provider_campaign_discount_gmv_share_weight) / NULLIF(SUM(f.provider_campaign_discount_gmv_share_weight), 0) * 100, 2) as item_discount_promo_share,
@@ -325,7 +329,7 @@ FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
 JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
-  AND f.metric_timestamp_local >= '2026-01-01'
+  AND f.metric_timestamp_local >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
   AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())
 GROUP BY p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
 HAVING SUM(f.delivered_orders_count) > 0
@@ -369,6 +373,26 @@ WHERE t.provider_country_code = 'ua'
   AND {VERTICAL_FILTER_SQL}
   AND t.date = (SELECT MAX(date) FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
 """
+
+
+def partner_city_breakdown_query():
+    return f"""
+    SELECT
+        CAST(DATE_TRUNC('week', f.order_created_date) AS STRING) as period,
+        p.group_name,
+        f.city_name,
+        COUNT(*) as orders,
+        ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    WHERE f.city_country_code = 'ua'
+      AND f.order_state = 'delivered'
+      AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
+      AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY DATE_TRUNC('week', f.order_created_date), p.group_name, f.city_name
+    ORDER BY period, p.group_name, gmv_eur DESC
+    """
 
 
 def clean_row(row):
@@ -449,6 +473,8 @@ def main():
             "late_delivery_rate": to_float(r["late_delivery_rate"]),
             "late_pickup_rate": to_float(r["late_pickup_rate"]),
             "avg_delivery_min": to_float(r["avg_delivery_min"]),
+            "batching_rate": to_float(r["batching_rate"]),
+            "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
             "orders": to_int(r["orders"]),
             "total_stores": to_int(r["total_stores"]),
             "stores_with_orders": to_int(r["stores_with_orders"])
@@ -474,6 +500,8 @@ def main():
             "late_delivery_rate": to_float(r["late_delivery_rate"]),
             "late_pickup_rate": to_float(r["late_pickup_rate"]),
             "avg_delivery_minutes": to_float(r["avg_delivery_minutes"]),
+            "batching_rate": to_float(r["batching_rate"]),
+            "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
             "replacement_rate": to_float(r["replacement_rate"]),
             "adjustment_rate": to_float(r["adjustment_rate"]),
             "item_discount_promo_share": to_float(r["item_discount_promo_share"]),
@@ -527,8 +555,13 @@ def main():
     city_fees = [clean_row(r) for r in run_query(cursor, city_eater_fees_query())]
     save_json("data_city_eater_fees_weekly.json", city_fees)
 
-    # 13. Refunds from all orders (supply refunds only on non-delivered)
-    print("13. Fetching refund metrics (all orders)...")
+    # 13. Partner city breakdown
+    print("13. Fetching partner city breakdown...")
+    partner_city = [clean_row(r) for r in run_query(cursor, partner_city_breakdown_query())]
+    save_json("data_partner_city_weekly.json", partner_city)
+
+    # 14. Refunds from all orders (supply refunds only on non-delivered)
+    print("14. Fetching refund metrics (all orders)...")
     refund_weekly = [clean_row(r) for r in run_query(cursor, refund_query("week"))]
     refund_monthly = [clean_row(r) for r in run_query(cursor, refund_query("month"))]
     save_json("data_refund_weekly.json", refund_weekly)
@@ -538,8 +571,8 @@ def main():
     save_json("data_refund_partner_weekly.json", refund_partner_weekly)
     save_json("data_refund_partner_monthly.json", refund_partner_monthly)
 
-    # 14. Active Stores count (providers with status='active')
-    print("14. Fetching active stores count...")
+    # 15. Active Stores count (providers with status='active')
+    print("15. Fetching active stores count...")
     active_stores_query = f"""
     SELECT p.group_name, COUNT(DISTINCT p.provider_id) as active_stores
     FROM hive_metastore.ng_delivery_spark.dim_provider_v2 p
@@ -554,7 +587,7 @@ def main():
         active_stores_data[r["group_name"]] = to_int(r["active_stores"])
     save_json("data_active_stores.json", active_stores_data)
 
-    # 15. Metadata
+    # 16. Metadata
     from datetime import datetime, timezone
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

@@ -14,9 +14,9 @@ ALL_TRACKED_PARTNERS = [
     "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK",
     "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
-    "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP", "MAXBEER GROUP",
+    "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP",
     "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM",
-    "BRSM"
+    "BRSM", "VAPORS", "PYVNE REMESLO"
 ]
 
 
@@ -148,6 +148,7 @@ refund_monthly = load_json("data_refund_monthly.json")
 refund_partner_weekly = load_json("data_refund_partner_weekly.json")
 refund_partner_monthly = load_json("data_refund_partner_monthly.json")
 active_stores_data = load_json("data_active_stores.json")
+partner_city_weekly = load_json("data_partner_city_weekly.json")
 
 partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
@@ -158,7 +159,8 @@ for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, ove
             partner_fin_monthly, partner_fin_weekly, partner_camp_monthly, partner_camp_weekly,
             failed_overview_weekly, partner_failed_weekly, partner_failed_monthly,
             item_defects_raw,
-            refund_weekly, refund_monthly, refund_partner_weekly, refund_partner_monthly]:
+            refund_weekly, refund_monthly, refund_partner_weekly, refund_partner_monthly,
+            partner_city_weekly]:
     for r in lst:
         r["period"] = fmt_period(r["period"])
 
@@ -226,6 +228,8 @@ for r in ops_overview:
         "late_delivery_rate": r["late_delivery_rate"],
         "late_pickup_rate": r["late_pickup_rate"],
         "avg_delivery_minutes": r["avg_delivery_min"],
+        "batching_rate": r.get("batching_rate"),
+        "courier_acceptance_rate": r.get("courier_acceptance_rate"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -263,6 +267,8 @@ for period in sorted(monthly_ops_groups.keys()):
         "late_delivery_rate": avg_vals(rows, "late_delivery_rate"),
         "late_pickup_rate": avg_vals(rows, "late_pickup_rate"),
         "avg_delivery_minutes": avg_vals(rows, "avg_delivery_min"),
+        "batching_rate": avg_vals(rows, "batching_rate"),
+        "courier_acceptance_rate": avg_vals(rows, "courier_acceptance_rate"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -305,6 +311,8 @@ for period in sorted(q_ops_groups.keys()):
         "late_delivery_rate": avg_vals(rows, "late_delivery_rate"),
         "late_pickup_rate": avg_vals(rows, "late_pickup_rate"),
         "avg_delivery_minutes": avg_vals(rows, "avg_delivery_min"),
+        "batching_rate": avg_vals(rows, "batching_rate"),
+        "courier_acceptance_rate": avg_vals(rows, "courier_acceptance_rate"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -429,6 +437,8 @@ for pname in partners_list:
             "late_delivery_rate": r["late_delivery_rate"],
             "late_pickup_rate": r["late_pickup_rate"],
             "avg_delivery_minutes": r["avg_delivery_minutes"],
+            "batching_rate": r.get("batching_rate"),
+            "courier_acceptance_rate": r.get("courier_acceptance_rate"),
             "replacement_rate": r.get("replacement_rate", 0),
             "adjustment_rate": r.get("adjustment_rate", 0),
         })
@@ -468,6 +478,8 @@ for pname in partners_list:
             "late_delivery_rate": avg_vals(g, "late_delivery_rate"),
             "late_pickup_rate": avg_vals(g, "late_pickup_rate"),
             "avg_delivery_minutes": avg_vals(g, "avg_delivery_minutes"),
+            "batching_rate": avg_vals(g, "batching_rate"),
+            "courier_acceptance_rate": avg_vals(g, "courier_acceptance_rate"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
             "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })
@@ -523,6 +535,8 @@ for pname in partners_list:
             "late_delivery_rate": avg_vals(g, "late_delivery_rate"),
             "late_pickup_rate": avg_vals(g, "late_pickup_rate"),
             "avg_delivery_minutes": avg_vals(g, "avg_delivery_minutes"),
+            "batching_rate": avg_vals(g, "batching_rate"),
+            "courier_acceptance_rate": avg_vals(g, "courier_acceptance_rate"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
             "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })
@@ -577,8 +591,8 @@ for pname in partners_list:
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
     "Krystyna": ["LEPRUKON", "DIMPYVA", "CHILL TIME", "RODYNNA KOVBASKA", "NO TABOO"],
-    "Mykhailo": ["HOP HEY", "BEER MARKET", "KOPIYKA", "LOKO", "PYVNA BORODA", "BRSM", "ANRI-PHARM", "CAFE RYNOK", "BEERLAND K", "WINETIME", "SPRAGA", "MAXBEER", "MAXBEER GROUP", "BEERLAND", "FLOWER SHOP"],
-    "Viktor": ["TAISTRA", "SPAR", "RUKAVYCHKA", "REMESLO BREWERY", "VARUS", "TOCHKA"],
+    "Mykhailo": ["LOKO", "VARUS", "RUKAVYCHKA", "HOP HEY", "BEER MARKET", "KOPIYKA", "PYVNA BORODA", "BRSM", "TAISTRA", "CAFE RYNOK", "BEERLAND K", "BEERLAND", "WINETIME", "SPRAGA", "MAXBEER"],
+    "Viktor": ["REMESLO BREWERY", "PYVNE REMESLO", "VAPORS", "ANRI-PHARM", "FLOWER SHOP", "SPAR", "TOCHKA"],
 }
 
 # ======== ASSEMBLE FINAL DATA ========
@@ -620,6 +634,7 @@ DATA = {
     "item_defects": item_defects,
     "city_breakdown_weekly": city_breakdown_weekly,
     "city_eater_fees_weekly": city_eater_fees_weekly,
+    "partner_city_weekly": partner_city_weekly,
     "employee_groups": EMPLOYEE_GROUPS,
     "active_stores_snapshot": active_stores_data if isinstance(active_stores_data, dict) else {},
 }
