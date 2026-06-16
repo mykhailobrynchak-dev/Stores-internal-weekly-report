@@ -305,6 +305,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return safe((D.acceptance_availability || {})[currentView]);
   }
 
+  /* ---- aggregate partner city data (reuses aggregateCityData logic) ---- */
+  function aggregatePartnerCityData(weeklyData, targetPeriod, targetGran) {
+    return aggregateCityData(weeklyData, targetPeriod, targetGran);
+  }
+
   /* ---- aggregate weekly city data for non-weekly granularity ---- */
   function aggregateCityData(weeklyData, targetPeriod, targetGran) {
     if (targetGran === 'weekly') {
@@ -417,25 +422,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       }
     }
 
-    // Partner city breakdown (brand views with 2+ cities)
+    // Partner city breakdown (brand views with 2+ cities, all granularities)
     if (currentView !== 'overview') {
-      const partnerCityData = safe(D.partner_city_weekly).filter(r => r.group_name === currentView);
-      const cityMap = {};
-      partnerCityData.forEach(r => {
-        if (r.period !== currentPeriod) return;
-        const cn = r.city_name || r.city || 'Unknown';
-        if (!cityMap[cn]) cityMap[cn] = {city: cn, orders: 0, gmv_eur: 0};
-        cityMap[cn].orders += (r.orders || 0);
-        cityMap[cn].gmv_eur += (r.gmv_eur || 0);
-      });
-      const cities = Object.values(cityMap).sort((a, b) => b.gmv_eur - a.gmv_eur);
-      if (cities.length >= 2) {
-        const totalGmv = cities.reduce((a, b) => a + b.gmv_eur, 0);
-        let cityHtml = '<div class="sub-section-title">GMV by City</div>';
+      const partnerCityAll = safe(D.partner_city_weekly).filter(r => r.group_name === currentView);
+      const curCities = aggregatePartnerCityData(partnerCityAll, currentPeriod, currentGran);
+      if (curCities.length >= 2) {
+        const prevPer = getPrevPeriod(currentPeriod, currentGran);
+        const prevCities = prevPer ? aggregatePartnerCityData(partnerCityAll, prevPer, currentGran) : [];
+        const prevMap = {}; prevCities.forEach(r => { prevMap[r.city] = r; });
+        curCities.sort((a, b) => b.gmv_eur - a.gmv_eur);
+        const totalGmv = curCities.reduce((a, b) => a + b.gmv_eur, 0);
+        let cityHtml = '<div class="sub-section-title">GMV by City — ' + periodLabel(currentPeriod, currentGran) + '</div>';
         cityHtml += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>City</th><th>Orders</th><th>GMV, €</th><th>% of Total</th></tr></thead><tbody>';
-        cities.forEach(r => {
+        curCities.forEach(r => {
           const pct = totalGmv ? (r.gmv_eur / totalGmv * 100) : 0;
-          cityHtml += `<tr><td>${r.city}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.gmv_eur)}</td><td>${fmtPct(pct, 1)}</td></tr>`;
+          const pr = prevMap[r.city];
+          cityHtml += `<tr><td>${r.city}</td><td>${fmt(r.orders)} ${pctChangeInline(r.orders, pr ? pr.orders : null)}</td><td>${fmtEur(r.gmv_eur)} ${pctChangeInline(r.gmv_eur, pr ? pr.gmv_eur : null)}</td><td>${fmtPct(pct, 1)}</td></tr>`;
         });
         cityHtml += '</tbody></table></div>';
         html += '<div style="margin-bottom:16px;"><button class="toggle-btn" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\';this.textContent=t.style.display===\'none\'?\'Show GMV by City\':\'Hide GMV by City\'">Show GMV by City</button>';
