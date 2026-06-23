@@ -1,11 +1,46 @@
 """Fetch ALL data from Databricks for the 3P Stores Weekly Report."""
-import os, json
+import os, json, sys
 from collections import defaultdict
+from pathlib import Path
 from databricks import sql as dbsql
 
-HOST = os.environ["DATABRICKS_HOST"]
-TOKEN = os.environ["DATABRICKS_TOKEN"]
-WAREHOUSE_ID = os.environ["DATABRICKS_WAREHOUSE_ID"]
+
+def _load_dotenv():
+    """Load local .env (NOT committed to git) so the script runs locally too."""
+    env_file = Path(__file__).parent / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key, value = key.strip(), value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _require_env(name):
+    value = os.environ.get(name)
+    if not value:
+        print(f"Missing {name}. Create .env from .env.example or export the variable.", file=sys.stderr)
+        sys.exit(1)
+    return value
+
+
+def _connect_kwargs():
+    """DATABRICKS_TLS_NO_VERIFY=1 — local-only workaround for corporate proxy SSL errors."""
+    kwargs = {}
+    if os.environ.get("DATABRICKS_TLS_NO_VERIFY", "").strip().lower() in ("1", "true", "yes"):
+        kwargs["_tls_no_verify"] = True
+    return kwargs
+
+
+_load_dotenv()
+
+HOST = _require_env("DATABRICKS_HOST")
+TOKEN = _require_env("DATABRICKS_TOKEN")
+WAREHOUSE_ID = _require_env("DATABRICKS_WAREHOUSE_ID")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_START = "2026-01-01"
@@ -288,6 +323,8 @@ SELECT DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
   ROUND(SUM(f.late_delivery_order_rate_value * f.late_delivery_order_rate_weight) / NULLIF(SUM(f.late_delivery_order_rate_weight), 0) * 100, 1) as late_delivery_rate,
   ROUND(SUM(f.late_pickup_order_rate_value * f.late_pickup_order_rate_weight) / NULLIF(SUM(f.late_pickup_order_rate_weight), 0) * 100, 1) as late_pickup_rate,
   ROUND(SUM(f.order_total_minutes_per_order_value * f.order_total_minutes_per_order_weight) / NULLIF(SUM(f.order_total_minutes_per_order_weight), 0), 1) as avg_delivery_min,
+  ROUND(SUM(f.courier_minutes_per_order_value * f.courier_minutes_per_order_weight) / NULLIF(SUM(f.courier_minutes_per_order_weight), 0), 1) as courier_min_per_order,
+  ROUND((SUM(f.total_contribution_profit_eur) - SUM(f.total_contribution_profit_without_demand_incentives_eur)) / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) as demand_incentives_gmv_share,
   ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
   ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
   SUM(f.delivered_orders_count) as orders,
@@ -317,6 +354,8 @@ SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as peri
   ROUND(SUM(f.late_delivery_order_rate_value * f.late_delivery_order_rate_weight) / NULLIF(SUM(f.late_delivery_order_rate_weight), 0) * 100, 1) as late_delivery_rate,
   ROUND(SUM(f.late_pickup_order_rate_value * f.late_pickup_order_rate_weight) / NULLIF(SUM(f.late_pickup_order_rate_weight), 0) * 100, 1) as late_pickup_rate,
   ROUND(SUM(f.order_total_minutes_per_order_value * f.order_total_minutes_per_order_weight) / NULLIF(SUM(f.order_total_minutes_per_order_weight), 0), 1) as avg_delivery_minutes,
+  ROUND(SUM(f.courier_minutes_per_order_value * f.courier_minutes_per_order_weight) / NULLIF(SUM(f.courier_minutes_per_order_weight), 0), 1) as courier_minutes_per_order,
+  ROUND((SUM(f.total_contribution_profit_eur) - SUM(f.total_contribution_profit_without_demand_incentives_eur)) / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) as demand_incentives_gmv_share,
   ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
   ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
   ROUND(SUM(f.order_item_replacement_rate_value * f.order_item_replacement_rate_weight) / NULLIF(SUM(f.order_item_replacement_rate_weight), 0) * 100, 2) as replacement_rate,
@@ -403,7 +442,8 @@ def main():
     connection = dbsql.connect(
         server_hostname=HOST,
         http_path=f"/sql/1.0/warehouses/{WAREHOUSE_ID}",
-        access_token=TOKEN
+        access_token=TOKEN,
+        **_connect_kwargs()
     )
     cursor = connection.cursor()
 
@@ -473,6 +513,8 @@ def main():
             "late_delivery_rate": to_float(r["late_delivery_rate"]),
             "late_pickup_rate": to_float(r["late_pickup_rate"]),
             "avg_delivery_min": to_float(r["avg_delivery_min"]),
+            "courier_min_per_order": to_float(r["courier_min_per_order"]),
+            "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
             "batching_rate": to_float(r["batching_rate"]),
             "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
             "orders": to_int(r["orders"]),
@@ -500,6 +542,8 @@ def main():
             "late_delivery_rate": to_float(r["late_delivery_rate"]),
             "late_pickup_rate": to_float(r["late_pickup_rate"]),
             "avg_delivery_minutes": to_float(r["avg_delivery_minutes"]),
+            "courier_minutes_per_order": to_float(r["courier_minutes_per_order"]),
+            "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
             "batching_rate": to_float(r["batching_rate"]),
             "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
             "replacement_rate": to_float(r["replacement_rate"]),
