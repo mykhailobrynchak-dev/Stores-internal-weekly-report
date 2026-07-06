@@ -132,6 +132,8 @@ gmv_monthly = load_json("data_gmv_by_partner_monthly.json")
 gmv_weekly = load_json("data_gmv_by_partner_weekly.json")
 ops_overview = load_json("data_ops_overview_weekly.json")
 ops_partners = load_json("data_ops_partners_weekly.json")
+ops_overview_monthly = load_json("data_ops_overview_monthly.json")
+ops_partners_monthly = load_json("data_ops_partners_monthly.json")
 partner_fin_monthly = load_json("data_partner_fin_monthly.json")
 partner_fin_weekly = load_json("data_partner_fin_weekly.json")
 partner_camp_monthly = load_json("data_partner_camp_monthly.json")
@@ -237,44 +239,39 @@ for r in ops_overview:
         "adjustment_rate": 0,
     })
 
-# Monthly CP from ops weekly (averaged), OPS from fact_provider_weekly
-monthly_ops_groups = defaultdict(list)
-for r in ops_overview:
-    mkey = fmt_period(r["period"])[:7] + "-01 00:00:00"
-    monthly_ops_groups[mkey].append(r)
-
+# Monthly CP/OPS from the dedicated monthly ops query (accumulated from DATA_START = Jan 2026)
 overview_cp_monthly_computed = []
-for period in sorted(monthly_ops_groups.keys()):
-    rows = monthly_ops_groups[period]
+for r in sorted(ops_overview_monthly, key=lambda x: x["period"]):
+    period = fmt_period(r["period"])
     overview_cp_monthly_computed.append({
         "period": period,
-        "cp_margin_pct": avg_vals(rows, "cp_margin_pct"),
-        "cp_l2_margin_pct": avg_vals(rows, "cp_l2_margin_pct"),
-        "demand_incentives_gmv_share": avg_vals(rows, "demand_incentives_gmv_share"),
-        "commission_gmv_pct": avg_vals(rows, "commission_gmv_pct"),
-        "commission_aov_pct": avg_vals(rows, "commission_aov_pct"),
+        "cp_margin_pct": r.get("cp_margin_pct"),
+        "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+        "demand_incentives_gmv_share": r.get("demand_incentives_gmv_share"),
+        "commission_gmv_pct": r.get("commission_gmv_pct"),
+        "commission_aov_pct": r.get("commission_aov_pct"),
     })
 
 overview_ops_monthly_computed = []
-for period in sorted(monthly_ops_groups.keys()):
-    rows = monthly_ops_groups[period]
+for r in sorted(ops_overview_monthly, key=lambda x: x["period"]):
+    period = fmt_period(r["period"])
     overview_ops_monthly_computed.append({
         "period": period,
-        "delivered_orders": sum(r["orders"] for r in rows),
-        "total_stores": max((r.get("total_stores") or 0) for r in rows),
-        "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in rows),
-        "acceptance_rate": avg_vals(rows, "acceptance_rate"),
-        "availability_rate": avg_vals(rows, "availability_rate"),
-        "avg_rating": avg_vals(rows, "avg_rating"),
-        "honey_order_rate": avg_vals(rows, "honey_rate"),
-        "bad_order_rate": avg_vals(rows, "bad_rate"),
-        "late_delivery_rate": avg_vals(rows, "late_delivery_rate"),
-        "late_pickup_rate": avg_vals(rows, "late_pickup_rate"),
-        "avg_delivery_minutes": avg_vals(rows, "avg_delivery_min"),
-        "courier_minutes_per_order": avg_vals(rows, "courier_min_per_order"),
-        "batching_rate": avg_vals(rows, "batching_rate"),
-        "courier_acceptance_rate": avg_vals(rows, "courier_acceptance_rate"),
-        "cpo_eur": avg_vals(rows, "cpo_eur"),
+        "delivered_orders": r.get("orders"),
+        "total_stores": r.get("total_stores"),
+        "stores_with_orders": r.get("stores_with_orders"),
+        "acceptance_rate": r.get("acceptance_rate"),
+        "availability_rate": r.get("availability_rate"),
+        "avg_rating": r.get("avg_rating"),
+        "honey_order_rate": r.get("honey_rate"),
+        "bad_order_rate": r.get("bad_rate"),
+        "late_delivery_rate": r.get("late_delivery_rate"),
+        "late_pickup_rate": r.get("late_pickup_rate"),
+        "avg_delivery_minutes": r.get("avg_delivery_min"),
+        "courier_minutes_per_order": r.get("courier_min_per_order"),
+        "batching_rate": r.get("batching_rate"),
+        "courier_acceptance_rate": r.get("courier_acceptance_rate"),
+        "cpo_eur": r.get("cpo_eur"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -291,8 +288,8 @@ for period in sorted(q_fin_groups.keys()):
         agg["period"] = period
         overview_fin_quarterly.append(agg)
 
-# CP/OPS
-q_ops_groups = group_by_quarter([{"period": fmt_period(r["period"]), **r} for r in ops_overview])
+# CP/OPS (quarterly from monthly ops, accumulated from DATA_START)
+q_ops_groups = group_by_quarter([{"period": fmt_period(r["period"]), **r} for r in ops_overview_monthly])
 overview_cp_quarterly = []
 overview_ops_quarterly = []
 for period in sorted(q_ops_groups.keys()):
@@ -396,6 +393,10 @@ ops_by_partner = defaultdict(list)
 for r in ops_partners:
     ops_by_partner[r["group_name"]].append(r)
 
+ops_monthly_by_partner = defaultdict(list)
+for r in ops_partners_monthly:
+    ops_monthly_by_partner[r["group_name"]].append(r)
+
 pfin_monthly_by_partner = defaultdict(list)
 for r in partner_fin_monthly:
     pfin_monthly_by_partner[r["group_name"]].append(r)
@@ -455,48 +456,40 @@ for pname in partners_list:
             "adjustment_rate": r.get("adjustment_rate", 0),
         })
 
-    # Monthly CP (averaged from weekly ops)
-    m_cp_groups = defaultdict(list)
-    for r in weekly_cp:
-        m_cp_groups[r["period"][:7] + "-01 00:00:00"].append(r)
+    # Monthly CP/OPS from the dedicated monthly partner ops query (from DATA_START = Jan 2026)
+    ops_m_rows = sorted(ops_monthly_by_partner.get(pname, []), key=lambda x: x["period"])
     monthly_cp = []
-    for mp in sorted(m_cp_groups.keys()):
-        g = m_cp_groups[mp]
+    for r in ops_m_rows:
         monthly_cp.append({
-            "period": mp,
-            "cp_margin_pct": avg_vals(g, "cp_margin_pct"),
-            "cp_l2_margin_pct": avg_vals(g, "cp_l2_margin_pct"),
-            "demand_incentives_gmv_share": avg_vals(g, "demand_incentives_gmv_share"),
-            "commission_gmv_pct": avg_vals(g, "commission_gmv_pct"),
-            "commission_aov_pct": avg_vals(g, "commission_aov_pct"),
+            "period": fmt_period(r["period"]),
+            "cp_margin_pct": r.get("cp_margin_pct"),
+            "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+            "demand_incentives_gmv_share": r.get("demand_incentives_gmv_share"),
+            "commission_gmv_pct": r.get("commission_gmv_pct"),
+            "commission_aov_pct": r.get("commission_aov_pct"),
         })
 
-    # Monthly OPS (from weekly)
-    m_ops_groups = defaultdict(list)
-    for r in weekly_ops:
-        m_ops_groups[r["period"][:7] + "-01 00:00:00"].append(r)
     monthly_ops = []
-    for mp in sorted(m_ops_groups.keys()):
-        g = m_ops_groups[mp]
+    for r in ops_m_rows:
         monthly_ops.append({
-            "period": mp,
-            "delivered_orders": sum(r["delivered_orders"] for r in g),
-            "total_stores": max((r.get("total_stores") or 0) for r in g),
-            "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in g),
-            "acceptance_rate": avg_vals(g, "acceptance_rate"),
-            "availability_rate": avg_vals(g, "availability_rate"),
-            "avg_rating": avg_vals(g, "avg_rating"),
-            "honey_order_rate": avg_vals(g, "honey_order_rate"),
-            "bad_order_rate": avg_vals(g, "bad_order_rate"),
-            "late_delivery_rate": avg_vals(g, "late_delivery_rate"),
-            "late_pickup_rate": avg_vals(g, "late_pickup_rate"),
-            "avg_delivery_minutes": avg_vals(g, "avg_delivery_minutes"),
-            "courier_minutes_per_order": avg_vals(g, "courier_minutes_per_order"),
-            "batching_rate": avg_vals(g, "batching_rate"),
-            "courier_acceptance_rate": avg_vals(g, "courier_acceptance_rate"),
-            "cpo_eur": avg_vals(g, "cpo_eur"),
-            "replacement_rate": avg_vals(g, "replacement_rate"),
-            "adjustment_rate": avg_vals(g, "adjustment_rate"),
+            "period": fmt_period(r["period"]),
+            "delivered_orders": r.get("orders"),
+            "total_stores": r.get("total_stores"),
+            "stores_with_orders": r.get("stores_with_orders"),
+            "acceptance_rate": r.get("acceptance_rate"),
+            "availability_rate": r.get("availability_rate"),
+            "avg_rating": r.get("avg_rating"),
+            "honey_order_rate": r.get("honey_order_rate"),
+            "bad_order_rate": r.get("bad_order_rate"),
+            "late_delivery_rate": r.get("late_delivery_rate"),
+            "late_pickup_rate": r.get("late_pickup_rate"),
+            "avg_delivery_minutes": r.get("avg_delivery_minutes"),
+            "courier_minutes_per_order": r.get("courier_minutes_per_order"),
+            "batching_rate": r.get("batching_rate"),
+            "courier_acceptance_rate": r.get("courier_acceptance_rate"),
+            "cpo_eur": r.get("cpo_eur"),
+            "replacement_rate": r.get("replacement_rate", 0),
+            "adjustment_rate": r.get("adjustment_rate", 0),
         })
 
     # Weekly/Monthly financial from fact_order_delivery
@@ -517,9 +510,9 @@ for pname in partners_list:
         for r in pfailed_monthly_by_partner.get(pname, [])
     ], key=lambda x: x["period"])
 
-    # Quarterly aggregation
-    q_cp_groups_p = group_by_quarter(weekly_cp)
-    q_ops_groups_p = group_by_quarter(weekly_ops)
+    # Quarterly aggregation (CP/OPS from monthly ops, accumulated from DATA_START)
+    q_cp_groups_p = group_by_quarter(monthly_cp)
+    q_ops_groups_p = group_by_quarter(monthly_ops)
     q_fin_groups_p = group_by_quarter(p_fin_m) if p_fin_m else {}
     q_camp_groups_p = group_by_quarter(p_camp_m) if p_camp_m else {}
     q_failed_groups_p = group_by_quarter(p_failed_m) if p_failed_m else {}

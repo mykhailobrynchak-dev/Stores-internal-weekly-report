@@ -912,35 +912,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += rowFmt('Late Delivery Rate, %', r => r.late_delivery_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Late Pickup Rate, %', r => r.late_pickup_rate, v => fmtPct(v, 1), true);
 
-    /* Change 5: Failed order rows for all views (overview + brands) */
-    const failSlice = safe(fail).slice(-10);
-    if (failSlice.length) {
-      let tr = '<tr><td>Failed Merchant, %</td>';
-      failSlice.forEach((r, i) => {
-        const val = r.total_placed ? (r.failed_merchant / r.total_placed * 100) : 0;
-        const pv = i > 0 && failSlice[i-1].total_placed ? (failSlice[i-1].failed_merchant / failSlice[i-1].total_placed * 100) : null;
-        tr += `<td>${fmtPct(val, 1)} ${pctChangeInline(val, pv, true)}</td>`;
+    /* Change 5: Failed order rows — aligned to the same periods as the header (last10) */
+    const failByPeriod = {};
+    safe(fail).forEach(r => { if (r && r.period != null) failByPeriod[r.period] = r; });
+    function failRow(label, getter) {
+      let tr = `<tr><td>${label}</td>`;
+      last10.forEach((r, i) => {
+        const fr = failByPeriod[r.period];
+        const pfr = i > 0 ? failByPeriod[last10[i-1].period] : null;
+        const val = fr ? getter(fr) : null;
+        const pv = pfr ? getter(pfr) : null;
+        tr += `<td>${val != null ? fmtPct(val, 1) : '—'} ${pctChangeInline(val, pv, true)}</td>`;
       });
       tr += '</tr>';
-      html += tr;
-
-      tr = '<tr><td>Failed Bolt+Courier, %</td>';
-      failSlice.forEach((r, i) => {
-        const val = r.total_placed ? (r.failed_bolt_courier / r.total_placed * 100) : 0;
-        const pv = i > 0 && failSlice[i-1].total_placed ? (failSlice[i-1].failed_bolt_courier / failSlice[i-1].total_placed * 100) : null;
-        tr += `<td>${fmtPct(val, 1)} ${pctChangeInline(val, pv, true)}</td>`;
-      });
-      tr += '</tr>';
-      html += tr;
-
-      tr = '<tr><td>Failed Rate Total, %</td>';
-      failSlice.forEach((r, i) => {
-        const val = r.failed_rate_total;
-        const pv = i > 0 ? failSlice[i-1].failed_rate_total : null;
-        tr += `<td>${fmtPct(val, 1)} ${pctChangeInline(val, pv, true)}</td>`;
-      });
-      tr += '</tr>';
-      html += tr;
+      return tr;
+    }
+    if (Object.keys(failByPeriod).length) {
+      html += failRow('Failed Merchant, %', r => r.total_placed ? (r.failed_merchant / r.total_placed * 100) : 0);
+      html += failRow('Failed Bolt+Courier, %', r => r.total_placed ? (r.failed_bolt_courier / r.total_placed * 100) : 0);
+      html += failRow('Failed Rate Total, %', r => r.failed_rate_total);
     }
 
     html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);

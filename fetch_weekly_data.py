@@ -309,8 +309,22 @@ def city_eater_fees_query():
     """
 
 
-OPERATIONAL_OVERVIEW_QUERY = """
-SELECT DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
+def _ops_window(granularity):
+    """Returns (period_expr, date_filter). Weekly = last 10 completed weeks; monthly = from DATA_START."""
+    if granularity == "month":
+        period_expr = "DATE_FORMAT(DATE_TRUNC('month', f.metric_timestamp_local), 'yyyy-MM-dd')"
+        date_filter = f"AND f.metric_timestamp_local >= '{DATA_START}' AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())"
+    else:
+        period_expr = "DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')"
+        date_filter = "AND f.metric_timestamp_local >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70) AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())"
+    return period_expr, date_filter
+
+
+def operational_overview_query(granularity="week"):
+    period_expr, date_filter = _ops_window(granularity)
+    extra_partners_sql = ",".join(f"'{p}'" for p in EXTRA_PARTNERS)
+    return f"""
+SELECT {period_expr} as period,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
   ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
   ROUND(SUM(total_contribution_profit_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_margin_pct,
@@ -335,14 +349,17 @@ FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
 JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
-  AND f.metric_timestamp_local >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
-  AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())
-GROUP BY DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
+  {date_filter}
+GROUP BY {period_expr}
 ORDER BY period
-""".format(VERTICAL_LIST_OPS=VERTICAL_LIST_OPS, extra_partners_sql=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
+"""
 
-OPERATIONAL_PARTNER_QUERY = """
-SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
+
+def operational_partner_query(granularity="week"):
+    period_expr, date_filter = _ops_window(granularity)
+    extra_partners_sql = ",".join(f"'{p}'" for p in EXTRA_PARTNERS)
+    return f"""
+SELECT p.group_name, {period_expr} as period,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
   ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
   ROUND(SUM(total_contribution_profit_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_margin_pct,
@@ -370,12 +387,11 @@ FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
 JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
-  AND f.metric_timestamp_local >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
-  AND f.metric_timestamp_local < DATE_TRUNC('week', CURRENT_DATE())
-GROUP BY p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd')
+  {date_filter}
+GROUP BY p.group_name, {period_expr}
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY p.group_name, period
-""".format(VERTICAL_LIST_OPS=VERTICAL_LIST_OPS, extra_partners_sql=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
+"""
 
 TOP_PARTNERS_QUERY = f"""
 SELECT p.group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
@@ -440,6 +456,62 @@ def clean_row(row):
     return {k: to_float(v) if k != "period" and k != "group_name" and k != "city_name" else v for k, v in row.items()}
 
 
+def clean_ops_overview_row(r):
+    return {
+        "period": r["period"],
+        "commission_gmv_pct": to_float(r["commission_gmv_pct"]),
+        "commission_aov_pct": to_float(r["commission_aov_pct"]),
+        "cp_margin_pct": to_float(r["cp_margin_pct"]),
+        "cp_l2_margin_pct": to_float(r["cp_l2_margin_pct"]),
+        "acceptance_rate": to_float(r["acceptance_rate"]),
+        "availability_rate": to_float(r["availability_rate"]),
+        "avg_rating": to_float(r["avg_rating"]),
+        "honey_rate": to_float(r["honey_rate"]),
+        "bad_rate": to_float(r["bad_rate"]),
+        "late_delivery_rate": to_float(r["late_delivery_rate"]),
+        "late_pickup_rate": to_float(r["late_pickup_rate"]),
+        "avg_delivery_min": to_float(r["avg_delivery_min"]),
+        "courier_min_per_order": to_float(r["courier_min_per_order"]),
+        "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
+        "batching_rate": to_float(r["batching_rate"]),
+        "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
+        "cpo_eur": to_float(r["cpo_eur"]),
+        "orders": to_int(r["orders"]),
+        "total_stores": to_int(r["total_stores"]),
+        "stores_with_orders": to_int(r["stores_with_orders"]),
+    }
+
+
+def clean_ops_partner_row(r):
+    return {
+        "group_name": r["group_name"],
+        "period": r["period"],
+        "commission_gmv_pct": to_float(r["commission_gmv_pct"]),
+        "commission_aov_pct": to_float(r["commission_aov_pct"]),
+        "cp_margin_pct": to_float(r["cp_margin_pct"]),
+        "cp_l2_margin_pct": to_float(r["cp_l2_margin_pct"]),
+        "acceptance_rate": to_float(r["acceptance_rate"]),
+        "availability_rate": to_float(r["availability_rate"]),
+        "avg_rating": to_float(r["avg_rating"]),
+        "honey_order_rate": to_float(r["honey_order_rate"]),
+        "bad_order_rate": to_float(r["bad_order_rate"]),
+        "late_delivery_rate": to_float(r["late_delivery_rate"]),
+        "late_pickup_rate": to_float(r["late_pickup_rate"]),
+        "avg_delivery_minutes": to_float(r["avg_delivery_minutes"]),
+        "courier_minutes_per_order": to_float(r["courier_minutes_per_order"]),
+        "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
+        "batching_rate": to_float(r["batching_rate"]),
+        "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
+        "replacement_rate": to_float(r["replacement_rate"]),
+        "adjustment_rate": to_float(r["adjustment_rate"]),
+        "item_discount_promo_share": to_float(r["item_discount_promo_share"]),
+        "cpo_eur": to_float(r["cpo_eur"]),
+        "orders": to_int(r["orders"]),
+        "total_stores": to_int(r["total_stores"]),
+        "stores_with_orders": to_int(r["stores_with_orders"]),
+    }
+
+
 def main():
     connection = dbsql.connect(
         server_hostname=HOST,
@@ -497,67 +569,18 @@ def main():
     save_json("data_gmv_by_partner_weekly.json", gmv_weekly)
 
     # 6. Operational metrics from fact_provider_weekly (overview + partners)
+    #    Weekly = last 10 completed weeks; Monthly = accumulated from DATA_START (Jan 2026).
     print("6. Fetching operational overview (fact_provider_weekly)...")
-    ops_overview = run_query(cursor, OPERATIONAL_OVERVIEW_QUERY)
-    ops_overview_clean = []
-    for r in ops_overview:
-        ops_overview_clean.append({
-            "period": r["period"],
-            "commission_gmv_pct": to_float(r["commission_gmv_pct"]),
-            "commission_aov_pct": to_float(r["commission_aov_pct"]),
-            "cp_margin_pct": to_float(r["cp_margin_pct"]),
-            "cp_l2_margin_pct": to_float(r["cp_l2_margin_pct"]),
-            "acceptance_rate": to_float(r["acceptance_rate"]),
-            "availability_rate": to_float(r["availability_rate"]),
-            "avg_rating": to_float(r["avg_rating"]),
-            "honey_rate": to_float(r["honey_rate"]),
-            "bad_rate": to_float(r["bad_rate"]),
-            "late_delivery_rate": to_float(r["late_delivery_rate"]),
-            "late_pickup_rate": to_float(r["late_pickup_rate"]),
-            "avg_delivery_min": to_float(r["avg_delivery_min"]),
-            "courier_min_per_order": to_float(r["courier_min_per_order"]),
-            "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
-            "batching_rate": to_float(r["batching_rate"]),
-            "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
-            "cpo_eur": to_float(r["cpo_eur"]),
-            "orders": to_int(r["orders"]),
-            "total_stores": to_int(r["total_stores"]),
-            "stores_with_orders": to_int(r["stores_with_orders"])
-        })
+    ops_overview_clean = [clean_ops_overview_row(r) for r in run_query(cursor, operational_overview_query("week"))]
     save_json("data_ops_overview_weekly.json", ops_overview_clean)
+    ops_overview_m_clean = [clean_ops_overview_row(r) for r in run_query(cursor, operational_overview_query("month"))]
+    save_json("data_ops_overview_monthly.json", ops_overview_m_clean)
 
     print("   Fetching operational partners (fact_provider_weekly)...")
-    ops_partners = run_query(cursor, OPERATIONAL_PARTNER_QUERY)
-    ops_partners_clean = []
-    for r in ops_partners:
-        ops_partners_clean.append({
-            "group_name": r["group_name"],
-            "period": r["period"],
-            "commission_gmv_pct": to_float(r["commission_gmv_pct"]),
-            "commission_aov_pct": to_float(r["commission_aov_pct"]),
-            "cp_margin_pct": to_float(r["cp_margin_pct"]),
-            "cp_l2_margin_pct": to_float(r["cp_l2_margin_pct"]),
-            "acceptance_rate": to_float(r["acceptance_rate"]),
-            "availability_rate": to_float(r["availability_rate"]),
-            "avg_rating": to_float(r["avg_rating"]),
-            "honey_order_rate": to_float(r["honey_order_rate"]),
-            "bad_order_rate": to_float(r["bad_order_rate"]),
-            "late_delivery_rate": to_float(r["late_delivery_rate"]),
-            "late_pickup_rate": to_float(r["late_pickup_rate"]),
-            "avg_delivery_minutes": to_float(r["avg_delivery_minutes"]),
-            "courier_minutes_per_order": to_float(r["courier_minutes_per_order"]),
-            "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
-            "batching_rate": to_float(r["batching_rate"]),
-            "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
-            "replacement_rate": to_float(r["replacement_rate"]),
-            "adjustment_rate": to_float(r["adjustment_rate"]),
-            "item_discount_promo_share": to_float(r["item_discount_promo_share"]),
-            "cpo_eur": to_float(r["cpo_eur"]),
-            "orders": to_int(r["orders"]),
-            "total_stores": to_int(r["total_stores"]),
-            "stores_with_orders": to_int(r["stores_with_orders"])
-        })
+    ops_partners_clean = [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("week"))]
     save_json("data_ops_partners_weekly.json", ops_partners_clean)
+    ops_partners_m_clean = [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("month"))]
+    save_json("data_ops_partners_monthly.json", ops_partners_m_clean)
 
     # 7. Partner financial (monthly + weekly)
     print("7. Fetching partner financial...")
