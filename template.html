@@ -509,9 +509,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
-        if (oc.courier_minutes_per_order != null) html += kpi('Courier Time / Order', fmt(oc.courier_minutes_per_order, 1) + ' min', oc, op, 'courier_minutes_per_order', {inverted: true});
-        if (oc.batching_rate != null) html += kpi('Batching Rate', fmtPct(oc.batching_rate, 1), oc, op, 'batching_rate');
-        if (oc.courier_acceptance_rate != null) html += kpi('Courier Acceptance Rate', fmtPct(oc.courier_acceptance_rate, 1), oc, op, 'courier_acceptance_rate');
 
         /* Change 3: Item defect metrics for brand views */
         if (currentView !== 'overview') {
@@ -528,6 +525,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         }
       }
       html += '</div>';
+
+      /* Courier Metrics sub-block */
+      if (oc) {
+        const courierCards = [];
+        if (oc.courier_minutes_per_order != null) courierCards.push(kpi('Courier Time / Order', fmt(oc.courier_minutes_per_order, 1) + ' min', oc, op, 'courier_minutes_per_order', {inverted: true}));
+        if (oc.batching_rate != null) courierCards.push(kpi('Batching Rate', fmtPct(oc.batching_rate, 1), oc, op, 'batching_rate'));
+        if (oc.courier_acceptance_rate != null) courierCards.push(kpi('Courier Acceptance Rate', fmtPct(oc.courier_acceptance_rate, 1), oc, op, 'courier_acceptance_rate'));
+        if (oc.cpo_eur != null) courierCards.push(kpi('CPO', '€' + fmt(oc.cpo_eur, 2), oc, op, 'cpo_eur', {inverted: true}));
+        if (courierCards.length) {
+          html += '<div class="sub-section-title">Courier Metrics</div>';
+          html += '<div class="kpi-grid">' + courierCards.join('') + '</div>';
+        }
+      }
     }
 
     // Bad Order Breakdown cards
@@ -937,6 +947,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += rowFmt('Courier Time / Order, min', r => r.courier_minutes_per_order, v => fmt(v, 1), true);
     html += rowFmt('Batching Rate, %', r => r.batching_rate, v => fmtPct(v, 1));
     html += rowFmt('Courier Acceptance Rate, %', r => r.courier_acceptance_rate, v => fmtPct(v, 1));
+    html += rowFmt('CPO, €', r => r.cpo_eur, v => '€' + fmt(v, 2), true);
 
     /* Change 8: Replace replacement/adjustment with item defect metrics for brands */
     if (currentView !== 'overview') {

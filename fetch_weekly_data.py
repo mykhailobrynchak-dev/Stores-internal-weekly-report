@@ -56,7 +56,7 @@ ALL_TRACKED_PARTNERS = [
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
     "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP",
     "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM",
-    "BRSM", "VAPORS"
+    "BRSM", "VAPORS", "VAPE SHOP KYIV"
 ]
 
 EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS"]
@@ -327,6 +327,7 @@ SELECT DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as period,
   ROUND((SUM(f.total_contribution_profit_eur) - SUM(f.total_contribution_profit_without_demand_incentives_eur)) / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) as demand_incentives_gmv_share,
   ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
   ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
+  ROUND(SUM(f.total_invoiced_courier_costs_eur) / NULLIF(SUM(f.delivered_orders_count), 0), 2) as cpo_eur,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
@@ -361,6 +362,7 @@ SELECT p.group_name, DATE_FORMAT(f.metric_timestamp_local, 'yyyy-MM-dd') as peri
   ROUND(SUM(f.order_item_replacement_rate_value * f.order_item_replacement_rate_weight) / NULLIF(SUM(f.order_item_replacement_rate_weight), 0) * 100, 2) as replacement_rate,
   ROUND(SUM(f.order_item_adjustment_rate_value * f.order_item_adjustment_rate_weight) / NULLIF(SUM(f.order_item_adjustment_rate_weight), 0) * 100, 2) as adjustment_rate,
   ROUND(SUM(f.provider_campaign_discount_gmv_share_value * f.provider_campaign_discount_gmv_share_weight) / NULLIF(SUM(f.provider_campaign_discount_gmv_share_weight), 0) * 100, 2) as item_discount_promo_share,
+  ROUND(SUM(f.total_invoiced_courier_costs_eur) / NULLIF(SUM(f.delivered_orders_count), 0), 2) as cpo_eur,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
@@ -517,6 +519,7 @@ def main():
             "demand_incentives_gmv_share": to_float(r["demand_incentives_gmv_share"]),
             "batching_rate": to_float(r["batching_rate"]),
             "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
+            "cpo_eur": to_float(r["cpo_eur"]),
             "orders": to_int(r["orders"]),
             "total_stores": to_int(r["total_stores"]),
             "stores_with_orders": to_int(r["stores_with_orders"])
@@ -549,6 +552,7 @@ def main():
             "replacement_rate": to_float(r["replacement_rate"]),
             "adjustment_rate": to_float(r["adjustment_rate"]),
             "item_discount_promo_share": to_float(r["item_discount_promo_share"]),
+            "cpo_eur": to_float(r["cpo_eur"]),
             "orders": to_int(r["orders"]),
             "total_stores": to_int(r["total_stores"]),
             "stores_with_orders": to_int(r["stores_with_orders"])

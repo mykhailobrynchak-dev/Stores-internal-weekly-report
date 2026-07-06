@@ -16,7 +16,7 @@ ALL_TRACKED_PARTNERS = [
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
     "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP",
     "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM",
-    "BRSM", "VAPORS"
+    "BRSM", "VAPORS", "VAPE SHOP KYIV"
 ]
 
 
@@ -232,6 +232,7 @@ for r in ops_overview:
         "courier_minutes_per_order": r.get("courier_min_per_order"),
         "batching_rate": r.get("batching_rate"),
         "courier_acceptance_rate": r.get("courier_acceptance_rate"),
+        "cpo_eur": r.get("cpo_eur"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -273,6 +274,7 @@ for period in sorted(monthly_ops_groups.keys()):
         "courier_minutes_per_order": avg_vals(rows, "courier_min_per_order"),
         "batching_rate": avg_vals(rows, "batching_rate"),
         "courier_acceptance_rate": avg_vals(rows, "courier_acceptance_rate"),
+        "cpo_eur": avg_vals(rows, "cpo_eur"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -319,6 +321,7 @@ for period in sorted(q_ops_groups.keys()):
         "courier_minutes_per_order": avg_vals(rows, "courier_min_per_order"),
         "batching_rate": avg_vals(rows, "batching_rate"),
         "courier_acceptance_rate": avg_vals(rows, "courier_acceptance_rate"),
+        "cpo_eur": avg_vals(rows, "cpo_eur"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -447,6 +450,7 @@ for pname in partners_list:
             "courier_minutes_per_order": r.get("courier_minutes_per_order"),
             "batching_rate": r.get("batching_rate"),
             "courier_acceptance_rate": r.get("courier_acceptance_rate"),
+            "cpo_eur": r.get("cpo_eur"),
             "replacement_rate": r.get("replacement_rate", 0),
             "adjustment_rate": r.get("adjustment_rate", 0),
         })
@@ -490,6 +494,7 @@ for pname in partners_list:
             "courier_minutes_per_order": avg_vals(g, "courier_minutes_per_order"),
             "batching_rate": avg_vals(g, "batching_rate"),
             "courier_acceptance_rate": avg_vals(g, "courier_acceptance_rate"),
+            "cpo_eur": avg_vals(g, "cpo_eur"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
             "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })
@@ -549,6 +554,7 @@ for pname in partners_list:
             "courier_minutes_per_order": avg_vals(g, "courier_minutes_per_order"),
             "batching_rate": avg_vals(g, "batching_rate"),
             "courier_acceptance_rate": avg_vals(g, "courier_acceptance_rate"),
+            "cpo_eur": avg_vals(g, "cpo_eur"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
             "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })
@@ -602,9 +608,9 @@ for pname in partners_list:
 
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
-    "Krystyna": ["LEPRUKON", "DIMPYVA", "CHILL TIME", "RODYNNA KOVBASKA", "NO TABOO"],
+    "Khrystyna": ["LEPRUKON", "DIMPYVA", "CHILL TIME", "RODYNNA KOVBASKA", "NO TABOO", "VAPORS", "VAPE SHOP KYIV"],
     "Mykhailo": ["LOKO", "HOP HEY", "BEER MARKET", "KOPIYKA", "PYVNA BORODA", "BRSM", "TAISTRA", "CAFE RYNOK", "BEERLAND K", "BEERLAND", "WINETIME", "SPRAGA", "MAXBEER", "SPAR"],
-    "Viktor": ["VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "VAPORS", "ANRI-PHARM", "FLOWER SHOP", "TOCHKA"],
+    "Viktor": ["VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "ANRI-PHARM", "FLOWER SHOP", "TOCHKA"],
 }
 
 # ======== ASSEMBLE FINAL DATA ========
