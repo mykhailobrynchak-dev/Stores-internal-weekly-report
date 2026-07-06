@@ -56,10 +56,16 @@ ALL_TRACKED_PARTNERS = [
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
     "DIMPYVA", "MAXBEER", "CHILL TIME", "FLOWER SHOP",
     "RODYNNA KOVBASKA", "NO TABOO", "BEERLAND", "SPAR", "ANRI-PHARM",
-    "BRSM", "VAPORS", "VAPE SHOP KYIV"
+    "BRSM", "VAPORS", "VAPE SHOP KYIV", "PIVASOV", "OKKO MARKET"
 ]
 
-EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS"]
+EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS", "PIVASOV"]
+
+# Brands tracked as standalone partners even though they live inside a larger group_name
+# (e.g. OKKO MARKET is a brand within group OKKO CAFE GROUP). GROUP_KEY splits them out.
+BRAND_PARTNERS = ["OKKO MARKET"]
+_BRAND_LIST_SQL = ",".join(f"'{b}'" for b in BRAND_PARTNERS)
+GROUP_KEY = f"CASE WHEN p.brand_name IN ({_BRAND_LIST_SQL}) THEN p.brand_name ELSE p.group_name END"
 
 VERTICAL_FILTER = "(p.delivery_vertical LIKE 'store_3p%' OR p.group_name IN ({extra}))"
 VERTICAL_FILTER_SQL = VERTICAL_FILTER.format(extra=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
@@ -99,11 +105,11 @@ def save_json(filename, data):
 
 def financial_query(granularity, group_filter=None):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    group_col = ", p.group_name" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = "p.group_name, " if group_filter == "ALL_BY_GROUP" else ""
+    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND p.group_name = '{group_filter}'"
+        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -144,11 +150,11 @@ def financial_query(granularity, group_filter=None):
 def refund_query(granularity, group_filter=None):
     """Refunds from ALL orders (not just delivered) to capture supply refunds."""
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    group_col = ", p.group_name" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = "p.group_name, " if group_filter == "ALL_BY_GROUP" else ""
+    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND p.group_name = '{group_filter}'"
+        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -170,11 +176,11 @@ def refund_query(granularity, group_filter=None):
 
 def campaign_query(granularity, group_filter=None):
     time_col = "DATE_TRUNC('week', CAST(m.order_created_date AS DATE))" if granularity == "week" else "DATE_TRUNC('month', CAST(m.order_created_date AS DATE))"
-    group_col = ", p.group_name" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = "p.group_name, " if group_filter == "ALL_BY_GROUP" else ""
+    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND p.group_name = '{group_filter}'"
+        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE()) AND CAST(m.order_created_date AS DATE) >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -198,11 +204,11 @@ def campaign_query(granularity, group_filter=None):
 
 def failed_orders_query(granularity, group_filter=None):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    group_col = ", p.group_name" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = "p.group_name, " if group_filter == "ALL_BY_GROUP" else ""
+    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
     group_clause = ""
     if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND p.group_name = '{group_filter}'"
+        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -231,7 +237,7 @@ def gmv_by_partner_query(granularity):
     return f"""
     SELECT
         CAST({time_col} AS STRING) as period,
-        p.group_name,
+        {GROUP_KEY} as group_name,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
         COUNT(*) as orders
     FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
@@ -241,7 +247,7 @@ def gmv_by_partner_query(granularity):
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
       AND {VERTICAL_FILTER_SQL}
-    GROUP BY {time_col}, p.group_name
+    GROUP BY {time_col}, {GROUP_KEY}
     ORDER BY period, gmv_eur DESC
     """
 
@@ -250,7 +256,7 @@ def item_defect_query():
     return f"""
     SELECT
         CAST(DATE_TRUNC('week', f.order_created_date) AS STRING) as period,
-        p.group_name,
+        {GROUP_KEY} as group_name,
         SUM(CASE WHEN b.has_item_quantity_adjustment THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as quantity_defect_rate,
         SUM(CASE WHEN b.is_item_replacement THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as item_replacement_rate,
         SUM(CASE WHEN b.has_item_weighted_adjustment THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as weighted_defect_rate,
@@ -264,8 +270,8 @@ def item_defect_query():
       AND b.basket_item_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND b.basket_item_is_dish = true
       AND {VERTICAL_FILTER_SQL}
-    GROUP BY DATE_TRUNC('week', f.order_created_date), p.group_name
-    ORDER BY period, p.group_name
+    GROUP BY DATE_TRUNC('week', f.order_created_date), {GROUP_KEY}
+    ORDER BY period, group_name
     """
 
 
@@ -359,7 +365,7 @@ def operational_partner_query(granularity="week"):
     period_expr, date_filter = _ops_window(granularity)
     extra_partners_sql = ",".join(f"'{p}'" for p in EXTRA_PARTNERS)
     return f"""
-SELECT p.group_name, {period_expr} as period,
+SELECT {GROUP_KEY} as group_name, {period_expr} as period,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
   ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
   ROUND(SUM(total_contribution_profit_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_margin_pct,
@@ -388,26 +394,26 @@ JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.pro
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   {date_filter}
-GROUP BY p.group_name, {period_expr}
+GROUP BY {GROUP_KEY}, {period_expr}
 HAVING SUM(f.delivered_orders_count) > 0
-ORDER BY p.group_name, period
+ORDER BY group_name, period
 """
 
 TOP_PARTNERS_QUERY = f"""
-SELECT p.group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
+SELECT {GROUP_KEY} as group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
 FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
 JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE f.city_country_code = 'ua'
   AND f.order_state = 'delivered'
   AND f.order_created_date >= '{DATA_START}'
   AND {VERTICAL_FILTER_SQL}
-GROUP BY p.group_name
+GROUP BY {GROUP_KEY}
 ORDER BY gmv_eur DESC
 LIMIT 20
 """
 
 ACCEPTANCE_AVAILABILITY_QUERY = f"""
-SELECT p.group_name,
+SELECT {GROUP_KEY} as group_name,
   ROUND(AVG(t.acceptance_rate_last_30d), 3) as acceptance_rate_30d,
   ROUND(AVG(t.availability_rate_last_30d), 3) as availability_rate_30d,
   ROUND(AVG(t.avg_rating_last_30d), 2) as avg_rating_30d
@@ -416,7 +422,7 @@ JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.pro
 WHERE t.provider_country_code = 'ua'
   AND {VERTICAL_FILTER_SQL}
   AND t.date = (SELECT MAX(date) FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
-GROUP BY p.group_name
+GROUP BY {GROUP_KEY}
 """
 
 ACCEPTANCE_OVERVIEW_QUERY = f"""
@@ -436,7 +442,7 @@ def partner_city_breakdown_query():
     return f"""
     SELECT
         CAST(DATE_TRUNC('week', f.order_created_date) AS STRING) as period,
-        p.group_name,
+        {GROUP_KEY} as group_name,
         f.city_name,
         COUNT(*) as orders,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur
@@ -447,8 +453,8 @@ def partner_city_breakdown_query():
       AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
       AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND {VERTICAL_FILTER_SQL}
-    GROUP BY DATE_TRUNC('week', f.order_created_date), p.group_name, f.city_name
-    ORDER BY period, p.group_name, gmv_eur DESC
+    GROUP BY DATE_TRUNC('week', f.order_created_date), {GROUP_KEY}, f.city_name
+    ORDER BY period, group_name, gmv_eur DESC
     """
 
 
@@ -645,12 +651,12 @@ def main():
     # 15. Active Stores count (providers with status='active')
     print("15. Fetching active stores count...")
     active_stores_query = f"""
-    SELECT p.group_name, COUNT(DISTINCT p.provider_id) as active_stores
+    SELECT {GROUP_KEY} as group_name, COUNT(DISTINCT p.provider_id) as active_stores
     FROM hive_metastore.ng_delivery_spark.dim_provider_v2 p
     WHERE p.country_code = 'ua'
       AND p.provider_status = 'active'
       AND {VERTICAL_FILTER_SQL}
-    GROUP BY p.group_name
+    GROUP BY {GROUP_KEY}
     """
     active_stores_rows = run_query(cursor, active_stores_query)
     active_stores_data = {"total": sum(to_int(r["active_stores"]) for r in active_stores_rows)}
