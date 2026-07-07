@@ -146,9 +146,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   const D = typeof REPORT_DATA !== 'undefined' ? REPORT_DATA : null;
   if (!D) { document.getElementById('content').innerHTML = '<p>No data loaded.</p>'; return; }
 
-  // Merchant SKU Sessions Availability Rate is hidden until its definition is reconciled with Looker
-  // (fact_provider_weekly weighted rate reads ~1.4x higher than the internal report). Flip to true to re-enable.
-  const SHOW_SKU_AVAILABILITY = false;
+  // Merchant SKU Sessions Availability Rate — shown as-is (weighted rate from fact_provider_weekly).
+  // Note: reads ~1.4x higher than the internal Looker report; definition not yet fully reconciled.
+  const SHOW_SKU_AVAILABILITY = true;
 
   let currentView = 'overview';
   let currentGran = 'weekly';

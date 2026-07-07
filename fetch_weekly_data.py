@@ -404,32 +404,37 @@ ORDER BY group_name, period
 """
 
 def sku_median_query(granularity="week"):
-    """Median (across a brand's providers) of unique_dishes_not_hidden = 'available SKU'.
-    Per provider, take the latest snapshot within each period bucket (prefer larger catalog on ties)."""
+    """Median (across a brand's providers) of provider_catalog_size = available SKU count.
+    Source: etl_delivery_market_provider_sku_ml_features — covers ALL SKUs (incl. non-food,
+    e.g. pharmacy), unlike the dish-only menu metrics. Per provider, take the latest snapshot in each bucket."""
     trunc = "month" if granularity == "month" else "week"
     if granularity == "month":
-        win = f"m.as_on_date >= '{DATA_START}' AND m.as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
+        win = f"as_on_date >= '{DATA_START}' AND as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
     else:
-        win = "m.as_on_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70) AND m.as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
+        win = "as_on_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70) AND as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
     return f"""
-    WITH snap AS (
-        SELECT m.provider_id,
-               DATE_TRUNC('{trunc}', m.as_on_date) AS period_bucket,
-               m.unique_dishes_not_hidden AS udnh,
-               ROW_NUMBER() OVER (PARTITION BY m.provider_id, DATE_TRUNC('{trunc}', m.as_on_date) ORDER BY m.as_on_date DESC, m.unique_dishes_not_hidden DESC) AS rn
-        FROM hive_metastore.ng_delivery_spark.etl_delivery_menu_active_menu_metrics_by_day m
-        WHERE {win}
+    WITH daily AS (
+        SELECT DISTINCT provider_id, as_on_date,
+               DATE_TRUNC('{trunc}', as_on_date) AS period_bucket,
+               provider_catalog_size AS sku
+        FROM hive_metastore.ng_delivery_spark.etl_delivery_market_provider_sku_ml_features
+        WHERE {win} AND provider_catalog_size IS NOT NULL
+    ),
+    snap AS (
+        SELECT provider_id, period_bucket, sku,
+               ROW_NUMBER() OVER (PARTITION BY provider_id, period_bucket ORDER BY as_on_date DESC) AS rn
+        FROM daily
     )
     SELECT CAST(s.period_bucket AS STRING) as period,
            {GROUP_KEY} as group_name,
-           ROUND(percentile(s.udnh, 0.5), 0) as median_available_sku
+           ROUND(percentile(s.sku, 0.5), 0) as median_available_sku
     FROM snap s
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON s.provider_id = p.provider_id
     WHERE s.rn = 1
       AND p.country_code = 'ua'
       AND {VERTICAL_FILTER_SQL}
     GROUP BY s.period_bucket, {GROUP_KEY}
-    HAVING percentile(s.udnh, 0.5) > 0
+    HAVING percentile(s.sku, 0.5) > 0
     ORDER BY period, group_name
     """
 
