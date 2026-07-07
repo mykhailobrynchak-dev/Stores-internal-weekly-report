@@ -411,9 +411,33 @@ ops_monthly_by_partner = defaultdict(list)
 for r in ops_partners_monthly:
     ops_monthly_by_partner[r["group_name"]].append(r)
 
-# Median Available SKU lookup by (brand, period). Only present for a subset of brands.
-sku_median_w_by_key = {(r.get("group_name"), fmt_period(r["period"])): r.get("median_available_sku") for r in sku_median_weekly}
-sku_median_m_by_key = {(r.get("group_name"), fmt_period(r["period"])): r.get("median_available_sku") for r in sku_median_monthly}
+# Median Available SKU per brand -> sorted (period, value) series. Source snapshots are sparse
+# (some brands have only one month of data), so we forward/back-fill at attach time since menu size is stable.
+sku_median_w_by_brand = defaultdict(list)
+for r in sku_median_weekly:
+    v = r.get("median_available_sku")
+    if v is not None:
+        sku_median_w_by_brand[r.get("group_name")].append((fmt_period(r["period"]), v))
+sku_median_m_by_brand = defaultdict(list)
+for r in sku_median_monthly:
+    v = r.get("median_available_sku")
+    if v is not None:
+        sku_median_m_by_brand[r.get("group_name")].append((fmt_period(r["period"]), v))
+for _s in list(sku_median_w_by_brand.values()) + list(sku_median_m_by_brand.values()):
+    _s.sort()
+
+
+def sku_median_ff(series, period):
+    """Latest median at or before `period`; if none exists, the earliest known (back-fill)."""
+    if not series:
+        return None
+    prior = None
+    for p, v in series:
+        if p <= period:
+            prior = v
+        else:
+            break
+    return prior if prior is not None else series[0][1]
 
 pfin_monthly_by_partner = defaultdict(list)
 for r in partner_fin_monthly:
@@ -512,11 +536,13 @@ for pname in partners_list:
             "adjustment_rate": r.get("adjustment_rate", 0),
         })
 
-    # Attach Median Available SKU (present only for a subset of brands/periods)
+    # Attach Median Available SKU (forward/back-filled from sparse snapshots; menu size is stable)
+    _sku_w = sku_median_w_by_brand.get(pname, [])
+    _sku_m = sku_median_m_by_brand.get(pname, [])
     for row in weekly_ops:
-        row["median_available_sku"] = sku_median_w_by_key.get((pname, row["period"]))
+        row["median_available_sku"] = sku_median_ff(_sku_w, row["period"])
     for row in monthly_ops:
-        row["median_available_sku"] = sku_median_m_by_key.get((pname, row["period"]))
+        row["median_available_sku"] = sku_median_ff(_sku_m, row["period"])
 
     # Weekly/Monthly financial from fact_order_delivery
     p_fin_w = [{"period": fmt_period(r["period"]), **{k: v for k, v in r.items() if k not in ("period", "group_name")}} for r in pfin_weekly_by_partner.get(pname, [])]
