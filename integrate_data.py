@@ -48,6 +48,15 @@ def avg_vals(rows, key):
     return round(sum(vals) / len(vals), 2) if vals else None
 
 
+def median_vals(rows, key):
+    vals = sorted(r[key] for r in rows if r.get(key) is not None)
+    if not vals:
+        return None
+    n = len(vals)
+    mid = n // 2
+    return round(vals[mid] if n % 2 else (vals[mid - 1] + vals[mid]) / 2, 0)
+
+
 def weighted_avg(rows, val_key, weight_key):
     total_w = sum(r.get(weight_key, 0) or 0 for r in rows)
     if total_w == 0:
@@ -134,6 +143,8 @@ ops_overview = load_json("data_ops_overview_weekly.json")
 ops_partners = load_json("data_ops_partners_weekly.json")
 ops_overview_monthly = load_json("data_ops_overview_monthly.json")
 ops_partners_monthly = load_json("data_ops_partners_monthly.json")
+sku_median_weekly = load_json("data_sku_median_weekly.json")
+sku_median_monthly = load_json("data_sku_median_monthly.json")
 partner_fin_monthly = load_json("data_partner_fin_monthly.json")
 partner_fin_weekly = load_json("data_partner_fin_weekly.json")
 partner_camp_monthly = load_json("data_partner_camp_monthly.json")
@@ -235,6 +246,7 @@ for r in ops_overview:
         "batching_rate": r.get("batching_rate"),
         "courier_acceptance_rate": r.get("courier_acceptance_rate"),
         "cpo_eur": r.get("cpo_eur"),
+        "sku_availability_pct": r.get("sku_availability_pct"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -272,6 +284,7 @@ for r in sorted(ops_overview_monthly, key=lambda x: x["period"]):
         "batching_rate": r.get("batching_rate"),
         "courier_acceptance_rate": r.get("courier_acceptance_rate"),
         "cpo_eur": r.get("cpo_eur"),
+        "sku_availability_pct": r.get("sku_availability_pct"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -319,6 +332,7 @@ for period in sorted(q_ops_groups.keys()):
         "batching_rate": avg_vals(rows, "batching_rate"),
         "courier_acceptance_rate": avg_vals(rows, "courier_acceptance_rate"),
         "cpo_eur": avg_vals(rows, "cpo_eur"),
+        "sku_availability_pct": avg_vals(rows, "sku_availability_pct"),
         "replacement_rate": 0,
         "adjustment_rate": 0,
     })
@@ -397,6 +411,10 @@ ops_monthly_by_partner = defaultdict(list)
 for r in ops_partners_monthly:
     ops_monthly_by_partner[r["group_name"]].append(r)
 
+# Median Available SKU lookup by (brand, period). Only present for a subset of brands.
+sku_median_w_by_key = {(r.get("group_name"), fmt_period(r["period"])): r.get("median_available_sku") for r in sku_median_weekly}
+sku_median_m_by_key = {(r.get("group_name"), fmt_period(r["period"])): r.get("median_available_sku") for r in sku_median_monthly}
+
 pfin_monthly_by_partner = defaultdict(list)
 for r in partner_fin_monthly:
     pfin_monthly_by_partner[r["group_name"]].append(r)
@@ -452,6 +470,7 @@ for pname in partners_list:
             "batching_rate": r.get("batching_rate"),
             "courier_acceptance_rate": r.get("courier_acceptance_rate"),
             "cpo_eur": r.get("cpo_eur"),
+            "sku_availability_pct": r.get("sku_availability_pct"),
             "replacement_rate": r.get("replacement_rate", 0),
             "adjustment_rate": r.get("adjustment_rate", 0),
         })
@@ -488,9 +507,16 @@ for pname in partners_list:
             "batching_rate": r.get("batching_rate"),
             "courier_acceptance_rate": r.get("courier_acceptance_rate"),
             "cpo_eur": r.get("cpo_eur"),
+            "sku_availability_pct": r.get("sku_availability_pct"),
             "replacement_rate": r.get("replacement_rate", 0),
             "adjustment_rate": r.get("adjustment_rate", 0),
         })
+
+    # Attach Median Available SKU (present only for a subset of brands/periods)
+    for row in weekly_ops:
+        row["median_available_sku"] = sku_median_w_by_key.get((pname, row["period"]))
+    for row in monthly_ops:
+        row["median_available_sku"] = sku_median_m_by_key.get((pname, row["period"]))
 
     # Weekly/Monthly financial from fact_order_delivery
     p_fin_w = [{"period": fmt_period(r["period"]), **{k: v for k, v in r.items() if k not in ("period", "group_name")}} for r in pfin_weekly_by_partner.get(pname, [])]
@@ -548,6 +574,8 @@ for pname in partners_list:
             "batching_rate": avg_vals(g, "batching_rate"),
             "courier_acceptance_rate": avg_vals(g, "courier_acceptance_rate"),
             "cpo_eur": avg_vals(g, "cpo_eur"),
+            "sku_availability_pct": avg_vals(g, "sku_availability_pct"),
+            "median_available_sku": median_vals(g, "median_available_sku"),
             "replacement_rate": avg_vals(g, "replacement_rate"),
             "adjustment_rate": avg_vals(g, "adjustment_rate"),
         })

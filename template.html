@@ -69,7 +69,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--primary-light); }
-.data-table .section-row td { background: #f1f5f9; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 6px 12px; }
+.data-table .section-row td { background: #f1f5f9; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); padding: 7px 12px; }
+.data-table .section-row.grp-overview td { background: #E8F9F1; color: #0F7A4F; }
+.data-table .section-row.grp-courier td { background: #EAF1FE; color: #2456B3; }
+.data-table .section-row.grp-failed td { background: #FDECEC; color: #B3283A; }
+.data-table .section-row.grp-adjust td { background: #F2ECFB; color: #6A3FB0; }
 .chg-up { color: var(--green); font-size: 10px; margin-left: 4px; }
 .chg-down { color: var(--red); font-size: 10px; margin-left: 4px; }
 
@@ -205,6 +209,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   function destroyCharts() { charts.forEach(c => { try { c.destroy(); } catch(e){} }); charts = []; }
   function last(arr) { return arr.length ? arr[arr.length - 1] : null; }
   function prev(arr) { return arr.length >= 2 ? arr[arr.length - 2] : null; }
+
+  /* ---- collapsible wrapper (Show/Hide button, like GMV by City) ---- */
+  function collapsible(label, innerHtml, open=true) {
+    if (!innerHtml) return '';
+    const disp = open ? 'block' : 'none';
+    const verb = open ? 'Hide' : 'Show';
+    return `<div style="margin-bottom:16px;"><button class="toggle-btn" data-label="${label}" style="font-size:12px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);" onclick="var t=this.nextElementSibling;var o=t.style.display==='none';t.style.display=o?'block':'none';this.textContent=(o?'Hide ':'Show ')+this.dataset.label;">${verb} ${label}</button><div style="display:${disp};">${innerHtml}</div></div>`;
+  }
 
   /* ---- sidebar (Change 1: employee grouping) ---- */
   function buildSidebar() {
@@ -408,6 +420,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '</div>';
     }
 
+    // Financial Overview comparison table (WoW/MoM/QoQ), collapsible
+    const finCmpTitle = (currentGran === 'quarterly' ? 'QoQ' : currentGran === 'monthly' ? 'MoM' : 'WoW') + ' Comparison';
+    html += collapsible(finCmpTitle, buildFinancialComparisonTable(fin, cp, camp));
+
     // RUN RATE block (monthly/quarterly view, only for the current/latest period)
     if ((currentGran === 'monthly' || currentGran === 'quarterly') && fin.length >= 2 && currentPeriod === fin[fin.length - 1].period) {
       html += buildRunRateBlock(fin, cp, camp);
@@ -509,6 +525,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
+        if (oc.median_available_sku != null && oc.median_available_sku > 0) html += kpi('Median Provider Available SKU, #', fmt(oc.median_available_sku), oc, op, 'median_available_sku');
+        if (oc.sku_availability_pct != null && oc.sku_availability_pct > 0) html += kpi('Merchant SKU Sessions Availability Rate, %', fmtPct(oc.sku_availability_pct, 1), oc, op, 'sku_availability_pct');
 
         /* Change 3: Item defect metrics for brand views */
         if (currentView !== 'overview') {
@@ -517,10 +535,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           const defRowPIdx = defRow ? defectsArr.indexOf(defRow) : -1;
           const defPrev = defRowPIdx > 0 ? defectsArr[defRowPIdx - 1] : null;
           if (defRow) {
-            if (defRow.item_quantity_defect_rate != null) html += kpi('Item Quantity Defect Rate, %', fmtPct(defRow.item_quantity_defect_rate, 2), defRow, defPrev, 'item_quantity_defect_rate', {inverted: true});
+            if (defRow.item_quantity_defect_rate != null) html += kpi('Item Quantity Adjustment Defect Rate, %', fmtPct(defRow.item_quantity_defect_rate, 2), defRow, defPrev, 'item_quantity_defect_rate', {inverted: true});
             if (defRow.item_replacement_rate != null) html += kpi('Item Replacement Rate, %', fmtPct(defRow.item_replacement_rate, 2), defRow, defPrev, 'item_replacement_rate', {inverted: true});
-            if (defRow.item_weight_defect_rate != null) html += kpi('Item Weight Defect Rate, %', fmtPct(defRow.item_weight_defect_rate, 2), defRow, defPrev, 'item_weight_defect_rate', {inverted: true});
-            if (defRow.item_price_defect_rate != null) html += kpi('Item Price Defect Rate, %', fmtPct(defRow.item_price_defect_rate, 2), defRow, defPrev, 'item_price_defect_rate', {inverted: true});
+            if (defRow.item_weight_defect_rate != null) html += kpi('Item Weighted Adjustment Defect Rate, %', fmtPct(defRow.item_weight_defect_rate, 2), defRow, defPrev, 'item_weight_defect_rate', {inverted: true});
+            if (defRow.item_price_defect_rate != null) html += kpi('Item Price Adjustment Defect Rate, %', fmtPct(defRow.item_price_defect_rate, 2), defRow, defPrev, 'item_price_defect_rate', {inverted: true});
           }
         }
       }
@@ -544,7 +562,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += buildBadOrderBreakdown(ops, fail, opsIdx);
 
     // WoW Comparison Table
-    html += buildWoWComparisonTable(ops, fail);
+    const cmpTitle = (currentGran === 'quarterly' ? 'QoQ' : currentGran === 'monthly' ? 'MoM' : 'WoW') + ' Comparison';
+    html += collapsible(cmpTitle, buildWoWComparisonTable(ops, fail));
 
     html += '</div>';
 
@@ -880,29 +899,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     return html;
   }
 
-  /* ---- WoW Comparison Table (Changes 5, 7, 8) ---- */
+  /* ---- Operational Comparison Table (grouped into labeled blocks) ---- */
   function buildWoWComparisonTable(ops, fail) {
     const last10 = ops.slice(-10);
     if (last10.length < 2) return '';
 
-    const tableTitle = currentGran === 'quarterly' ? 'QoQ Comparison' : (currentGran === 'monthly' ? 'MoM Comparison' : 'WoW Comparison');
-    let html = `<div class="sub-section-title">${tableTitle}</div>`;
-    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th></th>';
+    const cols = last10.length + 1;
+    let html = '<div class="data-table-wrap"><table class="data-table"><thead><tr><th></th>';
     last10.forEach(r => { html += `<th>${periodLabel(r.period, currentGran)}</th>`; });
     html += '</tr></thead><tbody>';
 
+    function groupHeader(label, cls) {
+      return `<tr class="section-row ${cls}"><td colspan="${cols}">${label}</td></tr>`;
+    }
     function rowFmt(label, getter, formatter, inverted=false) {
       let tr = `<tr><td>${label}</td>`;
       last10.forEach((r, i) => {
         const val = getter(r);
         const pv = i > 0 ? getter(last10[i-1]) : null;
-        const chg = pctChangeInline(val, pv, inverted);
-        tr += `<td>${formatter(val)} ${chg}</td>`;
+        tr += `<td>${formatter(val)} ${pctChangeInline(val, pv, inverted)}</td>`;
       });
-      tr += '</tr>';
-      return tr;
+      return tr + '</tr>';
     }
 
+    /* ===== Block 1: Overview ===== */
+    html += groupHeader('Overview', 'grp-overview');
     html += rowFmt('Stores with Orders', r => r.stores_with_orders || r.active_stores, v => fmt(v));
     html += rowFmt('Acceptance Rate, %', r => r.acceptance_rate, v => fmtPct(v, 1));
     html += rowFmt('Availability, %', r => r.availability_rate, v => fmtPct(v, 1));
@@ -911,8 +932,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += rowFmt('Bad %', r => r.bad_order_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Late Delivery Rate, %', r => r.late_delivery_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Late Pickup Rate, %', r => r.late_pickup_rate, v => fmtPct(v, 1), true);
+    html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);
+    if (last10.some(r => r.median_available_sku != null && r.median_available_sku > 0))
+      html += rowFmt('Median Provider Available SKU, #', r => r.median_available_sku, v => v != null ? fmt(v) : '—');
+    if (last10.some(r => r.sku_availability_pct != null && r.sku_availability_pct > 0))
+      html += rowFmt('Merchant SKU Sessions Availability Rate, %', r => r.sku_availability_pct, v => v != null ? fmtPct(v, 1) : '—');
 
-    /* Change 5: Failed order rows — aligned to the same periods as the header (last10) */
+    /* ===== Block 2: Courier Metrics ===== */
+    html += groupHeader('Courier Metrics', 'grp-courier');
+    html += rowFmt('Courier Time / Order, min', r => r.courier_minutes_per_order, v => fmt(v, 1), true);
+    html += rowFmt('Batching Rate, %', r => r.batching_rate, v => fmtPct(v, 1));
+    html += rowFmt('Courier Acceptance Rate, %', r => r.courier_acceptance_rate, v => fmtPct(v, 1));
+    html += rowFmt('CPO, €', r => r.cpo_eur, v => '€' + fmt(v, 2), true);
+
+    /* ===== Block 3: Failed Order Breakdown (aligned to header periods) ===== */
     const failByPeriod = {};
     safe(fail).forEach(r => { if (r && r.period != null) failByPeriod[r.period] = r; });
     function failRow(label, getter) {
@@ -924,22 +957,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         const pv = pfr ? getter(pfr) : null;
         tr += `<td>${val != null ? fmtPct(val, 1) : '—'} ${pctChangeInline(val, pv, true)}</td>`;
       });
-      tr += '</tr>';
-      return tr;
+      return tr + '</tr>';
     }
     if (Object.keys(failByPeriod).length) {
+      html += groupHeader('Failed Order Breakdown', 'grp-failed');
       html += failRow('Failed Merchant, %', r => r.total_placed ? (r.failed_merchant / r.total_placed * 100) : 0);
       html += failRow('Failed Bolt+Courier, %', r => r.total_placed ? (r.failed_bolt_courier / r.total_placed * 100) : 0);
       html += failRow('Failed Rate Total, %', r => r.failed_rate_total);
     }
 
-    html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);
-    html += rowFmt('Courier Time / Order, min', r => r.courier_minutes_per_order, v => fmt(v, 1), true);
-    html += rowFmt('Batching Rate, %', r => r.batching_rate, v => fmtPct(v, 1));
-    html += rowFmt('Courier Acceptance Rate, %', r => r.courier_acceptance_rate, v => fmtPct(v, 1));
-    html += rowFmt('CPO, €', r => r.cpo_eur, v => '€' + fmt(v, 2), true);
-
-    /* Change 8: Replace replacement/adjustment with item defect metrics for brands */
+    /* ===== Block 4: Order & Item Adjustments (brand views only) ===== */
     if (currentView !== 'overview') {
       const defectsAll = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
       if (defectsAll.length) {
@@ -953,15 +980,60 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             const pv = dPrev ? dPrev[field] : null;
             tr += `<td>${val != null ? fmtPct(val, 2) : '—'} ${pctChangeInline(val, pv, true)}</td>`;
           });
-          tr += '</tr>';
-          return tr;
+          return tr + '</tr>';
         }
-        html += defectRow('Item Quantity Defect, %', 'item_quantity_defect_rate');
-        html += defectRow('Item Replacement, %', 'item_replacement_rate');
-        html += defectRow('Item Weight Defect, %', 'item_weight_defect_rate');
-        html += defectRow('Item Price Defect, %', 'item_price_defect_rate');
+        html += groupHeader('Order & Item Adjustments', 'grp-adjust');
+        html += defectRow('Item Quantity Adjustment Defect Rate, %', 'item_quantity_defect_rate');
+        html += defectRow('Item Replacement Rate, %', 'item_replacement_rate');
+        html += defectRow('Item Weighted Adjustment Defect Rate, %', 'item_weight_defect_rate');
+        html += defectRow('Item Price Adjustment Defect Rate, %', 'item_price_defect_rate');
       }
     }
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  /* ---- Financial Overview Comparison Table (WoW/MoM/QoQ) ---- */
+  function buildFinancialComparisonTable(fin, cp, camp) {
+    const last10 = safe(fin).slice(-10);
+    if (last10.length < 2) return '';
+    const cpBy = {}; safe(cp).forEach(r => { cpBy[r.period] = r; });
+    const cmBy = {}; safe(camp).forEach(r => { cmBy[r.period] = r; });
+    const rows = last10.map(f => ({ f, cp: cpBy[f.period] || {}, cm: cmBy[f.period] || {} }));
+
+    let html = '<div class="data-table-wrap"><table class="data-table"><thead><tr><th></th>';
+    rows.forEach(r => { html += `<th>${periodLabel(r.f.period, currentGran)}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    function row(label, getter, formatter, inverted=false) {
+      let tr = `<tr><td>${label}</td>`;
+      rows.forEach((r, i) => {
+        const val = getter(r);
+        const pv = i > 0 ? getter(rows[i-1]) : null;
+        tr += `<td>${val != null ? formatter(val) : '—'} ${pctChangeInline(val, pv, inverted)}</td>`;
+      });
+      return tr + '</tr>';
+    }
+
+    html += row('GMV, €', r => r.f.gmv_eur, v => fmtEur(v));
+    html += row('Orders', r => r.f.orders, v => fmt(v));
+    html += row('AOV (w/ Delivery), €', r => r.f.aov_with_delivery, v => fmtEur(v, 2));
+    html += row('AOV (Items Only), €', r => r.f.aov_items_only, v => fmtEur(v, 2));
+    html += row('Eater Fees / Order, €', r => r.f.eater_fees_per_order, v => fmtEur(v, 2));
+    html += row('CP Margin, %', r => r.cp.cp_margin_pct, v => fmtPct(v));
+    html += row('CP L2 Margin, %', r => r.cp.cp_l2_margin_pct, v => fmtPct(v));
+    html += row('Bolt Plus GMV Share, %', r => r.f.bolt_plus_gmv_share, v => fmtPct(v, 1));
+    html += row('Commission of AOV, %', r => r.cp.commission_aov_pct, v => fmtPct(v, 1));
+    html += row('Commission of GMV, %', r => r.cp.commission_gmv_pct, v => fmtPct(v, 1));
+    if (currentView === 'overview')
+      html += row('Demand Incentives, % GMV', r => r.cp.demand_incentives_gmv_share, v => fmtPct(v, 1), true);
+    if (rows.some(r => r.f.supply_refund_gmv_pct != null))
+      html += row('Supply Refunds GMV Share, %', r => r.f.supply_refund_gmv_pct, v => fmtPct(v, 2), true);
+    if (rows.some(r => r.f.demand_refund_gmv_pct != null))
+      html += row('Demand Refunds % GMV', r => r.f.demand_refund_gmv_pct, v => fmtPct(v, 2), true);
+    html += row('Users Activated', r => r.f.users_activated, v => fmt(v));
+    html += row('Active Users', r => r.f.active_users, v => fmt(v));
 
     html += '</tbody></table></div>';
     return html;

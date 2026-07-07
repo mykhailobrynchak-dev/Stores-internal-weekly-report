@@ -253,24 +253,26 @@ def gmv_by_partner_query(granularity):
 
 
 def item_defect_query():
+    # Defect rates = eater-impacting adjustments over ALL dish states (numerator)
+    # divided by ACTIVE dish items (denominator). Matches Looker (e.g. VARUS Jun 2026:
+    # quantity 12.1%, replacement 18.8%, weighted 1.1%, price 0%).
     return f"""
     SELECT
-        CAST(DATE_TRUNC('week', f.order_created_date) AS STRING) as period,
+        CAST(DATE_TRUNC('week', b.order_created_date) AS STRING) as period,
         {GROUP_KEY} as group_name,
-        SUM(CASE WHEN b.has_item_quantity_adjustment THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as quantity_defect_rate,
-        SUM(CASE WHEN b.is_item_replacement THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as item_replacement_rate,
-        SUM(CASE WHEN b.has_item_weighted_adjustment THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as weighted_defect_rate,
-        SUM(CASE WHEN b.has_item_price_adjustment THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as price_defect_rate
+        SUM(CASE WHEN b.has_item_quantity_adjustment_with_eater_impact THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as quantity_defect_rate,
+        SUM(CASE WHEN b.is_item_replacement THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as item_replacement_rate,
+        SUM(CASE WHEN b.has_item_weighted_adjustment_with_eater_impact THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as weighted_defect_rate,
+        SUM(CASE WHEN b.has_item_price_adjustment_with_price_increase THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as price_defect_rate
     FROM hive_metastore.ng_delivery_spark.dim_basket_item_delivery b
-    JOIN hive_metastore.ng_delivery_spark.fact_order_delivery f ON b.order_id = f.order_id
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
-    WHERE f.city_country_code = 'ua'
-      AND f.order_state = 'delivered'
-      AND b.basket_item_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
-      AND b.basket_item_created_date < DATE_TRUNC('week', CURRENT_DATE())
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON b.provider_id = p.provider_id
+    WHERE p.country_code = 'ua'
+      AND b.order_state = 'delivered'
+      AND b.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
+      AND b.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND b.basket_item_is_dish = true
       AND {VERTICAL_FILTER_SQL}
-    GROUP BY DATE_TRUNC('week', f.order_created_date), {GROUP_KEY}
+    GROUP BY DATE_TRUNC('week', b.order_created_date), {GROUP_KEY}
     ORDER BY period, group_name
     """
 
@@ -348,6 +350,7 @@ SELECT {period_expr} as period,
   ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
   ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
   ROUND(SUM(f.total_invoiced_courier_costs_eur) / NULLIF(SUM(f.delivered_orders_count), 0), 2) as cpo_eur,
+  ROUND(SUM(f.provider_sku_session_availability_rate_value) / NULLIF(SUM(f.provider_sku_session_availability_rate_weight), 0) * 100, 1) as sku_availability_pct,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
@@ -386,6 +389,7 @@ SELECT {GROUP_KEY} as group_name, {period_expr} as period,
   ROUND(SUM(f.order_item_adjustment_rate_value * f.order_item_adjustment_rate_weight) / NULLIF(SUM(f.order_item_adjustment_rate_weight), 0) * 100, 2) as adjustment_rate,
   ROUND(SUM(f.provider_campaign_discount_gmv_share_value * f.provider_campaign_discount_gmv_share_weight) / NULLIF(SUM(f.provider_campaign_discount_gmv_share_weight), 0) * 100, 2) as item_discount_promo_share,
   ROUND(SUM(f.total_invoiced_courier_costs_eur) / NULLIF(SUM(f.delivered_orders_count), 0), 2) as cpo_eur,
+  ROUND(SUM(f.provider_sku_session_availability_rate_value) / NULLIF(SUM(f.provider_sku_session_availability_rate_weight), 0) * 100, 1) as sku_availability_pct,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
@@ -398,6 +402,37 @@ GROUP BY {GROUP_KEY}, {period_expr}
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY group_name, period
 """
+
+def sku_median_query(granularity="week"):
+    """Median (across a brand's providers) of unique_dishes_not_hidden = 'available SKU'.
+    Per provider, take the latest snapshot within each period bucket (prefer larger catalog on ties)."""
+    trunc = "month" if granularity == "month" else "week"
+    if granularity == "month":
+        win = f"m.as_on_date >= '{DATA_START}' AND m.as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
+    else:
+        win = "m.as_on_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70) AND m.as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
+    return f"""
+    WITH snap AS (
+        SELECT m.provider_id,
+               DATE_TRUNC('{trunc}', m.as_on_date) AS period_bucket,
+               m.unique_dishes_not_hidden AS udnh,
+               ROW_NUMBER() OVER (PARTITION BY m.provider_id, DATE_TRUNC('{trunc}', m.as_on_date) ORDER BY m.as_on_date DESC, m.unique_dishes_not_hidden DESC) AS rn
+        FROM hive_metastore.ng_delivery_spark.etl_delivery_menu_active_menu_metrics_by_day m
+        WHERE {win}
+    )
+    SELECT CAST(s.period_bucket AS STRING) as period,
+           {GROUP_KEY} as group_name,
+           ROUND(percentile(s.udnh, 0.5), 0) as median_available_sku
+    FROM snap s
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON s.provider_id = p.provider_id
+    WHERE s.rn = 1
+      AND p.country_code = 'ua'
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY s.period_bucket, {GROUP_KEY}
+    HAVING percentile(s.udnh, 0.5) > 0
+    ORDER BY period, group_name
+    """
+
 
 TOP_PARTNERS_QUERY = f"""
 SELECT {GROUP_KEY} as group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
@@ -482,6 +517,7 @@ def clean_ops_overview_row(r):
         "batching_rate": to_float(r["batching_rate"]),
         "courier_acceptance_rate": to_float(r["courier_acceptance_rate"]),
         "cpo_eur": to_float(r["cpo_eur"]),
+        "sku_availability_pct": to_float(r["sku_availability_pct"]),
         "orders": to_int(r["orders"]),
         "total_stores": to_int(r["total_stores"]),
         "stores_with_orders": to_int(r["stores_with_orders"]),
@@ -512,6 +548,7 @@ def clean_ops_partner_row(r):
         "adjustment_rate": to_float(r["adjustment_rate"]),
         "item_discount_promo_share": to_float(r["item_discount_promo_share"]),
         "cpo_eur": to_float(r["cpo_eur"]),
+        "sku_availability_pct": to_float(r["sku_availability_pct"]),
         "orders": to_int(r["orders"]),
         "total_stores": to_int(r["total_stores"]),
         "stores_with_orders": to_int(r["stores_with_orders"]),
@@ -587,6 +624,12 @@ def main():
     save_json("data_ops_partners_weekly.json", ops_partners_clean)
     ops_partners_m_clean = [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("month"))]
     save_json("data_ops_partners_monthly.json", ops_partners_m_clean)
+
+    print("   Fetching median available SKU (etl_delivery_menu_active_menu_metrics_by_day)...")
+    sku_median_weekly = [clean_row(r) for r in run_query(cursor, sku_median_query("week"))]
+    save_json("data_sku_median_weekly.json", sku_median_weekly)
+    sku_median_monthly = [clean_row(r) for r in run_query(cursor, sku_median_query("month"))]
+    save_json("data_sku_median_monthly.json", sku_median_monthly)
 
     # 7. Partner financial (monthly + weekly)
     print("7. Fetching partner financial...")
