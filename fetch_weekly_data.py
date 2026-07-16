@@ -301,6 +301,7 @@ def city_eater_fees_query():
     SELECT
         CAST(DATE_TRUNC('week', f.order_created_date) AS STRING) as period,
         f.city_name,
+        COUNT(*) as orders,
         ROUND(SUM(f.delivery_price_eur) / COUNT(*), 2) as eater_fees_per_order,
         ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur) / COUNT(*), 2) as delivery_fee_per_order,
         ROUND(SUM(f.small_order_fee_eur) / COUNT(*), 2) as small_order_fee_per_order,
