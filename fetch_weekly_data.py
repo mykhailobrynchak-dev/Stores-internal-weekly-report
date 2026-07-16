@@ -288,7 +288,7 @@ def city_breakdown_query():
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
-      AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
+      AND f.order_created_date >= '{DATA_START}'
       AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND {VERTICAL_FILTER_SQL}
     GROUP BY DATE_TRUNC('week', f.order_created_date), f.city_name
@@ -309,7 +309,7 @@ def city_eater_fees_query():
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
-      AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
+      AND f.order_created_date >= '{DATA_START}'
       AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND {VERTICAL_FILTER_SQL}
     GROUP BY DATE_TRUNC('week', f.order_created_date), f.city_name
