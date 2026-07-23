@@ -830,6 +830,11 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     Object.keys(g).forEach(k => safe(g[k]).forEach(p => s.add(p)));
     return s;
   }
+  // Every real portfolio partner (managed + has data somewhere) — shown as a row in each city
+  // even if it doesn't operate in that city ("—"). Not-yet-activated placeholders are excluded.
+  function _realManagedList() {
+    return [...(_managedPartners())].filter(p => partnerHasData(p));
+  }
   function _ssum(rows, key) { return rows.reduce((a, b) => a + (b[key] || 0), 0); }
   function _wavg(rows, key, wKey) {
     let num = 0, den = 0;
@@ -848,31 +853,34 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     const opsAll = safe((cityNode.partner_ops || {})[currentGran]);
     if (!gmvAll.length) return '';
     const curP = _periodUsed(gmvAll), prevP = curP ? getPrevPeriod(curP, currentGran) : null;
-    const gmvCur = gmvAll.filter(r => r.period === curP), gmvPrev = gmvAll.filter(r => r.period === prevP);
-    const opsCur = opsAll.filter(r => r.period === curP), opsPrev = opsAll.filter(r => r.period === prevP);
-    const gmvPrevBy = {}; gmvPrev.forEach(r => gmvPrevBy[r.group_name] = r);
-    const cpCurBy = {}; opsCur.forEach(r => cpCurBy[r.group_name] = r);
-    const cpPrevBy = {}; opsPrev.forEach(r => cpPrevBy[r.group_name] = r);
     const managed = _managedPartners();
-    const kept = gmvCur.filter(r => managed.has(r.group_name)).sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
-    const othCur = gmvCur.filter(r => !managed.has(r.group_name));
-    const othPrev = gmvPrev.filter(r => !managed.has(r.group_name));
-    const othOpsCur = opsCur.filter(r => !managed.has(r.group_name));
-    const othOpsPrev = opsPrev.filter(r => !managed.has(r.group_name));
+    const gmvCurBy = {}, gmvPrevBy = {}, cpCurBy = {}, cpPrevBy = {};
+    gmvAll.forEach(r => { if (r.period === curP) gmvCurBy[r.group_name] = r; else if (r.period === prevP) gmvPrevBy[r.group_name] = r; });
+    opsAll.forEach(r => { if (r.period === curP) cpCurBy[r.group_name] = r; else if (r.period === prevP) cpPrevBy[r.group_name] = r; });
+    const managedList = _realManagedList().sort((a, b) => ((gmvCurBy[b] ? gmvCurBy[b].gmv_eur : -1) - (gmvCurBy[a] ? gmvCurBy[a].gmv_eur : -1)) || a.localeCompare(b));
+    const othCur = gmvAll.filter(r => r.period === curP && !managed.has(r.group_name));
+    const othPrev = gmvAll.filter(r => r.period === prevP && !managed.has(r.group_name));
+    const othOpsCur = opsAll.filter(r => r.period === curP && !managed.has(r.group_name));
+    const othOpsPrev = opsAll.filter(r => r.period === prevP && !managed.has(r.group_name));
 
     let html = '<div class="sub-section-title">Financial Overview by Partner</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>GMV, €</th><th>Orders</th><th>AOV (Items Only)</th><th>Eater Fees / Order</th><th>CP Margin, %</th><th>CP L2 Margin, %</th></tr></thead><tbody>';
     const rowHtml = (name, cur, prev, curOps, prevOps) => {
-      const g = cur.gmv_eur, gp = prev ? prev.gmv_eur : null;
+      const g = cur ? cur.gmv_eur : null, gp = prev ? prev.gmv_eur : null;
+      const o = cur ? cur.orders : null, op = prev ? prev.orders : null;
+      const ai = cur ? cur.aov_items_only : null, aip = prev ? prev.aov_items_only : null;
+      const ef = cur ? cur.eater_fees_per_order : null, efp = prev ? prev.eater_fees_per_order : null;
+      const cpm = curOps ? curOps.cp_margin_pct : null, cpmp = prevOps ? prevOps.cp_margin_pct : null;
+      const cpl = curOps ? curOps.cp_l2_margin_pct : null, cplp = prevOps ? prevOps.cp_l2_margin_pct : null;
       return `<tr><td>${displayName(name)}</td>`
         + `<td>${fmtEur(g)} ${pctChangeInline(g, gp)}</td>`
-        + `<td>${fmt(cur.orders)} ${pctChangeInline(cur.orders, prev ? prev.orders : null)}</td>`
-        + `<td>${fmtEur(cur.aov_items_only, 2)} ${pctChangeInline(cur.aov_items_only, prev ? prev.aov_items_only : null)}</td>`
-        + `<td>${fmtEur(cur.eater_fees_per_order, 2)} ${pctChangeInline(cur.eater_fees_per_order, prev ? prev.eater_fees_per_order : null)}</td>`
-        + `<td>${curOps && curOps.cp_margin_pct != null ? fmtPct(curOps.cp_margin_pct) : '—'} ${pctChangeInline(curOps ? curOps.cp_margin_pct : null, prevOps ? prevOps.cp_margin_pct : null)}</td>`
-        + `<td>${curOps && curOps.cp_l2_margin_pct != null ? fmtPct(curOps.cp_l2_margin_pct) : '—'} ${pctChangeInline(curOps ? curOps.cp_l2_margin_pct : null, prevOps ? prevOps.cp_l2_margin_pct : null)}</td></tr>`;
+        + `<td>${fmt(o)} ${pctChangeInline(o, op)}</td>`
+        + `<td>${fmtEur(ai, 2)} ${pctChangeInline(ai, aip)}</td>`
+        + `<td>${fmtEur(ef, 2)} ${pctChangeInline(ef, efp)}</td>`
+        + `<td>${cpm != null ? fmtPct(cpm) : '—'} ${pctChangeInline(cpm, cpmp)}</td>`
+        + `<td>${cpl != null ? fmtPct(cpl) : '—'} ${pctChangeInline(cpl, cplp)}</td></tr>`;
     };
-    kept.forEach(r => html += rowHtml(r.group_name, r, gmvPrevBy[r.group_name], cpCurBy[r.group_name], cpPrevBy[r.group_name]));
+    managedList.forEach(p => html += rowHtml(p, gmvCurBy[p] || null, gmvPrevBy[p] || null, cpCurBy[p] || null, cpPrevBy[p] || null));
     if (othCur.length) {
       const oc = { gmv_eur: _ssum(othCur, 'gmv_eur'), orders: _ssum(othCur, 'orders'), aov_items_only: _wavg(othCur, 'aov_items_only', 'orders'), eater_fees_per_order: _wavg(othCur, 'eater_fees_per_order', 'orders') };
       const opv = othPrev.length ? { gmv_eur: _ssum(othPrev, 'gmv_eur'), orders: _ssum(othPrev, 'orders'), aov_items_only: _wavg(othPrev, 'aov_items_only', 'orders'), eater_fees_per_order: _wavg(othPrev, 'eater_fees_per_order', 'orders') } : null;
@@ -888,22 +896,21 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     const all = safe((cityNode.partner_ops || {})[currentGran]);
     if (!all.length) return '';
     const curP = _periodUsed(all), prevP = curP ? getPrevPeriod(curP, currentGran) : null;
-    const cur = all.filter(r => r.period === curP), prev = all.filter(r => r.period === prevP);
-    const prevBy = {}; prev.forEach(r => prevBy[r.group_name] = r);
     const managed = _managedPartners();
-    const kept = cur.filter(r => managed.has(r.group_name)).sort((a, b) => (b.orders || 0) - (a.orders || 0));
-    const othCur = cur.filter(r => !managed.has(r.group_name));
-    const othPrev = prev.filter(r => !managed.has(r.group_name));
+    const curBy = {}, prevBy = {};
+    all.forEach(r => { if (r.period === curP) curBy[r.group_name] = r; else if (r.period === prevP) prevBy[r.group_name] = r; });
+    const managedList = _realManagedList().sort((a, b) => ((curBy[b] ? curBy[b].orders : -1) - (curBy[a] ? curBy[a].orders : -1)) || a.localeCompare(b));
+    const othCur = all.filter(r => r.period === curP && !managed.has(r.group_name));
+    const othPrev = all.filter(r => r.period === prevP && !managed.has(r.group_name));
     const OPS_F = ['acceptance_rate', 'availability_rate', 'avg_rating', 'honey_order_rate', 'bad_order_rate', 'avg_delivery_minutes', 'cpo_eur', 'failed_rate_total', 'failed_merchant_pct', 'failed_bolt_courier_pct', 'late_delivery_rate', 'late_pickup_rate'];
     const INV = new Set(['bad_order_rate', 'avg_delivery_minutes', 'cpo_eur', 'failed_rate_total', 'failed_merchant_pct', 'failed_bolt_courier_pct', 'late_delivery_rate', 'late_pickup_rate']);
-    const othersRow = () => { const o = { group_name: 'Others', orders: _ssum(othCur, 'orders') }; OPS_F.forEach(f => o[f] = _wavg(othCur, f, 'orders')); return o; };
-    const othersPrevRow = () => { const o = {}; OPS_F.forEach(f => o[f] = _wavg(othPrev, f, 'orders')); return o; };
+    const aggRow = (rows) => { const o = { orders: _ssum(rows, 'orders') }; OPS_F.forEach(f => o[f] = _wavg(rows, f, 'orders')); return o; };
 
     let html = '<div class="sub-section-title">Operational by Partner</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>Acceptance</th><th>Availability</th><th>Avg Rating</th><th>Honey</th><th>Bad</th><th>Avg Delivery</th><th>CPO</th><th>Failed Total</th><th>Failed Merch.</th><th>Failed Bolt+Cour.</th><th>Late Delivery</th><th>Late Pickup</th></tr></thead><tbody>';
     const cellPct = (v, pv, f, dec) => `${v != null ? fmtPct(v, dec) : '—'} ${pctChangeInline(v, pv, INV.has(f))}`;
     const rowHtml = (name, r, pr) => {
-      pr = pr || {};
+      r = r || {}; pr = pr || {};
       return `<tr><td>${displayName(name)}</td>`
         + `<td>${cellPct(r.acceptance_rate, pr.acceptance_rate, 'acceptance_rate', 1)}</td>`
         + `<td>${cellPct(r.availability_rate, pr.availability_rate, 'availability_rate', 1)}</td>`
@@ -918,8 +925,8 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
         + `<td>${cellPct(r.late_delivery_rate, pr.late_delivery_rate, 'late_delivery_rate', 1)}</td>`
         + `<td>${cellPct(r.late_pickup_rate, pr.late_pickup_rate, 'late_pickup_rate', 1)}</td></tr>`;
     };
-    kept.forEach(r => html += rowHtml(r.group_name, r, prevBy[r.group_name]));
-    if (othCur.length) html += rowHtml('Others', othersRow(), othPrev.length ? othersPrevRow() : {});
+    managedList.forEach(p => html += rowHtml(p, curBy[p] || null, prevBy[p] || null));
+    if (othCur.length) html += rowHtml('Others', aggRow(othCur), othPrev.length ? aggRow(othPrev) : {});
     html += '</tbody></table></div>';
     return html;
   }
@@ -928,18 +935,18 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     const all = safe((cityNode.partner_campaigns || {})[currentGran]);
     if (!all.length) return '';
     const curP = _periodUsed(all), prevP = curP ? getPrevPeriod(curP, currentGran) : null;
-    const cur = all.filter(r => r.period === curP), prev = all.filter(r => r.period === prevP);
-    const prevBy = {}; prev.forEach(r => prevBy[r.group_name] = r);
     const managed = _managedPartners();
-    const kept = cur.filter(r => managed.has(r.group_name)).sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
-    const othCur = cur.filter(r => !managed.has(r.group_name));
-    const othPrev = prev.filter(r => !managed.has(r.group_name));
+    const curBy = {}, prevBy = {};
+    all.forEach(r => { if (r.period === curP) curBy[r.group_name] = r; else if (r.period === prevP) prevBy[r.group_name] = r; });
+    const managedList = _realManagedList().sort((a, b) => ((curBy[b] ? curBy[b].gmv_eur : -1) - (curBy[a] ? curBy[a].gmv_eur : -1)) || a.localeCompare(b));
+    const othCur = all.filter(r => r.period === curP && !managed.has(r.group_name));
+    const othPrev = all.filter(r => r.period === prevP && !managed.has(r.group_name));
 
     let html = '<div class="sub-section-title">Campaigns by Partner</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>Total Discount, €</th><th>Bolt Spend, €</th><th>Merchant Spend, €</th><th>Campaigns % GMV</th><th>Bolt % GMV</th><th>Merchant % GMV</th></tr></thead><tbody>';
     const pg = (r, k) => (r && r.gmv_eur) ? r[k] / r.gmv_eur * 100 : null;
     const rowHtml = (name, r, pr) => {
-      pr = pr || null;
+      r = r || {}; pr = pr || null;
       return `<tr><td>${displayName(name)}</td>`
         + `<td>${fmtEur(r.campaigns_discount_eur)} ${pctChangeInline(r.campaigns_discount_eur, pr ? pr.campaigns_discount_eur : null, true)}</td>`
         + `<td>${fmtEur(r.bolt_spend_eur)} ${pctChangeInline(r.bolt_spend_eur, pr ? pr.bolt_spend_eur : null, true)}</td>`
@@ -948,7 +955,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
         + `<td>${r.gmv_eur ? fmtPct(pg(r, 'bolt_spend_eur'), 2) : '—'} ${pctChangeInline(pg(r, 'bolt_spend_eur'), pg(pr, 'bolt_spend_eur'), true)}</td>`
         + `<td>${r.gmv_eur ? fmtPct(pg(r, 'merchant_spend_eur'), 2) : '—'} ${pctChangeInline(pg(r, 'merchant_spend_eur'), pg(pr, 'merchant_spend_eur'))}</td></tr>`;
     };
-    kept.forEach(r => html += rowHtml(r.group_name, r, prevBy[r.group_name]));
+    managedList.forEach(p => html += rowHtml(p, curBy[p] || null, prevBy[p] || null));
     if (othCur.length) {
       const oc = { gmv_eur: _ssum(othCur, 'gmv_eur'), campaigns_discount_eur: _ssum(othCur, 'campaigns_discount_eur'), bolt_spend_eur: _ssum(othCur, 'bolt_spend_eur'), merchant_spend_eur: _ssum(othCur, 'merchant_spend_eur') };
       const opv = othPrev.length ? { gmv_eur: _ssum(othPrev, 'gmv_eur'), campaigns_discount_eur: _ssum(othPrev, 'campaigns_discount_eur'), bolt_spend_eur: _ssum(othPrev, 'bolt_spend_eur'), merchant_spend_eur: _ssum(othPrev, 'merchant_spend_eur') } : null;
