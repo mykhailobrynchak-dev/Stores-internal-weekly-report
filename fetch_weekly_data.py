@@ -54,9 +54,12 @@ ALL_TRACKED_PARTNERS = [
     "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK",
     "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
-    "DIMPYVA", "MAXBEER", "FLOWER SHOP",
+    "DIMPYVA", "MAXBEER", "FLOWER SHOP", "ALTBIER",
     "RODYNNA KOVBASKA", "NO TABOO", "SPAR", "ANRI-PHARM",
-    "BRSM", "VAPORS", "PIVASOV", "OKKO MARKET", "VAPERY | VAPE SHOP"
+    "BRSM", "VAPORS", "PIVASOV", "OKKO MARKET", "VAPERY | VAPE SHOP",
+    # Future / onboarding key accounts (not yet live on Bolt UA stores; render empty with a banner)
+    "AUCHAN", "ATB", "FLOWERS UA", "THRASH", "E-ZOO", "MASTER ZOO",
+    "РОСТ", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"
 ]
 
 EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS", "PIVASOV"]
@@ -66,6 +69,15 @@ EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS", "PIVASOV"]
 BRAND_PARTNERS = ["OKKO MARKET"]
 _BRAND_LIST_SQL = ",".join(f"'{b}'" for b in BRAND_PARTNERS)
 GROUP_KEY = f"CASE WHEN p.brand_name IN ({_BRAND_LIST_SQL}) THEN p.brand_name ELSE p.group_name END"
+
+# KOPIYKA is one group with 3 brands. We additionally emit brand-level partner data keyed as
+# 'Kopiyka' / 'Kopiyka Mini' / 'Santim' (the KOPIYKA group aggregate stays intact everywhere else).
+SUBBRAND_GROUP = "KOPIYKA"
+SUBBRAND_KEYS = ["Kopiyka", "Kopiyka Mini", "Santim"]
+SUBBRAND_KEY = ("CASE WHEN p.brand_name = 'KOPIYKA' THEN 'Kopiyka' "
+                "WHEN p.brand_name = 'KOPIYKA MINI' THEN 'Kopiyka Mini' "
+                "WHEN p.brand_name = 'SANTIM' THEN 'Santim' ELSE p.brand_name END")
+SUBBRAND_WHERE = f"AND p.group_name = '{SUBBRAND_GROUP}'"
 
 VERTICAL_FILTER = "(p.delivery_vertical LIKE 'store_3p%' OR p.group_name IN ({extra}))"
 VERTICAL_FILTER_SQL = VERTICAL_FILTER.format(extra=",".join(f"'{p}'" for p in EXTRA_PARTNERS))
@@ -105,11 +117,16 @@ def save_json(filename, data):
 
 def financial_query(granularity, group_filter=None):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
-    group_clause = ""
-    if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
+    if group_filter == "KOPIYKA_BRANDS":
+        group_col = f", {SUBBRAND_KEY}"
+        group_select = f"{SUBBRAND_KEY} as group_name, "
+        group_clause = SUBBRAND_WHERE
+    else:
+        group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+        group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
+        group_clause = ""
+        if group_filter and group_filter != "ALL_BY_GROUP":
+            group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -150,11 +167,16 @@ def financial_query(granularity, group_filter=None):
 def refund_query(granularity, group_filter=None):
     """Refunds from ALL orders (not just delivered) to capture supply refunds."""
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
-    group_clause = ""
-    if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
+    if group_filter == "KOPIYKA_BRANDS":
+        group_col = f", {SUBBRAND_KEY}"
+        group_select = f"{SUBBRAND_KEY} as group_name, "
+        group_clause = SUBBRAND_WHERE
+    else:
+        group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+        group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
+        group_clause = ""
+        if group_filter and group_filter != "ALL_BY_GROUP":
+            group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -176,11 +198,16 @@ def refund_query(granularity, group_filter=None):
 
 def campaign_query(granularity, group_filter=None):
     time_col = "DATE_TRUNC('week', CAST(m.order_created_date AS DATE))" if granularity == "week" else "DATE_TRUNC('month', CAST(m.order_created_date AS DATE))"
-    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
-    group_clause = ""
-    if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
+    if group_filter == "KOPIYKA_BRANDS":
+        group_col = f", {SUBBRAND_KEY}"
+        group_select = f"{SUBBRAND_KEY} as group_name, "
+        group_clause = SUBBRAND_WHERE
+    else:
+        group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+        group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
+        group_clause = ""
+        if group_filter and group_filter != "ALL_BY_GROUP":
+            group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE()) AND CAST(m.order_created_date AS DATE) >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -204,11 +231,16 @@ def campaign_query(granularity, group_filter=None):
 
 def failed_orders_query(granularity, group_filter=None):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
-    group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
-    group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
-    group_clause = ""
-    if group_filter and group_filter != "ALL_BY_GROUP":
-        group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
+    if group_filter == "KOPIYKA_BRANDS":
+        group_col = f", {SUBBRAND_KEY}"
+        group_select = f"{SUBBRAND_KEY} as group_name, "
+        group_clause = SUBBRAND_WHERE
+    else:
+        group_col = f", {GROUP_KEY}" if group_filter == "ALL_BY_GROUP" else ""
+        group_select = f"{GROUP_KEY} as group_name, " if group_filter == "ALL_BY_GROUP" else ""
+        group_clause = ""
+        if group_filter and group_filter != "ALL_BY_GROUP":
+            group_clause = f"AND {GROUP_KEY} = '{group_filter}'"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
 
     return f"""
@@ -252,14 +284,16 @@ def gmv_by_partner_query(granularity):
     """
 
 
-def item_defect_query():
+def item_defect_query(brands=False):
     # Defect rates = eater-impacting adjustments over ALL dish states (numerator)
     # divided by ACTIVE dish items (denominator). Matches Looker (e.g. VARUS Jun 2026:
     # quantity 12.1%, replacement 18.8%, weighted 1.1%, price 0%).
+    gkey = SUBBRAND_KEY if brands else GROUP_KEY
+    brand_where = ("\n      " + SUBBRAND_WHERE) if brands else ""
     return f"""
     SELECT
         CAST(DATE_TRUNC('week', b.order_created_date) AS STRING) as period,
-        {GROUP_KEY} as group_name,
+        {gkey} as group_name,
         SUM(CASE WHEN b.has_item_quantity_adjustment_with_eater_impact THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as quantity_defect_rate,
         SUM(CASE WHEN b.is_item_replacement THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as item_replacement_rate,
         SUM(CASE WHEN b.has_item_weighted_adjustment_with_eater_impact THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as weighted_defect_rate,
@@ -271,8 +305,8 @@ def item_defect_query():
       AND b.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
       AND b.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
       AND b.basket_item_is_dish = true
-      AND {VERTICAL_FILTER_SQL}
-    GROUP BY DATE_TRUNC('week', b.order_created_date), {GROUP_KEY}
+      AND {VERTICAL_FILTER_SQL}{brand_where}
+    GROUP BY DATE_TRUNC('week', b.order_created_date), {gkey}
     ORDER BY period, group_name
     """
 
@@ -365,11 +399,13 @@ ORDER BY period
 """
 
 
-def operational_partner_query(granularity="week"):
+def operational_partner_query(granularity="week", brands=False):
     period_expr, date_filter = _ops_window(granularity)
     extra_partners_sql = ",".join(f"'{p}'" for p in EXTRA_PARTNERS)
+    gkey = SUBBRAND_KEY if brands else GROUP_KEY
+    brand_where = ("\n  " + SUBBRAND_WHERE) if brands else ""
     return f"""
-SELECT {GROUP_KEY} as group_name, {period_expr} as period,
+SELECT {gkey} as group_name, {period_expr} as period,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
   ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
   ROUND(SUM(total_contribution_profit_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_margin_pct,
@@ -397,17 +433,19 @@ SELECT {GROUP_KEY} as group_name, {period_expr} as period,
 FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
 JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
-  AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
+  AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql})){brand_where}
   {date_filter}
-GROUP BY {GROUP_KEY}, {period_expr}
+GROUP BY {gkey}, {period_expr}
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY group_name, period
 """
 
-def sku_median_query(granularity="week"):
+def sku_median_query(granularity="week", brands=False):
     """Median (across a brand's providers) of provider_catalog_size = available SKU count.
     Source: etl_delivery_market_provider_sku_ml_features — covers ALL SKUs (incl. non-food,
     e.g. pharmacy), unlike the dish-only menu metrics. Per provider, take the latest snapshot in each bucket."""
+    gkey = SUBBRAND_KEY if brands else GROUP_KEY
+    brand_where = ("\n      " + SUBBRAND_WHERE) if brands else ""
     trunc = "month" if granularity == "month" else "week"
     if granularity == "month":
         win = f"as_on_date >= '{DATA_START}' AND as_on_date < DATE_TRUNC('week', CURRENT_DATE())"
@@ -427,15 +465,14 @@ def sku_median_query(granularity="week"):
         FROM daily
     )
     SELECT CAST(s.period_bucket AS STRING) as period,
-           {GROUP_KEY} as group_name,
+           {gkey} as group_name,
            ROUND(percentile(s.sku, 0.5), 0) as median_available_sku
     FROM snap s
     JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON s.provider_id = p.provider_id
     WHERE s.rn = 1
       AND p.country_code = 'ua'
-      AND {VERTICAL_FILTER_SQL}
-    GROUP BY s.period_bucket, {GROUP_KEY}
-    HAVING percentile(s.sku, 0.5) > 0
+      AND {VERTICAL_FILTER_SQL}{brand_where}
+    GROUP BY s.period_bucket, {gkey}
     ORDER BY period, group_name
     """
 
@@ -581,7 +618,7 @@ def main():
         if p["group_name"] not in NAMED_PARTNERS:
             tenth_partner = p["group_name"]
             break
-    all_partners = list(dict.fromkeys(NAMED_PARTNERS + ([tenth_partner] if tenth_partner else []) + ALL_TRACKED_PARTNERS))
+    all_partners = list(dict.fromkeys(NAMED_PARTNERS + ([tenth_partner] if tenth_partner else []) + ALL_TRACKED_PARTNERS + SUBBRAND_KEYS))
     print(f"  Partners ({len(all_partners)}): {all_partners[:10]}...")
 
     # 2. Overview financial (weekly + monthly)
@@ -606,7 +643,9 @@ def main():
     save_json("data_failed_orders_monthly.json", failed_monthly)
 
     partner_failed_weekly = [clean_row(r) for r in run_query(cursor, failed_orders_query("week", "ALL_BY_GROUP"))]
+    partner_failed_weekly += [clean_row(r) for r in run_query(cursor, failed_orders_query("week", "KOPIYKA_BRANDS"))]
     partner_failed_monthly = [clean_row(r) for r in run_query(cursor, failed_orders_query("month", "ALL_BY_GROUP"))]
+    partner_failed_monthly += [clean_row(r) for r in run_query(cursor, failed_orders_query("month", "KOPIYKA_BRANDS"))]
     save_json("data_partner_failed_weekly.json", partner_failed_weekly)
     save_json("data_partner_failed_monthly.json", partner_failed_monthly)
 
@@ -627,34 +666,38 @@ def main():
 
     print("   Fetching operational partners (fact_provider_weekly)...")
     ops_partners_clean = [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("week"))]
+    ops_partners_clean += [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("week", brands=True))]
     save_json("data_ops_partners_weekly.json", ops_partners_clean)
     ops_partners_m_clean = [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("month"))]
+    ops_partners_m_clean += [clean_ops_partner_row(r) for r in run_query(cursor, operational_partner_query("month", brands=True))]
     save_json("data_ops_partners_monthly.json", ops_partners_m_clean)
 
     print("   Fetching median available SKU (etl_delivery_menu_active_menu_metrics_by_day)...")
     sku_median_weekly = [clean_row(r) for r in run_query(cursor, sku_median_query("week"))]
+    sku_median_weekly += [clean_row(r) for r in run_query(cursor, sku_median_query("week", brands=True))]
     save_json("data_sku_median_weekly.json", sku_median_weekly)
     sku_median_monthly = [clean_row(r) for r in run_query(cursor, sku_median_query("month"))]
+    sku_median_monthly += [clean_row(r) for r in run_query(cursor, sku_median_query("month", brands=True))]
     save_json("data_sku_median_monthly.json", sku_median_monthly)
 
     # 7. Partner financial (monthly + weekly)
     print("7. Fetching partner financial...")
-    partner_fin_rows = run_query(cursor, financial_query("month", "ALL_BY_GROUP"))
-    partner_fin_clean = [clean_row(r) for r in partner_fin_rows]
+    partner_fin_clean = [clean_row(r) for r in run_query(cursor, financial_query("month", "ALL_BY_GROUP"))]
+    partner_fin_clean += [clean_row(r) for r in run_query(cursor, financial_query("month", "KOPIYKA_BRANDS"))]
     save_json("data_partner_fin_monthly.json", partner_fin_clean)
 
-    partner_fin_w_rows = run_query(cursor, financial_query("week", "ALL_BY_GROUP"))
-    partner_fin_w_clean = [clean_row(r) for r in partner_fin_w_rows]
+    partner_fin_w_clean = [clean_row(r) for r in run_query(cursor, financial_query("week", "ALL_BY_GROUP"))]
+    partner_fin_w_clean += [clean_row(r) for r in run_query(cursor, financial_query("week", "KOPIYKA_BRANDS"))]
     save_json("data_partner_fin_weekly.json", partner_fin_w_clean)
 
     # 8. Partner campaigns (monthly + weekly)
     print("8. Fetching partner campaigns...")
-    partner_camp_rows = run_query(cursor, campaign_query("month", "ALL_BY_GROUP"))
-    partner_camp_clean = [clean_row(r) for r in partner_camp_rows]
+    partner_camp_clean = [clean_row(r) for r in run_query(cursor, campaign_query("month", "ALL_BY_GROUP"))]
+    partner_camp_clean += [clean_row(r) for r in run_query(cursor, campaign_query("month", "KOPIYKA_BRANDS"))]
     save_json("data_partner_camp_monthly.json", partner_camp_clean)
 
-    partner_camp_w_rows = run_query(cursor, campaign_query("week", "ALL_BY_GROUP"))
-    partner_camp_w_clean = [clean_row(r) for r in partner_camp_w_rows]
+    partner_camp_w_clean = [clean_row(r) for r in run_query(cursor, campaign_query("week", "ALL_BY_GROUP"))]
+    partner_camp_w_clean += [clean_row(r) for r in run_query(cursor, campaign_query("week", "KOPIYKA_BRANDS"))]
     save_json("data_partner_camp_weekly.json", partner_camp_w_clean)
 
     # 9. Acceptance/availability
@@ -669,6 +712,7 @@ def main():
     # 10. Item defect metrics
     print("10. Fetching item defect metrics...")
     item_defects = [clean_row(r) for r in run_query(cursor, item_defect_query())]
+    item_defects += [clean_row(r) for r in run_query(cursor, item_defect_query(brands=True))]
     save_json("data_item_defects_weekly.json", item_defects)
 
     # 11. City breakdown (weekly)
@@ -693,7 +737,9 @@ def main():
     save_json("data_refund_weekly.json", refund_weekly)
     save_json("data_refund_monthly.json", refund_monthly)
     refund_partner_weekly = [clean_row(r) for r in run_query(cursor, refund_query("week", "ALL_BY_GROUP"))]
+    refund_partner_weekly += [clean_row(r) for r in run_query(cursor, refund_query("week", "KOPIYKA_BRANDS"))]
     refund_partner_monthly = [clean_row(r) for r in run_query(cursor, refund_query("month", "ALL_BY_GROUP"))]
+    refund_partner_monthly += [clean_row(r) for r in run_query(cursor, refund_query("month", "KOPIYKA_BRANDS"))]
     save_json("data_refund_partner_weekly.json", refund_partner_weekly)
     save_json("data_refund_partner_monthly.json", refund_partner_monthly)
 

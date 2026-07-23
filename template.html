@@ -131,6 +131,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div class="top-bar">
     <h1 id="pageTitle">All 3P Stores</h1>
   </div>
+  <div id="brandSelector"></div>
   <div class="controls-row">
     <div class="toggle-group" id="granToggle"></div>
     <div class="period-tabs" id="periodTabs"></div>
@@ -226,7 +227,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   function buildSidebar() {
     const nav = $('sidebarNav');
     const highlightedPartners = new Set(['LOKO', 'VARUS', 'RUKAVYCHKA']);
-    const partnerSet = new Set(safe(D.partners_list));
+    const subBrandKeys = new Set(safe(D.subbrand_keys));  // KOPIYKA sub-brands: reachable only via the KOPIYKA Group page
+    const partnerSet = new Set(safe(D.partners_list).filter(p => !subBrandKeys.has(p)));
     let html = '<div class="nav-section-title">Overview</div>';
     html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
 
@@ -234,7 +236,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const groupNames = Object.keys(groups);
 
     if (groupNames.length) {
-      const listed = new Set();
+      const listed = new Set(subBrandKeys);
       groupNames.forEach(emp => {
         html += `<div class="nav-section-title">${emp}</div>`;
         const brands = safe(groups[emp]).filter(p => partnerSet.has(p));
@@ -242,15 +244,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         brands.forEach(p => {
           listed.add(p);
           const hl = highlightedPartners.has(p) ? ' highlighted' : '';
-          html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+          html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${displayName(p)}</div>`;
         });
       });
-      const unlisted = safe(D.partners_list).filter(p => !listed.has(p));
+      const unlisted = safe(D.partners_list).filter(p => !listed.has(p) && !subBrandKeys.has(p));
       if (unlisted.length) {
         html += '<div class="nav-section-title">Other</div>';
         unlisted.forEach(p => {
           const hl = highlightedPartners.has(p) ? ' highlighted' : '';
-          html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${p}</div>`;
+          html += `<div class="nav-item${hl} ${currentView===p?'active':''}" data-view="${p}">${displayName(p)}</div>`;
         });
       }
     } else {
@@ -267,8 +269,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
   }
 
+  /* ---- brand sub-selector for groups that have sub-brands (e.g. KOPIYKA Group) ---- */
+  function buildBrandSelector() {
+    const el = $('brandSelector');
+    if (!el) return;
+    const groups = D.subbrand_groups || {};
+    // Which group are we in? currentView is the group key or one of its sub-brand keys.
+    let groupKey = null;
+    Object.keys(groups).forEach(g => {
+      if (currentView === g || (groups[g] || []).includes(currentView)) groupKey = g;
+    });
+    if (!groupKey) { el.innerHTML = ''; return; }
+    const opts = [{ key: groupKey, label: 'Group' }].concat((groups[groupKey] || []).map(b => ({ key: b, label: b })));
+    el.innerHTML = '<div class="view-toggle">' + opts.map(o =>
+      `<button class="${currentView === o.key ? 'active' : ''}" data-bk="${o.key}">${o.label}</button>`
+    ).join('') + '</div>';
+    el.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => { currentView = b.dataset.bk; currentPeriod = null; render(); });
+    });
+  }
+
   /* ---- granularity & period tabs with slider ---- */
   function buildControls() {
+    buildBrandSelector();
     const gt = $('granToggle');
     gt.innerHTML = ['quarterly','monthly','weekly'].map(g =>
       `<button class="toggle-btn ${currentGran===g?'active':''}" data-g="${g}">${g.charAt(0).toUpperCase()+g.slice(1)}</button>`
@@ -356,11 +379,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   }
 
   /* ---- render ---- */
+  /* ---- display helpers ---- */
+  function displayName(view) {
+    if (view === 'overview') return 'All 3P Stores';
+    if (view === 'KOPIYKA') return 'KOPIYKA Group';
+    return view;
+  }
+  function partnerHasData(view) {
+    const p = (D.partners || {})[view] || {};
+    return ['weekly', 'monthly', 'quarterly'].some(g =>
+      safe((p[g] || {}).financial).length > 0 || safe((p[g] || {}).operational).length > 0);
+  }
+  function anyDefect(arr) {
+    return safe(arr).some(r => (r.item_quantity_defect_rate || 0) > 0 || (r.item_replacement_rate || 0) > 0
+      || (r.item_weight_defect_rate || 0) > 0 || (r.item_price_defect_rate || 0) > 0);
+  }
+
   function render() {
     destroyCharts();
     buildSidebar();
     buildControls();
-    $('pageTitle').textContent = currentView === 'overview' ? 'All 3P Stores' : currentView;
+    $('pageTitle').textContent = displayName(currentView);
+
+    // Future / onboarding key accounts with no data yet -> "Not yet activated" banner
+    if (currentView !== 'overview' && !partnerHasData(currentView)) {
+      $('content').innerHTML = '<div class="section"><div class="section-title">' + displayName(currentView) + '</div>'
+        + '<div style="padding:22px 24px;background:#FFF8E1;border:1px solid #F59E0B;border-radius:10px;color:#92400E;font-weight:600;">Not yet activated — this is a planned key account not yet live on Bolt UA stores. No data to display yet.</div></div>';
+      return;
+    }
 
     const src = getDataSource();
     const fin = safe(src.financial);
@@ -397,7 +443,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       html += '<div class="kpi-grid">';
       html += kpi('GMV', fmtEur(c.gmv_eur), c, p, 'gmv_eur');
       html += kpi('Orders', fmt(c.orders), c, p, 'orders');
-      html += kpi('AOV (w/ Delivery)', fmtEur(c.aov_with_delivery, 2), c, p, 'aov_with_delivery');
+      html += kpi('AOV (w/ Eater Fees)', fmtEur(c.aov_with_delivery, 2), c, p, 'aov_with_delivery');
       html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only, 2), c, p, 'aov_items_only');
       html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order, 2), c, p, 'eater_fees_per_order');
       if (cpC) {
@@ -486,11 +532,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += '<div class="chart-container"><h3>Eater Fees per Order</h3><div class="chart-wrap"><canvas id="chartEaterFees"></canvas></div></div>';
     html += '</div>';
 
-    // GMV by Partner doughnut (overview only)
+    // GMV & Orders Share by Partner doughnuts (overview only) — shared colors + one legend
     if (currentView === 'overview') {
       const gmvPart = safe(src.gmv_by_partner).filter(r => r.period === currentPeriod);
       if (gmvPart.length || safe(D.top_partners_gmv).length) {
-        html += '<div class="chart-row"><div class="chart-container full"><h3>GMV Share by Partner</h3><div class="chart-wrap" style="height:350px;max-width:500px;margin:0 auto;"><canvas id="chartGmvShare"></canvas></div></div></div>';
+        html += '<div class="chart-row"><div class="chart-container full"><h3>Share by Partner — Top 15</h3>'
+          + '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:28px;">'
+          + '<div style="text-align:center;"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">GMV Share</div><div class="chart-wrap" style="height:300px;width:300px;"><canvas id="chartGmvShare"></canvas></div></div>'
+          + '<div style="text-align:center;"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Orders Share</div><div class="chart-wrap" style="height:300px;width:300px;"><canvas id="chartOrdersShare"></canvas></div></div>'
+          + '<div id="shareLegend" style="min-width:170px;"></div>'
+          + '</div></div></div>';
       }
     }
     html += '</div>';
@@ -529,8 +580,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
         html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', {inverted: true});
         html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', {inverted: true});
-        if (oc.median_available_sku != null && oc.median_available_sku > 0) html += kpi('Median Provider Available SKU, #', fmt(oc.median_available_sku), oc, op, 'median_available_sku');
-        if (SHOW_SKU_AVAILABILITY && oc.sku_availability_pct != null && oc.sku_availability_pct > 0) html += kpi('Merchant SKU Sessions Availability Rate, %', fmtPct(oc.sku_availability_pct, 1), oc, op, 'sku_availability_pct');
+        if (oc.median_available_sku != null) html += kpi('Median Provider Available SKU, #', fmt(oc.median_available_sku), oc, op, 'median_available_sku');
+        if (SHOW_SKU_AVAILABILITY && oc.sku_availability_pct != null) html += kpi('Merchant SKU Sessions Availability Rate, %', fmtPct(oc.sku_availability_pct, 1), oc, op, 'sku_availability_pct');
       }
       html += '</div>';
 
@@ -547,13 +598,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         }
       }
 
-      /* Order & Item Adjustments sub-block (brand views only) */
+      /* Order & Item Adjustments sub-block (brand views only; hidden when all-zero) */
       if (oc && currentView !== 'overview') {
         const defectsArr = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
         const defRow = defectsArr.find(r => r.period === currentPeriod) || last(defectsArr);
         const defRowPIdx = defRow ? defectsArr.indexOf(defRow) : -1;
         const defPrev = defRowPIdx > 0 ? defectsArr[defRowPIdx - 1] : null;
-        if (defRow) {
+        if (defRow && anyDefect(defectsArr)) {
           const adjCards = [];
           if (defRow.item_quantity_defect_rate != null) adjCards.push(kpi('Item Quantity Adjustment Defect Rate, %', fmtPct(defRow.item_quantity_defect_rate, 2), defRow, defPrev, 'item_quantity_defect_rate', {inverted: true}));
           if (defRow.item_replacement_rate != null) adjCards.push(kpi('Item Replacement Rate, %', fmtPct(defRow.item_replacement_rate, 2), defRow, defPrev, 'item_replacement_rate', {inverted: true}));
@@ -617,7 +668,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     /* ---- draw charts ---- */
     drawGmvOrdersChart(fin);
     drawEaterFeesChart(fin);
-    if (currentView === 'overview') drawGmvShareChart();
+    if (currentView === 'overview') drawShareCharts();
     drawCampaignsChart(camp);
   }
 
@@ -862,7 +913,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     html += rrCard('GMV', fmtEur(rr.gmv), rr.gmv, prevMonth ? prevMonth.gmv_eur : null);
     html += rrCard('Orders', fmt(Math.round(rr.orders)), rr.orders, prevMonth ? prevMonth.orders : null);
-    html += rrCard('AOV (w/ Delivery)', fmtEur(rr.aov_del, 2), rr.aov_del, prevMonth ? prevMonth.aov_with_delivery : null);
+    html += rrCard('AOV (w/ Eater Fees)', fmtEur(rr.aov_del, 2), rr.aov_del, prevMonth ? prevMonth.aov_with_delivery : null);
     html += rrCard('AOV (Items Only)', fmtEur(rr.aov_items, 2), rr.aov_items, prevMonth ? prevMonth.aov_items_only : null);
     html += rrCard('Eater Fees / Order', fmtEur(rr.eater_fees, 2), rr.eater_fees, prevMonth ? prevMonth.eater_fees_per_order : null);
     html += rrCard('Bolt Plus GMV Share', fmtPct(rr.bolt_plus, 1), rr.bolt_plus, prevMonth ? prevMonth.bolt_plus_gmv_share : null);
@@ -942,9 +993,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += rowFmt('Late Delivery Rate, %', r => r.late_delivery_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Late Pickup Rate, %', r => r.late_pickup_rate, v => fmtPct(v, 1), true);
     html += rowFmt('Avg Delivery, min', r => r.avg_delivery_minutes, v => fmt(v, 1), true);
-    if (last10.some(r => r.median_available_sku != null && r.median_available_sku > 0))
+    if (last10.some(r => r.median_available_sku != null))
       html += rowFmt('Median Provider Available SKU, #', r => r.median_available_sku, v => v != null ? fmt(v) : '—');
-    if (SHOW_SKU_AVAILABILITY && last10.some(r => r.sku_availability_pct != null && r.sku_availability_pct > 0))
+    if (SHOW_SKU_AVAILABILITY && last10.some(r => r.sku_availability_pct != null))
       html += rowFmt('Merchant SKU Sessions Availability Rate, %', r => r.sku_availability_pct, v => v != null ? fmtPct(v, 1) : '—');
 
     /* ===== Block 2: Courier Metrics ===== */
@@ -978,7 +1029,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     /* ===== Block 4: Order & Item Adjustments (brand views only) ===== */
     if (currentView !== 'overview') {
       const defectsAll = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
-      if (defectsAll.length) {
+      if (anyDefect(defectsAll)) {
         function defectRow(label, field) {
           let tr = `<tr><td>${label}</td>`;
           last10.forEach(r => {
@@ -1027,7 +1078,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     html += row('GMV, €', r => r.f.gmv_eur, v => fmtEur(v));
     html += row('Orders', r => r.f.orders, v => fmt(v));
-    html += row('AOV (w/ Delivery), €', r => r.f.aov_with_delivery, v => fmtEur(v, 2));
+    html += row('AOV (w/ Eater Fees), €', r => r.f.aov_with_delivery, v => fmtEur(v, 2));
     html += row('AOV (Items Only), €', r => r.f.aov_items_only, v => fmtEur(v, 2));
     html += row('Eater Fees / Order, €', r => r.f.eater_fees_per_order, v => fmtEur(v, 2));
     html += row('CP Margin, %', r => r.cp.cp_margin_pct, v => fmtPct(v));
@@ -1179,30 +1230,54 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     });
   }
 
-  function drawGmvShareChart() {
-    const src = getDataSource();
-    let partnerData = safe(src.gmv_by_partner).filter(r => r.period === currentPeriod);
-    if (!partnerData.length) partnerData = safe(D.top_partners_gmv);
-    if (!partnerData.length) return;
-    partnerData.sort((a, b) => b.gmv_eur - a.gmv_eur);
-    const top10 = partnerData.slice(0, 10);
-    const othersGmv = partnerData.slice(10).reduce((a, b) => a + b.gmv_eur, 0);
-    const labels = top10.map(r => r.group_name);
-    const data = top10.map(r => r.gmv_eur);
-    if (othersGmv > 0) { labels.push('Others'); data.push(othersGmv); }
-    const totalGmv = data.reduce((a, b) => a + b, 0);
-    const colors = ['#34D186','#1A1A2E','#6366F1','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#64748B','#CBD5E1'];
-    makeChart('chartGmvShare', {
+  const SHARE_PALETTE = ['#34D186','#1A1A2E','#6366F1','#F59E0B','#EF4444','#8B5CF6','#EC4899','#14B8A6','#F97316','#0EA5E9','#A3E635','#DB2777','#7C3AED','#22C55E','#EAB308'];
+  const OTHERS_COLOR = '#CBD5E1';
+
+  function doughnutCfg(labels, data, colors, total, isEur) {
+    return {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, labels.length) }] },
+      data: { labels, datasets: [{ data, backgroundColor: colors }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
-          tooltip: { callbacks: { label: ctx => `${ctx.label}: €${fmt(ctx.parsed, 0)} (${fmtPct(ctx.parsed / totalGmv * 100, 1)})` } }
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.label}: ${isEur ? '€' + fmt(ctx.parsed, 0) : fmt(ctx.parsed, 0)} (${fmtPct(total ? ctx.parsed / total * 100 : 0, 1)})` } }
         }
       }
+    };
+  }
+
+  // GMV + Orders share doughnuts: one ordered partner list (top 15 by GMV + Others),
+  // fixed color per partner shared by both charts, single shared HTML legend.
+  function drawShareCharts(dataSource, gmvId, ordersId, legendId) {
+    const src = dataSource || getDataSource();
+    gmvId = gmvId || 'chartGmvShare'; ordersId = ordersId || 'chartOrdersShare'; legendId = legendId || 'shareLegend';
+    let partnerData = safe(src.gmv_by_partner).filter(r => r.period === currentPeriod);
+    if (!partnerData.length) partnerData = safe(D.top_partners_gmv);
+    if (!partnerData.length) return;
+    const byPartner = {};
+    partnerData.forEach(r => {
+      const k = r.group_name;
+      if (!k) return;
+      if (!byPartner[k]) byPartner[k] = { name: k, gmv: 0, orders: 0 };
+      byPartner[k].gmv += (r.gmv_eur || 0);
+      byPartner[k].orders += (r.orders || 0);
     });
+    const arr = Object.values(byPartner).sort((a, b) => b.gmv - a.gmv);
+    const TOP = 15;
+    const items = arr.slice(0, TOP).map((r, i) => ({ name: r.name, gmv: r.gmv, orders: r.orders, color: SHARE_PALETTE[i % SHARE_PALETTE.length] }));
+    const rest = arr.slice(TOP);
+    if (rest.length) items.push({ name: 'Others', gmv: rest.reduce((a, b) => a + b.gmv, 0), orders: rest.reduce((a, b) => a + b.orders, 0), color: OTHERS_COLOR });
+    const labels = items.map(i => i.name);
+    const colors = items.map(i => i.color);
+    const gmvData = items.map(i => i.gmv);
+    const ordersData = items.map(i => i.orders);
+    const totalGmv = gmvData.reduce((a, b) => a + b, 0);
+    const totalOrders = ordersData.reduce((a, b) => a + b, 0);
+    makeChart(gmvId, doughnutCfg(labels, gmvData, colors, totalGmv, true));
+    makeChart(ordersId, doughnutCfg(labels, ordersData, colors, totalOrders, false));
+    const lg = document.getElementById(legendId);
+    if (lg) lg.innerHTML = items.map(i => `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:5px;"><span style="width:11px;height:11px;border-radius:2px;background:${i.color};display:inline-block;flex:0 0 auto;"></span><span>${i.name}</span></div>`).join('');
   }
 
   function drawCampaignsChart(camp) {

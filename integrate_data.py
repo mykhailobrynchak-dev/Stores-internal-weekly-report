@@ -14,9 +14,12 @@ ALL_TRACKED_PARTNERS = [
     "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK",
     "VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "TAISTRA", "BEERLAND K",
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
-    "DIMPYVA", "MAXBEER", "FLOWER SHOP",
+    "DIMPYVA", "MAXBEER", "FLOWER SHOP", "ALTBIER",
     "RODYNNA KOVBASKA", "NO TABOO", "SPAR", "ANRI-PHARM",
-    "BRSM", "VAPORS", "PIVASOV", "OKKO MARKET", "VAPERY | VAPE SHOP"
+    "BRSM", "VAPORS", "PIVASOV", "OKKO MARKET", "VAPERY | VAPE SHOP",
+    # Future / onboarding key accounts (not yet live on Bolt UA stores; render empty with a banner)
+    "AUCHAN", "ATB", "FLOWERS UA", "THRASH", "E-ZOO", "MASTER ZOO",
+    "РОСТ", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"
 ]
 
 
@@ -655,9 +658,9 @@ for pname in partners_list:
 
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
-    "Khrystyna": ["LEPRUKON", "DIMPYVA", "RODYNNA KOVBASKA", "NO TABOO", "VAPORS", "PIVASOV", "VAPERY | VAPE SHOP"],
-    "Mykhailo": ["LOKO", "HOP HEY", "BEER MARKET", "KOPIYKA", "PYVNA BORODA", "BRSM", "TAISTRA", "CAFE RYNOK", "BEERLAND K", "WINETIME", "SPRAGA", "MAXBEER", "SPAR", "OKKO MARKET"],
-    "Viktor": ["VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "ANRI-PHARM", "FLOWER SHOP", "TOCHKA"],
+    "Mykhailo": ["LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK", "TAISTRA", "BEERLAND K", "WINETIME", "BRSM", "SPAR", "AUCHAN", "ATB", "FLOWERS UA", "OKKO MARKET"],
+    "Viktor": ["VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "PYVNA BORODA", "ANRI-PHARM", "THRASH", "E-ZOO", "MASTER ZOO", "РОСТ", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"],
+    "Khrystyna": ["TOCHKA", "LEPRUKON", "MAXBEER", "SPRAGA", "DIMPYVA", "ALTBIER", "FLOWER SHOP", "NO TABOO", "RODYNNA KOVBASKA", "VAPERY | VAPE SHOP", "VAPORS", "PIVASOV"],
 }
 
 # ======== ASSEMBLE FINAL DATA ========
@@ -701,6 +704,8 @@ DATA = {
     "city_eater_fees_weekly": city_eater_fees_weekly,
     "partner_city_weekly": partner_city_weekly,
     "employee_groups": EMPLOYEE_GROUPS,
+    "subbrand_keys": ["Kopiyka", "Kopiyka Mini", "Santim"],
+    "subbrand_groups": {"KOPIYKA": ["Kopiyka", "Kopiyka Mini", "Santim"]},
     "active_stores_snapshot": active_stores_data if isinstance(active_stores_data, dict) else {},
 }
 
