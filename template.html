@@ -18,7 +18,8 @@
   --red: #EF4444;
   --green: #34D186;
   --orange: #F59E0B;
-  --sidebar-w: 230px;
+  --sidebar-w: 178px;
+  --city-nav-w: 200px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; overflow-x: hidden; }
@@ -35,6 +36,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav-section-title { padding: 16px 20px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); }
 
 .main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 32px; max-width: calc(100vw - var(--sidebar-w)); overflow-x: hidden; box-sizing: border-box; }
+
+/* Secondary city navigation panel (appears to the right of the main nav in City overview mode) */
+.city-nav { position: fixed; top: 0; left: var(--sidebar-w); bottom: 0; width: var(--city-nav-w); background: var(--card); border-right: 1px solid var(--border); overflow-y: auto; z-index: 99; display: none; padding: 14px 0; }
+.city-nav .city-nav-title { padding: 8px 18px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); font-weight: 700; }
+.city-nav .city-nav-item { padding: 8px 18px; cursor: pointer; font-size: 13px; color: var(--text); border-left: 3px solid transparent; transition: all 0.15s; }
+.city-nav .city-nav-item:hover { background: var(--primary-light); }
+.city-nav .city-nav-item.active { background: var(--primary-light); color: var(--dark); border-left-color: var(--primary); font-weight: 600; }
+body.city-mode .city-nav { display: block; }
+body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); max-width: calc(100vw - var(--sidebar-w) - var(--city-nav-w)); }
 .top-bar { margin-bottom: 16px; }
 .controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 .top-bar h1 { font-size: 22px; font-weight: 700; }
@@ -126,6 +136,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </div>
   <div class="sidebar-nav" id="sidebarNav"></div>
 </nav>
+
+<div id="cityNav" class="city-nav"></div>
 
 <div class="main">
   <div class="top-bar">
@@ -234,11 +246,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
     if (safe(D.city_list).length) {
       html += `<div class="nav-item ${currentView==='city'?'active':''}" data-view="city">City overview</div>`;
-      if (currentView === 'city') {
-        safe(D.city_list).forEach(c => {
-          html += `<div class="nav-item ${currentCity===c?'active':''}" data-city="${c}" style="padding-left:34px;font-size:12px;">${c}</div>`;
-        });
-      }
     }
 
     const groups = D.employee_groups || {};
@@ -280,6 +287,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         currentPeriod = null;
         render();
       });
+    });
+  }
+
+  /* ---- secondary city nav panel (right of the main sidebar, City overview only) ---- */
+  function buildCityNav() {
+    const el = $('cityNav');
+    if (!el) return;
+    if (currentView !== 'city') { document.body.classList.remove('city-mode'); el.innerHTML = ''; return; }
+    document.body.classList.add('city-mode');
+    let html = '<div class="city-nav-title">Cities · by GMV</div>';
+    safe(D.city_list).forEach(c => {
+      html += `<div class="city-nav-item ${currentCity===c?'active':''}" data-city="${c}">${c}</div>`;
+    });
+    el.innerHTML = html;
+    el.querySelectorAll('.city-nav-item').forEach(elm => {
+      elm.addEventListener('click', () => { currentCity = elm.dataset.city; currentPeriod = null; render(); });
     });
   }
 
@@ -414,6 +437,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     destroyCharts();
     if (currentView === 'city' && !currentCity) currentCity = safe(D.city_list)[0] || null;
     buildSidebar();
+    buildCityNav();
     buildControls();
     if (currentView === 'city') { renderCity(); return; }
     $('pageTitle').textContent = displayName(currentView);
@@ -799,55 +823,137 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     drawCampaignsChart(camp);
   }
 
-  function _pickPeriod(rows) {
-    // rows for the currently selected period (fallback to latest available period)
+  /* ---- city per-partner table helpers ---- */
+  function _managedPartners() {
+    const s = new Set();
+    const g = D.employee_groups || {};
+    Object.keys(g).forEach(k => safe(g[k]).forEach(p => s.add(p)));
+    return s;
+  }
+  function _ssum(rows, key) { return rows.reduce((a, b) => a + (b[key] || 0), 0); }
+  function _wavg(rows, key, wKey) {
+    let num = 0, den = 0;
+    rows.forEach(r => { const v = r[key], w = r[wKey] || 0; if (v != null) { num += v * w; den += w; } });
+    return den ? num / den : null;
+  }
+  function _periodUsed(rows) {
     const r = safe(rows);
-    if (r.some(x => x.period === currentPeriod)) return r.filter(x => x.period === currentPeriod);
-    const periods = [...new Set(r.map(x => x.period))].sort();
-    const lastP = periods[periods.length - 1];
-    return r.filter(x => x.period === lastP);
+    if (r.some(x => x.period === currentPeriod)) return currentPeriod;
+    const ps = [...new Set(r.map(x => x.period))].sort();
+    return ps[ps.length - 1] || null;
   }
 
   function buildCityFinancialByPartner(cityNode) {
-    const gmvp = _pickPeriod((cityNode[currentGran] || {}).gmv_by_partner);
-    if (!gmvp.length) return '';
-    const opsRows = _pickPeriod((cityNode.partner_ops || {})[currentGran]);
-    const cpBy = {}; opsRows.forEach(r => { cpBy[r.group_name] = r; });
-    const rows = gmvp.slice().sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    const gmvAll = safe((cityNode[currentGran] || {}).gmv_by_partner);
+    const opsAll = safe((cityNode.partner_ops || {})[currentGran]);
+    if (!gmvAll.length) return '';
+    const curP = _periodUsed(gmvAll), prevP = curP ? getPrevPeriod(curP, currentGran) : null;
+    const gmvCur = gmvAll.filter(r => r.period === curP), gmvPrev = gmvAll.filter(r => r.period === prevP);
+    const opsCur = opsAll.filter(r => r.period === curP), opsPrev = opsAll.filter(r => r.period === prevP);
+    const gmvPrevBy = {}; gmvPrev.forEach(r => gmvPrevBy[r.group_name] = r);
+    const cpCurBy = {}; opsCur.forEach(r => cpCurBy[r.group_name] = r);
+    const cpPrevBy = {}; opsPrev.forEach(r => cpPrevBy[r.group_name] = r);
+    const managed = _managedPartners();
+    const kept = gmvCur.filter(r => managed.has(r.group_name)).sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    const othCur = gmvCur.filter(r => !managed.has(r.group_name));
+    const othPrev = gmvPrev.filter(r => !managed.has(r.group_name));
+    const othOpsCur = opsCur.filter(r => !managed.has(r.group_name));
+    const othOpsPrev = opsPrev.filter(r => !managed.has(r.group_name));
+
     let html = '<div class="sub-section-title">Financial Overview by Partner</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>GMV, €</th><th>Orders</th><th>AOV (Items Only)</th><th>Eater Fees / Order</th><th>CP Margin, %</th><th>CP L2 Margin, %</th></tr></thead><tbody>';
-    rows.forEach(r => {
-      const o = cpBy[r.group_name] || {};
-      html += `<tr><td>${displayName(r.group_name)}</td><td>${fmtEur(r.gmv_eur)}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.aov_items_only, 2)}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td><td>${o.cp_margin_pct != null ? fmtPct(o.cp_margin_pct) : '—'}</td><td>${o.cp_l2_margin_pct != null ? fmtPct(o.cp_l2_margin_pct) : '—'}</td></tr>`;
-    });
+    const rowHtml = (name, cur, prev, curOps, prevOps) => {
+      const g = cur.gmv_eur, gp = prev ? prev.gmv_eur : null;
+      return `<tr><td>${displayName(name)}</td>`
+        + `<td>${fmtEur(g)} ${pctChangeInline(g, gp)}</td>`
+        + `<td>${fmt(cur.orders)} ${pctChangeInline(cur.orders, prev ? prev.orders : null)}</td>`
+        + `<td>${fmtEur(cur.aov_items_only, 2)} ${pctChangeInline(cur.aov_items_only, prev ? prev.aov_items_only : null)}</td>`
+        + `<td>${fmtEur(cur.eater_fees_per_order, 2)} ${pctChangeInline(cur.eater_fees_per_order, prev ? prev.eater_fees_per_order : null)}</td>`
+        + `<td>${curOps && curOps.cp_margin_pct != null ? fmtPct(curOps.cp_margin_pct) : '—'} ${pctChangeInline(curOps ? curOps.cp_margin_pct : null, prevOps ? prevOps.cp_margin_pct : null)}</td>`
+        + `<td>${curOps && curOps.cp_l2_margin_pct != null ? fmtPct(curOps.cp_l2_margin_pct) : '—'} ${pctChangeInline(curOps ? curOps.cp_l2_margin_pct : null, prevOps ? prevOps.cp_l2_margin_pct : null)}</td></tr>`;
+    };
+    kept.forEach(r => html += rowHtml(r.group_name, r, gmvPrevBy[r.group_name], cpCurBy[r.group_name], cpPrevBy[r.group_name]));
+    if (othCur.length) {
+      const oc = { gmv_eur: _ssum(othCur, 'gmv_eur'), orders: _ssum(othCur, 'orders'), aov_items_only: _wavg(othCur, 'aov_items_only', 'orders'), eater_fees_per_order: _wavg(othCur, 'eater_fees_per_order', 'orders') };
+      const opv = othPrev.length ? { gmv_eur: _ssum(othPrev, 'gmv_eur'), orders: _ssum(othPrev, 'orders'), aov_items_only: _wavg(othPrev, 'aov_items_only', 'orders'), eater_fees_per_order: _wavg(othPrev, 'eater_fees_per_order', 'orders') } : null;
+      const ocOps = { cp_margin_pct: _wavg(othOpsCur, 'cp_margin_pct', 'orders'), cp_l2_margin_pct: _wavg(othOpsCur, 'cp_l2_margin_pct', 'orders') };
+      const opvOps = othOpsPrev.length ? { cp_margin_pct: _wavg(othOpsPrev, 'cp_margin_pct', 'orders'), cp_l2_margin_pct: _wavg(othOpsPrev, 'cp_l2_margin_pct', 'orders') } : null;
+      html += rowHtml('Others', oc, opv, ocOps, opvOps);
+    }
     html += '</tbody></table></div>';
     return html;
   }
 
   function buildCityPartnerOpsTable(cityNode) {
-    const rows = _pickPeriod((cityNode.partner_ops || {})[currentGran]);
-    if (!rows.length) return '';
-    const sorted = rows.slice().sort((a, b) => (b.orders || 0) - (a.orders || 0));
+    const all = safe((cityNode.partner_ops || {})[currentGran]);
+    if (!all.length) return '';
+    const curP = _periodUsed(all), prevP = curP ? getPrevPeriod(curP, currentGran) : null;
+    const cur = all.filter(r => r.period === curP), prev = all.filter(r => r.period === prevP);
+    const prevBy = {}; prev.forEach(r => prevBy[r.group_name] = r);
+    const managed = _managedPartners();
+    const kept = cur.filter(r => managed.has(r.group_name)).sort((a, b) => (b.orders || 0) - (a.orders || 0));
+    const othCur = cur.filter(r => !managed.has(r.group_name));
+    const othPrev = prev.filter(r => !managed.has(r.group_name));
+    const OPS_F = ['acceptance_rate', 'availability_rate', 'avg_rating', 'honey_order_rate', 'bad_order_rate', 'avg_delivery_minutes', 'cpo_eur', 'failed_rate_total', 'failed_merchant_pct', 'failed_bolt_courier_pct', 'late_delivery_rate', 'late_pickup_rate'];
+    const INV = new Set(['bad_order_rate', 'avg_delivery_minutes', 'cpo_eur', 'failed_rate_total', 'failed_merchant_pct', 'failed_bolt_courier_pct', 'late_delivery_rate', 'late_pickup_rate']);
+    const othersRow = () => { const o = { group_name: 'Others', orders: _ssum(othCur, 'orders') }; OPS_F.forEach(f => o[f] = _wavg(othCur, f, 'orders')); return o; };
+    const othersPrevRow = () => { const o = {}; OPS_F.forEach(f => o[f] = _wavg(othPrev, f, 'orders')); return o; };
+
     let html = '<div class="sub-section-title">Operational by Partner</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>Acceptance</th><th>Availability</th><th>Avg Rating</th><th>Honey</th><th>Bad</th><th>Avg Delivery</th><th>CPO</th><th>Failed Total</th><th>Failed Merch.</th><th>Failed Bolt+Cour.</th><th>Late Delivery</th><th>Late Pickup</th></tr></thead><tbody>';
-    const P = (v, d = 1) => v != null ? fmtPct(v, d) : '—';
-    sorted.forEach(r => {
-      html += `<tr><td>${displayName(r.group_name)}</td><td>${P(r.acceptance_rate)}</td><td>${P(r.availability_rate)}</td><td>${r.avg_rating != null ? fmt(r.avg_rating, 2) : '—'}</td><td>${P(r.honey_order_rate)}</td><td>${P(r.bad_order_rate, 2)}</td><td>${r.avg_delivery_minutes != null ? fmt(r.avg_delivery_minutes, 1) + ' min' : '—'}</td><td>${r.cpo_eur != null ? '€' + fmt(r.cpo_eur, 2) : '—'}</td><td>${P(r.failed_rate_total)}</td><td>${P(r.failed_merchant_pct)}</td><td>${P(r.failed_bolt_courier_pct)}</td><td>${P(r.late_delivery_rate)}</td><td>${P(r.late_pickup_rate)}</td></tr>`;
-    });
+    const cellPct = (v, pv, f, dec) => `${v != null ? fmtPct(v, dec) : '—'} ${pctChangeInline(v, pv, INV.has(f))}`;
+    const rowHtml = (name, r, pr) => {
+      pr = pr || {};
+      return `<tr><td>${displayName(name)}</td>`
+        + `<td>${cellPct(r.acceptance_rate, pr.acceptance_rate, 'acceptance_rate', 1)}</td>`
+        + `<td>${cellPct(r.availability_rate, pr.availability_rate, 'availability_rate', 1)}</td>`
+        + `<td>${r.avg_rating != null ? fmt(r.avg_rating, 2) : '—'} ${pctChangeInline(r.avg_rating, pr.avg_rating)}</td>`
+        + `<td>${cellPct(r.honey_order_rate, pr.honey_order_rate, 'honey_order_rate', 1)}</td>`
+        + `<td>${cellPct(r.bad_order_rate, pr.bad_order_rate, 'bad_order_rate', 2)}</td>`
+        + `<td>${r.avg_delivery_minutes != null ? fmt(r.avg_delivery_minutes, 1) + ' min' : '—'} ${pctChangeInline(r.avg_delivery_minutes, pr.avg_delivery_minutes, true)}</td>`
+        + `<td>${r.cpo_eur != null ? '€' + fmt(r.cpo_eur, 2) : '—'} ${pctChangeInline(r.cpo_eur, pr.cpo_eur, true)}</td>`
+        + `<td>${cellPct(r.failed_rate_total, pr.failed_rate_total, 'failed_rate_total', 1)}</td>`
+        + `<td>${cellPct(r.failed_merchant_pct, pr.failed_merchant_pct, 'failed_merchant_pct', 1)}</td>`
+        + `<td>${cellPct(r.failed_bolt_courier_pct, pr.failed_bolt_courier_pct, 'failed_bolt_courier_pct', 1)}</td>`
+        + `<td>${cellPct(r.late_delivery_rate, pr.late_delivery_rate, 'late_delivery_rate', 1)}</td>`
+        + `<td>${cellPct(r.late_pickup_rate, pr.late_pickup_rate, 'late_pickup_rate', 1)}</td></tr>`;
+    };
+    kept.forEach(r => html += rowHtml(r.group_name, r, prevBy[r.group_name]));
+    if (othCur.length) html += rowHtml('Others', othersRow(), othPrev.length ? othersPrevRow() : {});
     html += '</tbody></table></div>';
     return html;
   }
 
   function buildCityPartnerCampTable(cityNode) {
-    const rows = _pickPeriod((cityNode.partner_campaigns || {})[currentGran]);
-    if (!rows.length) return '';
-    const sorted = rows.slice().sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    const all = safe((cityNode.partner_campaigns || {})[currentGran]);
+    if (!all.length) return '';
+    const curP = _periodUsed(all), prevP = curP ? getPrevPeriod(curP, currentGran) : null;
+    const cur = all.filter(r => r.period === curP), prev = all.filter(r => r.period === prevP);
+    const prevBy = {}; prev.forEach(r => prevBy[r.group_name] = r);
+    const managed = _managedPartners();
+    const kept = cur.filter(r => managed.has(r.group_name)).sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    const othCur = cur.filter(r => !managed.has(r.group_name));
+    const othPrev = prev.filter(r => !managed.has(r.group_name));
+
     let html = '<div class="sub-section-title">Campaigns by Partner</div>';
     html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>Total Discount, €</th><th>Bolt Spend, €</th><th>Merchant Spend, €</th><th>Campaigns % GMV</th><th>Bolt % GMV</th><th>Merchant % GMV</th></tr></thead><tbody>';
-    sorted.forEach(r => {
-      const g = r.gmv_eur || 0;
-      html += `<tr><td>${displayName(r.group_name)}</td><td>${fmtEur(r.campaigns_discount_eur)}</td><td>${fmtEur(r.bolt_spend_eur)}</td><td>${fmtEur(r.merchant_spend_eur)}</td><td>${g ? fmtPct(r.campaigns_discount_eur / g * 100, 2) : '—'}</td><td>${g ? fmtPct(r.bolt_spend_eur / g * 100, 2) : '—'}</td><td>${g ? fmtPct(r.merchant_spend_eur / g * 100, 2) : '—'}</td></tr>`;
-    });
+    const pg = (r, k) => (r && r.gmv_eur) ? r[k] / r.gmv_eur * 100 : null;
+    const rowHtml = (name, r, pr) => {
+      pr = pr || null;
+      return `<tr><td>${displayName(name)}</td>`
+        + `<td>${fmtEur(r.campaigns_discount_eur)} ${pctChangeInline(r.campaigns_discount_eur, pr ? pr.campaigns_discount_eur : null, true)}</td>`
+        + `<td>${fmtEur(r.bolt_spend_eur)} ${pctChangeInline(r.bolt_spend_eur, pr ? pr.bolt_spend_eur : null, true)}</td>`
+        + `<td>${fmtEur(r.merchant_spend_eur)} ${pctChangeInline(r.merchant_spend_eur, pr ? pr.merchant_spend_eur : null)}</td>`
+        + `<td>${r.gmv_eur ? fmtPct(pg(r, 'campaigns_discount_eur'), 2) : '—'} ${pctChangeInline(pg(r, 'campaigns_discount_eur'), pg(pr, 'campaigns_discount_eur'), true)}</td>`
+        + `<td>${r.gmv_eur ? fmtPct(pg(r, 'bolt_spend_eur'), 2) : '—'} ${pctChangeInline(pg(r, 'bolt_spend_eur'), pg(pr, 'bolt_spend_eur'), true)}</td>`
+        + `<td>${r.gmv_eur ? fmtPct(pg(r, 'merchant_spend_eur'), 2) : '—'} ${pctChangeInline(pg(r, 'merchant_spend_eur'), pg(pr, 'merchant_spend_eur'))}</td></tr>`;
+    };
+    kept.forEach(r => html += rowHtml(r.group_name, r, prevBy[r.group_name]));
+    if (othCur.length) {
+      const oc = { gmv_eur: _ssum(othCur, 'gmv_eur'), campaigns_discount_eur: _ssum(othCur, 'campaigns_discount_eur'), bolt_spend_eur: _ssum(othCur, 'bolt_spend_eur'), merchant_spend_eur: _ssum(othCur, 'merchant_spend_eur') };
+      const opv = othPrev.length ? { gmv_eur: _ssum(othPrev, 'gmv_eur'), campaigns_discount_eur: _ssum(othPrev, 'campaigns_discount_eur'), bolt_spend_eur: _ssum(othPrev, 'bolt_spend_eur'), merchant_spend_eur: _ssum(othPrev, 'merchant_spend_eur') } : null;
+      html += rowHtml('Others', oc, opv);
+    }
     html += '</tbody></table></div>';
     return html;
   }
