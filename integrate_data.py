@@ -656,6 +656,238 @@ for pname in partners_list:
     item_discount_promo["monthly"][pname] = [{"period": p, "value": round(sum(v) / len(v), 2)} for p, v in sorted(monthly_groups.items())]
     item_discount_promo["quarterly"][pname] = [{"period": p, "value": round(sum(v) / len(v), 2)} for p, v in sorted(quarterly_groups_promo.items())]
 
+# ======== CITY OVERVIEW ========
+print("Building city overview...")
+
+def _load_city(name):
+    lst = load_json(name)
+    for r in lst:
+        r["period"] = fmt_period(r["period"])
+    return lst
+
+_city_fin = {"weekly": _load_city("data_city_fin_weekly.json"), "monthly": _load_city("data_city_fin_monthly.json")}
+_city_finp = {"weekly": _load_city("data_city_fin_partner_weekly.json"), "monthly": _load_city("data_city_fin_partner_monthly.json")}
+_city_ref = {"weekly": _load_city("data_city_refund_weekly.json"), "monthly": _load_city("data_city_refund_monthly.json")}
+_city_fail = {"weekly": _load_city("data_city_failed_weekly.json"), "monthly": _load_city("data_city_failed_monthly.json")}
+_city_failp = {"weekly": _load_city("data_city_failed_partner_weekly.json"), "monthly": _load_city("data_city_failed_partner_monthly.json")}
+_city_ops = {"weekly": _load_city("data_city_ops_weekly.json"), "monthly": _load_city("data_city_ops_monthly.json")}
+_city_opsp = {"weekly": _load_city("data_city_ops_partner_weekly.json"), "monthly": _load_city("data_city_ops_partner_monthly.json")}
+_city_camp = {"weekly": _load_city("data_city_camp_weekly.json"), "monthly": _load_city("data_city_camp_monthly.json")}
+_city_campp = {"weekly": _load_city("data_city_camp_partner_weekly.json"), "monthly": _load_city("data_city_camp_partner_monthly.json")}
+
+# Sanitize campaign negatives (data quality) + override financial refunds with all-orders values
+for g in ("weekly", "monthly"):
+    for lst in (_city_camp[g], _city_campp[g]):
+        for r in lst:
+            for k in ("campaigns_discount_eur", "bolt_spend_eur", "merchant_spend_eur"):
+                if r.get(k) is not None and r[k] < 0:
+                    r[k] = 0.0
+    refidx = {(r.get("city_name"), r["period"]): r for r in _city_ref[g]}
+    for r in _city_fin[g]:
+        ref = refidx.get((r.get("city_name"), r["period"]))
+        if ref:
+            r["supply_refund_gmv_pct"] = ref.get("supply_refund_gmv_pct", 0)
+            r["demand_refund_gmv_pct"] = ref.get("demand_refund_gmv_pct", 0)
+
+def _grp_city(rows):
+    d = defaultdict(list)
+    for r in rows:
+        d[r.get("city_name")].append(r)
+    return d
+
+def _grp_city_partner(rows):
+    d = defaultdict(lambda: defaultdict(list))
+    for r in rows:
+        d[r.get("city_name")][r.get("group_name")].append(r)
+    return d
+
+OPS_RATE_FIELDS = ["commission_gmv_pct", "commission_aov_pct", "cp_margin_pct", "cp_l2_margin_pct",
+                   "acceptance_rate", "availability_rate", "avg_rating", "honey_rate", "bad_rate",
+                   "late_delivery_rate", "late_pickup_rate", "avg_delivery_min", "courier_min_per_order",
+                   "demand_incentives_gmv_share", "batching_rate", "courier_acceptance_rate", "cpo_eur",
+                   "sku_availability_pct"]
+
+def _ops_cp(r):
+    return {"period": r["period"], "cp_margin_pct": r.get("cp_margin_pct"), "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+            "demand_incentives_gmv_share": r.get("demand_incentives_gmv_share"),
+            "commission_gmv_pct": r.get("commission_gmv_pct"), "commission_aov_pct": r.get("commission_aov_pct")}
+
+def _ops_op(r):
+    return {"period": r["period"], "delivered_orders": r.get("orders"), "total_stores": r.get("total_stores"),
+            "stores_with_orders": r.get("stores_with_orders"), "acceptance_rate": r.get("acceptance_rate"),
+            "availability_rate": r.get("availability_rate"), "avg_rating": r.get("avg_rating"),
+            "honey_order_rate": r.get("honey_rate"), "bad_order_rate": r.get("bad_rate"),
+            "late_delivery_rate": r.get("late_delivery_rate"), "late_pickup_rate": r.get("late_pickup_rate"),
+            "avg_delivery_minutes": r.get("avg_delivery_min"), "courier_minutes_per_order": r.get("courier_min_per_order"),
+            "batching_rate": r.get("batching_rate"), "courier_acceptance_rate": r.get("courier_acceptance_rate"),
+            "cpo_eur": r.get("cpo_eur"), "sku_availability_pct": r.get("sku_availability_pct"),
+            "replacement_rate": 0, "adjustment_rate": 0}
+
+def _agg_ops_raw(rows, period):
+    out = {"period": period, "orders": sum(r.get("orders", 0) or 0 for r in rows),
+           "total_stores": max((r.get("total_stores") or 0) for r in rows),
+           "stores_with_orders": max((r.get("stores_with_orders") or 0) for r in rows)}
+    for f in OPS_RATE_FIELDS:
+        out[f] = avg_vals(rows, f)
+    return out
+
+def _failed_pcts(r):
+    tp = r.get("total_placed") or 0
+    return {"failed_rate_total": r.get("failed_rate_total"),
+            "failed_merchant_pct": round((r.get("failed_merchant", 0) or 0) / tp * 100, 2) if tp else None,
+            "failed_bolt_courier_pct": round((r.get("failed_bolt_courier", 0) or 0) / tp * 100, 2) if tp else None}
+
+def _sorted_periods(rows):
+    return sorted({r["period"] for r in rows})
+
+# Rank cities by total GMV (monthly)
+_city_gmv = defaultdict(float)
+for r in _city_fin["monthly"]:
+    _city_gmv[r.get("city_name")] += (r.get("gmv_eur", 0) or 0)
+city_list = [c for c, _ in sorted(_city_gmv.items(), key=lambda kv: -kv[1]) if c]
+
+# Pre-group everything by city (+partner)
+_fin_by = {g: _grp_city(_city_fin[g]) for g in ("weekly", "monthly")}
+_finp_by = {g: _grp_city_partner(_city_finp[g]) for g in ("weekly", "monthly")}
+_fail_by = {g: _grp_city(_city_fail[g]) for g in ("weekly", "monthly")}
+_failp_by = {g: _grp_city_partner(_city_failp[g]) for g in ("weekly", "monthly")}
+_ops_by = {g: _grp_city(_city_ops[g]) for g in ("weekly", "monthly")}
+_opsp_by = {g: _grp_city_partner(_city_opsp[g]) for g in ("weekly", "monthly")}
+_camp_by = {g: _grp_city(_city_camp[g]) for g in ("weekly", "monthly")}
+_campp_by = {g: _grp_city_partner(_city_campp[g]) for g in ("weekly", "monthly")}
+
+cities_data = {}
+for city in city_list:
+    fin_w = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in _fin_by["weekly"].get(city, [])], key=lambda x: x["period"])
+    fin_m = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in _fin_by["monthly"].get(city, [])], key=lambda x: x["period"])
+    fail_w = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in _fail_by["weekly"].get(city, [])], key=lambda x: x["period"])
+    fail_m = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in _fail_by["monthly"].get(city, [])], key=lambda x: x["period"])
+    camp_w = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in _camp_by["weekly"].get(city, [])], key=lambda x: x["period"])
+    camp_m = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in _camp_by["monthly"].get(city, [])], key=lambda x: x["period"])
+    ops_w_raw = sorted(_ops_by["weekly"].get(city, []), key=lambda x: x["period"])
+    ops_m_raw = sorted(_ops_by["monthly"].get(city, []), key=lambda x: x["period"])
+    gmvp_w = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in sum(_finp_by["weekly"].get(city, {}).values(), [])], key=lambda x: x["period"])
+    gmvp_m = sorted([{k: v for k, v in r.items() if k != "city_name"} for r in sum(_finp_by["monthly"].get(city, {}).values(), [])], key=lambda x: x["period"])
+
+    # CP / operational (weekly, monthly from raw ops; quarterly by aggregating monthly raw)
+    cp_w = [_ops_cp(r) for r in ops_w_raw]
+    op_w = [_ops_op(r) for r in ops_w_raw]
+    cp_m = [_ops_cp(r) for r in ops_m_raw]
+    op_m = [_ops_op(r) for r in ops_m_raw]
+    q_ops_groups = defaultdict(list)
+    for r in ops_m_raw:
+        q_ops_groups[quarter_key(r["period"])].append(r)
+    ops_q_raw = [_agg_ops_raw(q_ops_groups[q], q) for q in sorted(q_ops_groups)]
+    cp_q = [_ops_cp(r) for r in ops_q_raw]
+    op_q = [_ops_op(r) for r in ops_q_raw]
+
+    # Financial quarterly (aggregate monthly), failed quarterly, campaigns quarterly
+    def _q_agg(rows, aggfn):
+        groups = defaultdict(list)
+        for r in rows:
+            groups[quarter_key(r["period"])].append(r)
+        out = []
+        for q in sorted(groups):
+            a = aggfn(groups[q])
+            if a is not None:
+                a["period"] = q
+                out.append(a)
+        return out
+    fin_q = _q_agg(fin_m, aggregate_financial)
+    fail_q = _q_agg(fail_m, aggregate_failed)
+    camp_q = _q_agg(camp_m, aggregate_campaigns)
+
+    # Quarterly GMV-by-partner (aggregate monthly per partner) for doughnuts + Financial-by-partner table
+    _gmvp_q_groups = defaultdict(list)
+    for r in gmvp_m:
+        _gmvp_q_groups[(r.get("group_name"), quarter_key(r["period"]))].append(r)
+    gmvp_q = []
+    for (gn, q), rows in _gmvp_q_groups.items():
+        a = aggregate_financial(rows)
+        if a:
+            a["group_name"] = gn
+            a["period"] = q
+            gmvp_q.append(a)
+
+    # Partner ops table (merge failed pcts by group_name+period)
+    def _partner_ops(gran):
+        opsp = _opsp_by[gran].get(city, {})
+        failp = _failp_by[gran].get(city, {})
+        fidx = {}
+        for gn, rows in failp.items():
+            for r in rows:
+                fidx[(gn, r["period"])] = r
+        out = []
+        for gn, rows in opsp.items():
+            for r in rows:
+                row = {"group_name": gn, "period": r["period"], "acceptance_rate": r.get("acceptance_rate"),
+                       "availability_rate": r.get("availability_rate"), "avg_rating": r.get("avg_rating"),
+                       "honey_order_rate": r.get("honey_rate"), "bad_order_rate": r.get("bad_rate"),
+                       "avg_delivery_minutes": r.get("avg_delivery_min"), "cpo_eur": r.get("cpo_eur"),
+                       "late_delivery_rate": r.get("late_delivery_rate"), "late_pickup_rate": r.get("late_pickup_rate"),
+                       "cp_margin_pct": r.get("cp_margin_pct"), "cp_l2_margin_pct": r.get("cp_l2_margin_pct"),
+                       "orders": r.get("orders")}
+                fr = fidx.get((gn, r["period"]))
+                row.update(_failed_pcts(fr) if fr else {"failed_rate_total": None, "failed_merchant_pct": None, "failed_bolt_courier_pct": None})
+                out.append(row)
+        return out
+
+    def _partner_ops_q():
+        # aggregate monthly partner ops to quarter
+        opsp = _opsp_by["monthly"].get(city, {})
+        failp = _failp_by["monthly"].get(city, {})
+        out = []
+        for gn, rows in opsp.items():
+            qg = defaultdict(list)
+            for r in rows:
+                qg[quarter_key(r["period"])].append(r)
+            fq = defaultdict(list)
+            for r in failp.get(gn, []):
+                fq[quarter_key(r["period"])].append(r)
+            for q in sorted(qg):
+                agg = _agg_ops_raw(qg[q], q)
+                row = {"group_name": gn, "period": q, "acceptance_rate": agg.get("acceptance_rate"),
+                       "availability_rate": agg.get("availability_rate"), "avg_rating": agg.get("avg_rating"),
+                       "honey_order_rate": agg.get("honey_rate"), "bad_order_rate": agg.get("bad_rate"),
+                       "avg_delivery_minutes": agg.get("avg_delivery_min"), "cpo_eur": agg.get("cpo_eur"),
+                       "late_delivery_rate": agg.get("late_delivery_rate"), "late_pickup_rate": agg.get("late_pickup_rate"),
+                       "cp_margin_pct": agg.get("cp_margin_pct"), "cp_l2_margin_pct": agg.get("cp_l2_margin_pct"),
+                       "orders": agg.get("orders")}
+                fa = aggregate_failed(fq[q]) if fq.get(q) else None
+                row.update(_failed_pcts(fa) if fa else {"failed_rate_total": None, "failed_merchant_pct": None, "failed_bolt_courier_pct": None})
+                out.append(row)
+        return out
+
+    def _partner_camp(gran):
+        campp = _campp_by[gran].get(city, {})
+        out = []
+        for gn, rows in campp.items():
+            for r in rows:
+                out.append({"group_name": gn, "period": r["period"], "gmv_eur": r.get("gmv_eur"),
+                            "campaigns_discount_eur": r.get("campaigns_discount_eur"), "bolt_spend_eur": r.get("bolt_spend_eur"),
+                            "merchant_spend_eur": r.get("merchant_spend_eur")})
+        return out
+
+    def _partner_camp_q():
+        campp = _campp_by["monthly"].get(city, {})
+        out = []
+        for gn, rows in campp.items():
+            qg = defaultdict(list)
+            for r in rows:
+                qg[quarter_key(r["period"])].append(r)
+            for q in sorted(qg):
+                a = aggregate_campaigns(qg[q]); a["period"] = q; a["group_name"] = gn
+                out.append(a)
+        return out
+
+    cities_data[city] = {
+        "weekly": {"financial": fin_w, "cp_margins": cp_w, "operational": op_w, "failed_orders": fail_w, "campaigns": camp_w, "gmv_by_partner": gmvp_w},
+        "monthly": {"financial": fin_m, "cp_margins": cp_m, "operational": op_m, "failed_orders": fail_m, "campaigns": camp_m, "gmv_by_partner": gmvp_m},
+        "quarterly": {"financial": fin_q, "cp_margins": cp_q, "operational": op_q, "failed_orders": fail_q, "campaigns": camp_q, "gmv_by_partner": gmvp_q},
+        "partner_ops": {"weekly": _partner_ops("weekly"), "monthly": _partner_ops("monthly"), "quarterly": _partner_ops_q()},
+        "partner_campaigns": {"weekly": _partner_camp("weekly"), "monthly": _partner_camp("monthly"), "quarterly": _partner_camp_q()},
+    }
+
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
     "Mykhailo": ["LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK", "TAISTRA", "BEERLAND K", "WINETIME", "BRSM", "SPAR", "AUCHAN", "ATB", "FLOWERS UA", "OKKO MARKET"],
@@ -706,6 +938,8 @@ DATA = {
     "employee_groups": EMPLOYEE_GROUPS,
     "subbrand_keys": ["Kopiyka", "Kopiyka Mini", "Santim"],
     "subbrand_groups": {"KOPIYKA": ["Kopiyka", "Kopiyka Mini", "Santim"]},
+    "cities": cities_data,
+    "city_list": city_list,
     "active_stores_snapshot": active_stores_data if isinstance(active_stores_data, dict) else {},
 }
 

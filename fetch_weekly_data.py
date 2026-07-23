@@ -477,6 +477,150 @@ def sku_median_query(granularity="week", brands=False):
     """
 
 
+# ============ CITY-LEVEL QUERIES (City overview tab) ============
+# Financial metric columns (fact_order_delivery, alias f)
+_CITY_FIN_COLS = """
+        COUNT(*) as orders,
+        ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
+        ROUND(SUM(f.total_price_before_discount_eur) / COUNT(*), 2) as aov_with_delivery,
+        ROUND(SUM(f.provider_price_before_discount_eur) / COUNT(*), 2) as aov_items_only,
+        ROUND(SUM(f.delivery_price_eur) / COUNT(*), 2) as eater_fees_per_order,
+        ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur) / COUNT(*), 2) as delivery_fee_per_order,
+        ROUND(SUM(f.small_order_fee_eur) / COUNT(*), 2) as small_order_fee_per_order,
+        ROUND(SUM(f.order_service_fee_eur) / COUNT(*), 2) as service_fee_per_order,
+        ROUND(SUM(CASE WHEN f.is_bolt_plus_order THEN f.order_gmv_eur ELSE 0 END) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as bolt_plus_gmv_share,
+        SUM(CASE WHEN f.is_first_delivery_order THEN 1 ELSE 0 END) as users_activated,
+        COUNT(DISTINCT f.user_id) as active_users,
+        ROUND(SUM(f.total_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as refund_rate_pct,
+        ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 3) as supply_refund_gmv_pct,
+        ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 3) as demand_refund_gmv_pct
+"""
+
+# Operational metric columns (fact_provider_weekly, alias f) — mirrors the overview ops query
+_CITY_OPS_COLS = """
+  ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight) / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) as commission_gmv_pct,
+  ROUND(SUM(f.provider_commission_aov_share_value * f.provider_commission_aov_share_weight) / NULLIF(SUM(f.provider_commission_aov_share_weight), 0) * 100, 1) as commission_aov_pct,
+  ROUND(SUM(total_contribution_profit_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_margin_pct,
+  ROUND(SUM(total_contribution_profit_without_demand_incentives_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_l2_margin_pct,
+  ROUND(SUM(f.provider_acceptance_rate_value * f.provider_acceptance_rate_weight) / NULLIF(SUM(f.provider_acceptance_rate_weight), 0) * 100, 1) as acceptance_rate,
+  ROUND(SUM(f.provider_active_rate_value * f.provider_active_rate_weight) / NULLIF(SUM(f.provider_active_rate_weight), 0) * 100, 1) as availability_rate,
+  ROUND(SUM(f.provider_rating_per_order_value * f.provider_rating_per_order_weight) / NULLIF(SUM(f.provider_rating_per_order_weight), 0), 2) as avg_rating,
+  ROUND(SUM(f.honey_order_rate_value * f.honey_order_rate_weight) / NULLIF(SUM(f.honey_order_rate_weight), 0) * 100, 1) as honey_rate,
+  ROUND(SUM(f.bad_order_rate_value * f.bad_order_rate_weight) / NULLIF(SUM(f.bad_order_rate_weight), 0) * 100, 2) as bad_rate,
+  ROUND(SUM(f.late_delivery_order_rate_value * f.late_delivery_order_rate_weight) / NULLIF(SUM(f.late_delivery_order_rate_weight), 0) * 100, 1) as late_delivery_rate,
+  ROUND(SUM(f.late_pickup_order_rate_value * f.late_pickup_order_rate_weight) / NULLIF(SUM(f.late_pickup_order_rate_weight), 0) * 100, 1) as late_pickup_rate,
+  ROUND(SUM(f.order_total_minutes_per_order_value * f.order_total_minutes_per_order_weight) / NULLIF(SUM(f.order_total_minutes_per_order_weight), 0), 1) as avg_delivery_min,
+  ROUND(SUM(f.courier_minutes_per_order_value * f.courier_minutes_per_order_weight) / NULLIF(SUM(f.courier_minutes_per_order_weight), 0), 1) as courier_min_per_order,
+  ROUND((SUM(f.total_contribution_profit_eur) - SUM(f.total_contribution_profit_without_demand_incentives_eur)) / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) as demand_incentives_gmv_share,
+  ROUND(SUM(f.batched_order_rate_value * f.batched_order_rate_weight) / NULLIF(SUM(f.batched_order_rate_weight), 0) * 100, 1) as batching_rate,
+  ROUND(SUM(f.courier_acceptance_rate_value * f.courier_acceptance_rate_weight) / NULLIF(SUM(f.courier_acceptance_rate_weight), 0) * 100, 1) as courier_acceptance_rate,
+  ROUND(SUM(f.total_invoiced_courier_costs_eur) / NULLIF(SUM(f.delivered_orders_count), 0), 2) as cpo_eur,
+  ROUND(SUM(f.provider_sku_session_availability_rate_value) / NULLIF(SUM(f.provider_sku_session_availability_rate_weight), 0) * 100, 1) as sku_availability_pct,
+  SUM(f.delivered_orders_count) as orders,
+  COUNT(DISTINCT f.provider_id) as total_stores,
+  COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
+"""
+
+
+def _fin_window(granularity, col="f.order_created_date"):
+    if granularity == "week":
+        return f"AND {col} < DATE_TRUNC('week', CURRENT_DATE()) AND {col} >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)"
+    return ""
+
+
+def city_financial_query(granularity, by_partner=False):
+    time_col = f"DATE_TRUNC('{'week' if granularity=='week' else 'month'}', f.order_created_date)"
+    dim = "f.city_name, " + (f"{GROUP_KEY} as group_name, " if by_partner else "")
+    grp = "f.city_name" + (f", {GROUP_KEY}" if by_partner else "")
+    return f"""
+    SELECT {dim}CAST({time_col} AS STRING) as period,{_CITY_FIN_COLS}
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    WHERE f.city_country_code = 'ua' AND f.order_state = 'delivered'
+      AND f.order_created_date >= '{DATA_START}' {_fin_window(granularity)}
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY {time_col}, {grp}
+    ORDER BY period
+    """
+
+
+def city_refund_query(granularity):
+    time_col = f"DATE_TRUNC('{'week' if granularity=='week' else 'month'}', f.order_created_date)"
+    return f"""
+    SELECT f.city_name, CAST({time_col} AS STRING) as period,
+        ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state='delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as supply_refund_gmv_pct,
+        ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state='delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as demand_refund_gmv_pct
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    WHERE f.city_country_code = 'ua'
+      AND f.order_created_date >= '{DATA_START}' {_fin_window(granularity)}
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY {time_col}, f.city_name
+    ORDER BY period
+    """
+
+
+def city_failed_query(granularity, by_partner=False):
+    time_col = f"DATE_TRUNC('{'week' if granularity=='week' else 'month'}', f.order_created_date)"
+    dim = "f.city_name, " + (f"{GROUP_KEY} as group_name, " if by_partner else "")
+    grp = "f.city_name" + (f", {GROUP_KEY}" if by_partner else "")
+    return f"""
+    SELECT {dim}CAST({time_col} AS STRING) as period,
+        COUNT(*) as total_placed,
+        SUM(CASE WHEN f.order_state = 'delivered' THEN 1 ELSE 0 END) as delivered,
+        SUM(CASE WHEN f.order_state != 'delivered' AND (f.is_rejected_by_provider = true OR f.is_not_responded_by_provider = true) THEN 1 ELSE 0 END) as failed_merchant,
+        SUM(CASE WHEN f.order_state != 'delivered' AND f.is_rejected_by_provider = false AND (f.is_not_responded_by_provider = false OR f.is_not_responded_by_provider IS NULL) THEN 1 ELSE 0 END) as failed_bolt_courier,
+        ROUND(SUM(CASE WHEN f.order_state != 'delivered' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as failed_rate_total
+    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    WHERE f.city_country_code = 'ua'
+      AND f.order_created_date >= '{DATA_START}' {_fin_window(granularity)}
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY {time_col}, {grp}
+    ORDER BY period
+    """
+
+
+def city_ops_query(granularity, by_partner=False):
+    period_expr, date_filter = _ops_window(granularity)
+    extra_partners_sql = ",".join(f"'{p}'" for p in EXTRA_PARTNERS)
+    dim = "p.city_name, " + (f"{GROUP_KEY} as group_name, " if by_partner else "")
+    grp = "p.city_name" + (f", {GROUP_KEY}" if by_partner else "")
+    having = "HAVING SUM(f.delivered_orders_count) > 0" if by_partner else ""
+    return f"""
+SELECT {dim}{period_expr} as period,{_CITY_OPS_COLS}
+FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
+JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+WHERE p.country_code = 'ua'
+  AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
+  {date_filter}
+GROUP BY {grp}, {period_expr}
+{having}
+ORDER BY period
+"""
+
+
+def city_campaign_query(granularity, by_partner=False):
+    time_col = f"DATE_TRUNC('{'week' if granularity=='week' else 'month'}', CAST(m.order_created_date AS DATE))"
+    dim = "p.city_name, " + (f"{GROUP_KEY} as group_name, " if by_partner else "")
+    grp = "p.city_name" + (f", {GROUP_KEY}" if by_partner else "")
+    week_filter = f"AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE()) AND CAST(m.order_created_date AS DATE) >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
+    return f"""
+    SELECT {dim}CAST({time_col} AS STRING) as period,
+        ROUND(SUM(m.gmv_eur), 2) as gmv_eur,
+        ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
+        ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
+        ROUND(SUM(m.provider_delivery_campaign_cost_eur) + SUM(m.provider_menu_campaign_cost_eur), 2) as merchant_spend_eur
+    FROM hive_metastore.ng_public_spark.etl_delivery_order_monetary_metrics m
+    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
+    WHERE m.country = 'ua'
+      AND m.order_created_date >= '{DATA_START}' {week_filter}
+      AND {VERTICAL_FILTER_SQL}
+    GROUP BY {time_col}, {grp}
+    ORDER BY period
+    """
+
+
 TOP_PARTNERS_QUERY = f"""
 SELECT {GROUP_KEY} as group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
 FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
@@ -759,7 +903,21 @@ def main():
         active_stores_data[r["group_name"]] = to_int(r["active_stores"])
     save_json("data_active_stores.json", active_stores_data)
 
-    # 16. Metadata
+    # 16. City overview (aggregate + city x partner)
+    print("16. Fetching city-level data...")
+    for gran in ("week", "month"):
+        sfx = "weekly" if gran == "week" else "monthly"
+        save_json(f"data_city_fin_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_financial_query(gran))])
+        save_json(f"data_city_fin_partner_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_financial_query(gran, by_partner=True))])
+        save_json(f"data_city_refund_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_refund_query(gran))])
+        save_json(f"data_city_failed_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_failed_query(gran))])
+        save_json(f"data_city_failed_partner_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_failed_query(gran, by_partner=True))])
+        save_json(f"data_city_ops_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_ops_query(gran))])
+        save_json(f"data_city_ops_partner_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_ops_query(gran, by_partner=True))])
+        save_json(f"data_city_camp_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_campaign_query(gran))])
+        save_json(f"data_city_camp_partner_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_campaign_query(gran, by_partner=True))])
+
+    # 17. Metadata
     from datetime import datetime, timezone
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),

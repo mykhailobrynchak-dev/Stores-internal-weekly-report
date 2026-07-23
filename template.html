@@ -154,6 +154,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   let currentView = 'overview';
   let currentGran = 'weekly';
   let currentPeriod = null;
+  let currentCity = null;
   let charts = [];
   let showCityBreakdown = false;
 
@@ -231,6 +232,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     const partnerSet = new Set(safe(D.partners_list).filter(p => !subBrandKeys.has(p)));
     let html = '<div class="nav-section-title">Overview</div>';
     html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
+    if (safe(D.city_list).length) {
+      html += `<div class="nav-item ${currentView==='city'?'active':''}" data-view="city">City overview</div>`;
+      if (currentView === 'city') {
+        safe(D.city_list).forEach(c => {
+          html += `<div class="nav-item ${currentCity===c?'active':''}" data-city="${c}" style="padding-left:34px;font-size:12px;">${c}</div>`;
+        });
+      }
+    }
 
     const groups = D.employee_groups || {};
     const groupNames = Object.keys(groups);
@@ -265,7 +274,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     nav.innerHTML = html;
     nav.querySelectorAll('.nav-item').forEach(el => {
-      el.addEventListener('click', () => { currentView = el.dataset.view; currentPeriod = null; render(); });
+      el.addEventListener('click', () => {
+        if (el.dataset.city) { currentView = 'city'; currentCity = el.dataset.city; }
+        else { currentView = el.dataset.view; }
+        currentPeriod = null;
+        render();
+      });
     });
   }
 
@@ -321,6 +335,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
   function getDataSource() {
     if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
+    if (currentView === 'city') return (((D.cities || {})[currentCity] || {})[currentGran]) || {};
     return ((D.partners || {})[currentView] || {})[currentGran] || {};
   }
 
@@ -397,8 +412,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
   function render() {
     destroyCharts();
+    if (currentView === 'city' && !currentCity) currentCity = safe(D.city_list)[0] || null;
     buildSidebar();
     buildControls();
+    if (currentView === 'city') { renderCity(); return; }
     $('pageTitle').textContent = displayName(currentView);
 
     // Future / onboarding key accounts with no data yet -> "Not yet activated" banner
@@ -670,6 +687,169 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     drawEaterFeesChart(fin);
     if (currentView === 'overview') drawShareCharts();
     drawCampaignsChart(camp);
+  }
+
+  /* ===================== CITY OVERVIEW ===================== */
+  function renderCity() {
+    const city = currentCity;
+    $('pageTitle').textContent = 'City overview — ' + (city || '');
+    const cityNode = (D.cities || {})[city] || {};
+    const src = getDataSource();
+    const fin = safe(src.financial), cp = safe(src.cp_margins), ops = safe(src.operational),
+          fail = safe(src.failed_orders), camp = safe(src.campaigns);
+    if (!fin.length && !ops.length) {
+      $('content').innerHTML = '<div class="section"><div class="section-title">City overview</div><p>No data for this city.</p></div>';
+      return;
+    }
+    const cmpTitle = (currentGran === 'quarterly' ? 'QoQ' : currentGran === 'monthly' ? 'MoM' : 'WoW') + ' Comparison';
+    let html = '';
+
+    /* SECTION 1: Financial Overview */
+    html += '<div class="section"><div class="section-title">Financial Overview — ' + city + '</div>';
+    const fi = fin.findIndex(r => r.period === currentPeriod);
+    const c = fi >= 0 ? fin[fi] : last(fin);
+    const pcw = fi > 0 ? fin[fi - 1] : (fi === 0 ? null : prev(fin));
+    const ci = cp.findIndex(r => r.period === currentPeriod);
+    const cpC = ci >= 0 ? cp[ci] : last(cp);
+    const cpP = ci > 0 ? cp[ci - 1] : (ci === 0 ? null : prev(cp));
+    if (c) {
+      html += '<div class="kpi-grid">';
+      html += kpi('GMV', fmtEur(c.gmv_eur), c, pcw, 'gmv_eur');
+      html += kpi('Orders', fmt(c.orders), c, pcw, 'orders');
+      html += kpi('AOV (w/ Eater Fees)', fmtEur(c.aov_with_delivery, 2), c, pcw, 'aov_with_delivery');
+      html += kpi('AOV (Items Only)', fmtEur(c.aov_items_only, 2), c, pcw, 'aov_items_only');
+      html += kpi('Eater Fees / Order', fmtEur(c.eater_fees_per_order, 2), c, pcw, 'eater_fees_per_order');
+      if (cpC) { html += kpi('CP Margin', fmtPct(cpC.cp_margin_pct), cpC, cpP, 'cp_margin_pct'); html += kpi('CP L2 Margin', fmtPct(cpC.cp_l2_margin_pct), cpC, cpP, 'cp_l2_margin_pct'); }
+      html += kpi('Bolt Plus GMV Share', fmtPct(c.bolt_plus_gmv_share, 1), c, pcw, 'bolt_plus_gmv_share');
+      if (cpC) { html += kpi('Commission of AOV, %', fmtPct(cpC.commission_aov_pct, 1), cpC, cpP, 'commission_aov_pct'); html += kpi('Commission of GMV, %', fmtPct(cpC.commission_gmv_pct, 1), cpC, cpP, 'commission_gmv_pct'); }
+      if (c.supply_refund_gmv_pct != null) html += kpi('Supply Refunds GMV Share, %', fmtPct(c.supply_refund_gmv_pct, 2), c, pcw, 'supply_refund_gmv_pct', { inverted: true });
+      if (c.demand_refund_gmv_pct != null) html += kpi('Demand Refunds % GMV', fmtPct(c.demand_refund_gmv_pct, 2), c, pcw, 'demand_refund_gmv_pct', { inverted: true });
+      html += kpi('Users Activated', fmt(c.users_activated), c, pcw, 'users_activated');
+      html += kpi('Active Users', fmt(c.active_users), c, pcw, 'active_users');
+      html += '</div>';
+    }
+    html += collapsible(cmpTitle, buildFinancialComparisonTable(fin, cp, camp));
+    html += buildBoltPlusDynamicsTable(fin);
+    html += buildEaterFeesDynamicsTable(fin);
+    html += '<div class="chart-row">';
+    html += '<div class="chart-container"><h3>GMV &amp; Orders Trend</h3><div class="chart-wrap"><canvas id="chartGmvOrders"></canvas></div></div>';
+    html += '<div class="chart-container"><h3>Eater Fees per Order</h3><div class="chart-wrap"><canvas id="chartEaterFees"></canvas></div></div>';
+    html += '</div>';
+    html += '<div class="chart-row"><div class="chart-container full"><h3>Share by Partner — Top 15</h3>'
+      + '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:28px;">'
+      + '<div style="text-align:center;"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">GMV Share</div><div class="chart-wrap" style="height:300px;width:300px;"><canvas id="chartGmvShare"></canvas></div></div>'
+      + '<div style="text-align:center;"><div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Orders Share</div><div class="chart-wrap" style="height:300px;width:300px;"><canvas id="chartOrdersShare"></canvas></div></div>'
+      + '<div id="shareLegend" style="min-width:170px;"></div>'
+      + '</div></div></div>';
+    html += buildCityFinancialByPartner(cityNode);
+    html += '</div>';
+
+    /* SECTION 2: Operational Overview */
+    html += '<div class="section"><div class="section-title">Operational Overview — ' + city + '</div>';
+    const oi = ops.findIndex(r => r.period === currentPeriod);
+    const oc = oi >= 0 ? ops[oi] : last(ops);
+    const op = oi > 0 ? ops[oi - 1] : (oi === 0 ? null : prev(ops));
+    if (oc) {
+      html += '<div class="kpi-grid">';
+      if (oc.stores_with_orders != null) html += kpi('Stores with Orders', fmt(oc.stores_with_orders), oc, op, 'stores_with_orders');
+      html += kpi('Acceptance Rate', fmtPct(oc.acceptance_rate, 1), oc, op, 'acceptance_rate');
+      html += kpi('Availability', fmtPct(oc.availability_rate, 1), oc, op, 'availability_rate');
+      html += kpi('Avg Rating', fmt(oc.avg_rating, 2), oc, op, 'avg_rating');
+      html += kpi('Honey Order Rate', fmtPct(oc.honey_order_rate, 1), oc, op, 'honey_order_rate');
+      html += kpi('Bad Order Rate', fmtPct(oc.bad_order_rate, 2), oc, op, 'bad_order_rate', { inverted: true });
+      html += kpi('Avg Delivery Time', fmt(oc.avg_delivery_minutes, 1) + ' min', oc, op, 'avg_delivery_minutes', { inverted: true });
+      if (oc.cpo_eur != null) html += kpi('CPO', '€' + fmt(oc.cpo_eur, 2), oc, op, 'cpo_eur', { inverted: true });
+      html += '</div>';
+    }
+    html += buildBadOrderBreakdown(ops, fail, oi);
+    html += collapsible(cmpTitle, buildWoWComparisonTable(ops, fail));
+    html += buildCityPartnerOpsTable(cityNode);
+    html += '</div>';
+
+    /* SECTION 3: Campaign Analytics */
+    html += '<div class="section"><div class="section-title">Campaign Analytics — ' + city + '</div>';
+    const ki = camp.findIndex(r => r.period === currentPeriod);
+    const cc = ki >= 0 ? camp[ki] : last(camp);
+    const cpv = ki > 0 ? camp[ki - 1] : (ki === 0 ? null : prev(camp));
+    if (cc) {
+      const dPct = cc.gmv_eur ? cc.campaigns_discount_eur / cc.gmv_eur * 100 : 0;
+      const bPct = cc.gmv_eur ? cc.bolt_spend_eur / cc.gmv_eur * 100 : 0;
+      const mPct = cc.gmv_eur ? cc.merchant_spend_eur / cc.gmv_eur * 100 : 0;
+      const dPctP = cpv && cpv.gmv_eur ? cpv.campaigns_discount_eur / cpv.gmv_eur * 100 : null;
+      const bPctP = cpv && cpv.gmv_eur ? cpv.bolt_spend_eur / cpv.gmv_eur * 100 : null;
+      const mPctP = cpv && cpv.gmv_eur ? cpv.merchant_spend_eur / cpv.gmv_eur * 100 : null;
+      html += '<div class="kpi-grid">';
+      html += kpi('Total Discount', fmtEur(cc.campaigns_discount_eur), cc, cpv, 'campaigns_discount_eur', { inverted: true });
+      html += kpi('Bolt Spend', fmtEur(cc.bolt_spend_eur), cc, cpv, 'bolt_spend_eur', { inverted: true });
+      html += kpi('Merchant Spend', fmtEur(cc.merchant_spend_eur), cc, cpv, 'merchant_spend_eur');
+      html += kpi('Campaigns % GMV', fmtPct(dPct, 2), { v: dPct }, dPctP != null ? { v: dPctP } : null, 'v', { inverted: true });
+      html += kpi('Bolt % GMV', fmtPct(bPct, 2), { v: bPct }, bPctP != null ? { v: bPctP } : null, 'v', { inverted: true });
+      html += kpi('Merchant % GMV', fmtPct(mPct, 2), { v: mPct }, mPctP != null ? { v: mPctP } : null, 'v');
+      html += '</div>';
+    }
+    html += buildCampaignDynamicsTable(camp);
+    html += '<div class="chart-row"><div class="chart-container full"><h3>Campaign Spend Trend (% of GMV)</h3><div class="chart-wrap"><canvas id="chartCampaigns"></canvas></div></div></div>';
+    html += buildCityPartnerCampTable(cityNode);
+    html += '</div>';
+
+    $('content').innerHTML = html;
+    drawGmvOrdersChart(fin);
+    drawEaterFeesChart(fin);
+    drawShareCharts(src);
+    drawCampaignsChart(camp);
+  }
+
+  function _pickPeriod(rows) {
+    // rows for the currently selected period (fallback to latest available period)
+    const r = safe(rows);
+    if (r.some(x => x.period === currentPeriod)) return r.filter(x => x.period === currentPeriod);
+    const periods = [...new Set(r.map(x => x.period))].sort();
+    const lastP = periods[periods.length - 1];
+    return r.filter(x => x.period === lastP);
+  }
+
+  function buildCityFinancialByPartner(cityNode) {
+    const gmvp = _pickPeriod((cityNode[currentGran] || {}).gmv_by_partner);
+    if (!gmvp.length) return '';
+    const opsRows = _pickPeriod((cityNode.partner_ops || {})[currentGran]);
+    const cpBy = {}; opsRows.forEach(r => { cpBy[r.group_name] = r; });
+    const rows = gmvp.slice().sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    let html = '<div class="sub-section-title">Financial Overview by Partner</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>GMV, €</th><th>Orders</th><th>AOV (Items Only)</th><th>Eater Fees / Order</th><th>CP Margin, %</th><th>CP L2 Margin, %</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      const o = cpBy[r.group_name] || {};
+      html += `<tr><td>${displayName(r.group_name)}</td><td>${fmtEur(r.gmv_eur)}</td><td>${fmt(r.orders)}</td><td>${fmtEur(r.aov_items_only, 2)}</td><td>${fmtEur(r.eater_fees_per_order, 2)}</td><td>${o.cp_margin_pct != null ? fmtPct(o.cp_margin_pct) : '—'}</td><td>${o.cp_l2_margin_pct != null ? fmtPct(o.cp_l2_margin_pct) : '—'}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  function buildCityPartnerOpsTable(cityNode) {
+    const rows = _pickPeriod((cityNode.partner_ops || {})[currentGran]);
+    if (!rows.length) return '';
+    const sorted = rows.slice().sort((a, b) => (b.orders || 0) - (a.orders || 0));
+    let html = '<div class="sub-section-title">Operational by Partner</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>Acceptance</th><th>Availability</th><th>Avg Rating</th><th>Honey</th><th>Bad</th><th>Avg Delivery</th><th>CPO</th><th>Failed Total</th><th>Failed Merch.</th><th>Failed Bolt+Cour.</th><th>Late Delivery</th><th>Late Pickup</th></tr></thead><tbody>';
+    const P = (v, d = 1) => v != null ? fmtPct(v, d) : '—';
+    sorted.forEach(r => {
+      html += `<tr><td>${displayName(r.group_name)}</td><td>${P(r.acceptance_rate)}</td><td>${P(r.availability_rate)}</td><td>${r.avg_rating != null ? fmt(r.avg_rating, 2) : '—'}</td><td>${P(r.honey_order_rate)}</td><td>${P(r.bad_order_rate, 2)}</td><td>${r.avg_delivery_minutes != null ? fmt(r.avg_delivery_minutes, 1) + ' min' : '—'}</td><td>${r.cpo_eur != null ? '€' + fmt(r.cpo_eur, 2) : '—'}</td><td>${P(r.failed_rate_total)}</td><td>${P(r.failed_merchant_pct)}</td><td>${P(r.failed_bolt_courier_pct)}</td><td>${P(r.late_delivery_rate)}</td><td>${P(r.late_pickup_rate)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  function buildCityPartnerCampTable(cityNode) {
+    const rows = _pickPeriod((cityNode.partner_campaigns || {})[currentGran]);
+    if (!rows.length) return '';
+    const sorted = rows.slice().sort((a, b) => (b.gmv_eur || 0) - (a.gmv_eur || 0));
+    let html = '<div class="sub-section-title">Campaigns by Partner</div>';
+    html += '<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Partner</th><th>Total Discount, €</th><th>Bolt Spend, €</th><th>Merchant Spend, €</th><th>Campaigns % GMV</th><th>Bolt % GMV</th><th>Merchant % GMV</th></tr></thead><tbody>';
+    sorted.forEach(r => {
+      const g = r.gmv_eur || 0;
+      html += `<tr><td>${displayName(r.group_name)}</td><td>${fmtEur(r.campaigns_discount_eur)}</td><td>${fmtEur(r.bolt_spend_eur)}</td><td>${fmtEur(r.merchant_spend_eur)}</td><td>${g ? fmtPct(r.campaigns_discount_eur / g * 100, 2) : '—'}</td><td>${g ? fmtPct(r.bolt_spend_eur / g * 100, 2) : '—'}</td><td>${g ? fmtPct(r.merchant_spend_eur / g * 100, 2) : '—'}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    return html;
   }
 
   /* ---- Bolt+ Dynamics Table ---- */
