@@ -151,8 +151,8 @@ def financial_query(granularity, group_filter=None):
         ROUND(SUM(f.total_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 2) as refund_rate_pct,
         ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 3) as supply_refund_gmv_pct,
         ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(f.order_gmv_eur), 0) * 100, 3) as demand_refund_gmv_pct
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
@@ -184,8 +184,8 @@ def refund_query(granularity, group_filter=None):
         {group_select}CAST({time_col} AS STRING) as period,
         ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state = 'delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as supply_refund_gmv_pct,
         ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state = 'delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as demand_refund_gmv_pct
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
@@ -217,8 +217,8 @@ def campaign_query(granularity, group_filter=None):
         ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
         ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
         ROUND(SUM(m.provider_delivery_campaign_cost_eur) + SUM(m.provider_menu_campaign_cost_eur), 2) as merchant_spend_eur
-    FROM hive_metastore.ng_public_spark.etl_delivery_order_monetary_metrics m
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
+    FROM main.ng_public.etl_delivery_order_monetary_metrics m
+    JOIN main.ng_delivery.dim_provider_v2 p ON m.provider_id = p.provider_id
     WHERE m.country = 'ua'
       AND m.order_created_date >= '{DATA_START}'
       {week_filter}
@@ -251,8 +251,8 @@ def failed_orders_query(granularity, group_filter=None):
         SUM(CASE WHEN f.order_state != 'delivered' AND (f.is_rejected_by_provider = true OR f.is_not_responded_by_provider = true) THEN 1 ELSE 0 END) as failed_merchant,
         SUM(CASE WHEN f.order_state != 'delivered' AND f.is_rejected_by_provider = false AND (f.is_not_responded_by_provider = false OR f.is_not_responded_by_provider IS NULL) THEN 1 ELSE 0 END) as failed_bolt_courier,
         ROUND(SUM(CASE WHEN f.order_state != 'delivered' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as failed_rate_total
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}'
       {week_filter}
@@ -272,8 +272,8 @@ def gmv_by_partner_query(granularity):
         {GROUP_KEY} as group_name,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
         COUNT(*) as orders
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
@@ -298,8 +298,8 @@ def item_defect_query(brands=False):
         SUM(CASE WHEN b.is_item_replacement THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as item_replacement_rate,
         SUM(CASE WHEN b.has_item_weighted_adjustment_with_eater_impact THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as weighted_defect_rate,
         SUM(CASE WHEN b.has_item_price_adjustment_with_price_increase THEN 1 ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN b.basket_item_state = 'active' THEN 1 ELSE 0 END), 0) as price_defect_rate
-    FROM hive_metastore.ng_delivery_spark.dim_basket_item_delivery b
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON b.provider_id = p.provider_id
+    FROM main.ng_delivery.dim_basket_item_delivery b
+    JOIN main.ng_delivery.dim_provider_v2 p ON b.provider_id = p.provider_id
     WHERE p.country_code = 'ua'
       AND b.order_state = 'delivered'
       AND b.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
@@ -318,8 +318,8 @@ def city_breakdown_query():
         f.city_name,
         COUNT(*) as orders,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
@@ -340,8 +340,8 @@ def city_eater_fees_query():
         ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur) / COUNT(*), 2) as delivery_fee_per_order,
         ROUND(SUM(f.small_order_fee_eur) / COUNT(*), 2) as small_order_fee_per_order,
         ROUND(SUM(f.order_service_fee_eur) / COUNT(*), 2) as service_fee_per_order
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}'
@@ -389,8 +389,8 @@ SELECT {period_expr} as period,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
-FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
-JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM main.ng_delivery.fact_provider_weekly f
+JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   {date_filter}
@@ -430,8 +430,8 @@ SELECT {gkey} as group_name, {period_expr} as period,
   SUM(f.delivered_orders_count) as orders,
   COUNT(DISTINCT f.provider_id) as total_stores,
   COUNT(DISTINCT CASE WHEN f.delivered_orders_count > 0 THEN f.provider_id END) as stores_with_orders
-FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
-JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM main.ng_delivery.fact_provider_weekly f
+JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql})){brand_where}
   {date_filter}
@@ -456,7 +456,7 @@ def sku_median_query(granularity="week", brands=False):
         SELECT DISTINCT provider_id, as_on_date,
                DATE_TRUNC('{trunc}', as_on_date) AS period_bucket,
                provider_catalog_size AS sku
-        FROM hive_metastore.ng_delivery_spark.etl_delivery_market_provider_sku_ml_features
+        FROM main.ng_delivery.etl_delivery_market_provider_sku_ml_features
         WHERE {win} AND provider_catalog_size IS NOT NULL
     ),
     snap AS (
@@ -468,7 +468,7 @@ def sku_median_query(granularity="week", brands=False):
            {gkey} as group_name,
            ROUND(percentile(s.sku, 0.5), 0) as median_available_sku
     FROM snap s
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON s.provider_id = p.provider_id
+    JOIN main.ng_delivery.dim_provider_v2 p ON s.provider_id = p.provider_id
     WHERE s.rn = 1
       AND p.country_code = 'ua'
       AND {VERTICAL_FILTER_SQL}{brand_where}
@@ -534,8 +534,8 @@ def city_financial_query(granularity, by_partner=False):
     grp = "f.city_name" + (f", {GROUP_KEY}" if by_partner else "")
     return f"""
     SELECT {dim}CAST({time_col} AS STRING) as period,{_CITY_FIN_COLS}
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua' AND f.order_state = 'delivered'
       AND f.order_created_date >= '{DATA_START}' {_fin_window(granularity)}
       AND {VERTICAL_FILTER_SQL}
@@ -550,8 +550,8 @@ def city_refund_query(granularity):
     SELECT f.city_name, CAST({time_col} AS STRING) as period,
         ROUND(SUM(f.supply_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state='delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as supply_refund_gmv_pct,
         ROUND(SUM(f.demand_refunds_eur) / NULLIF(SUM(CASE WHEN f.order_state='delivered' THEN f.order_gmv_eur END), 0) * 100, 3) as demand_refund_gmv_pct
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}' {_fin_window(granularity)}
       AND {VERTICAL_FILTER_SQL}
@@ -571,8 +571,8 @@ def city_failed_query(granularity, by_partner=False):
         SUM(CASE WHEN f.order_state != 'delivered' AND (f.is_rejected_by_provider = true OR f.is_not_responded_by_provider = true) THEN 1 ELSE 0 END) as failed_merchant,
         SUM(CASE WHEN f.order_state != 'delivered' AND f.is_rejected_by_provider = false AND (f.is_not_responded_by_provider = false OR f.is_not_responded_by_provider IS NULL) THEN 1 ELSE 0 END) as failed_bolt_courier,
         ROUND(SUM(CASE WHEN f.order_state != 'delivered' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as failed_rate_total
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_created_date >= '{DATA_START}' {_fin_window(granularity)}
       AND {VERTICAL_FILTER_SQL}
@@ -589,8 +589,8 @@ def city_ops_query(granularity, by_partner=False):
     having = "HAVING SUM(f.delivered_orders_count) > 0" if by_partner else ""
     return f"""
 SELECT {dim}{period_expr} as period,{_CITY_OPS_COLS}
-FROM hive_metastore.ng_delivery_spark.fact_provider_weekly f
-JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM main.ng_delivery.fact_provider_weekly f
+JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE p.country_code = 'ua'
   AND (p.delivery_vertical IN {VERTICAL_LIST_OPS} OR p.group_name IN ({extra_partners_sql}))
   {date_filter}
@@ -611,8 +611,8 @@ def city_campaign_query(granularity, by_partner=False):
         ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
         ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
         ROUND(SUM(m.provider_delivery_campaign_cost_eur) + SUM(m.provider_menu_campaign_cost_eur), 2) as merchant_spend_eur
-    FROM hive_metastore.ng_public_spark.etl_delivery_order_monetary_metrics m
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON m.provider_id = p.provider_id
+    FROM main.ng_public.etl_delivery_order_monetary_metrics m
+    JOIN main.ng_delivery.dim_provider_v2 p ON m.provider_id = p.provider_id
     WHERE m.country = 'ua'
       AND m.order_created_date >= '{DATA_START}' {week_filter}
       AND {VERTICAL_FILTER_SQL}
@@ -623,8 +623,8 @@ def city_campaign_query(granularity, by_partner=False):
 
 TOP_PARTNERS_QUERY = f"""
 SELECT {GROUP_KEY} as group_name, ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur, COUNT(*) as orders
-FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+FROM main.ng_delivery.fact_order_delivery f
+JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
 WHERE f.city_country_code = 'ua'
   AND f.order_state = 'delivered'
   AND f.order_created_date >= '{DATA_START}'
@@ -639,11 +639,11 @@ SELECT {GROUP_KEY} as group_name,
   ROUND(AVG(t.acceptance_rate_last_30d), 3) as acceptance_rate_30d,
   ROUND(AVG(t.availability_rate_last_30d), 3) as availability_rate_30d,
   ROUND(AVG(t.avg_rating_last_30d), 2) as avg_rating_30d
-FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features t
-JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.provider_id
+FROM main.ng_public.etl_incentives_provider_targeting_features t
+JOIN main.ng_delivery.dim_provider_v2 p ON t.provider_id = p.provider_id
 WHERE t.provider_country_code = 'ua'
   AND {VERTICAL_FILTER_SQL}
-  AND t.date = (SELECT MAX(date) FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
+  AND t.date = (SELECT MAX(date) FROM main.ng_public.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
 GROUP BY {GROUP_KEY}
 """
 
@@ -652,11 +652,11 @@ SELECT
   ROUND(AVG(t.acceptance_rate_last_30d), 3) as acceptance_rate_30d,
   ROUND(AVG(t.availability_rate_last_30d), 3) as availability_rate_30d,
   ROUND(AVG(t.avg_rating_last_30d), 2) as avg_rating_30d
-FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features t
-JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON t.provider_id = p.provider_id
+FROM main.ng_public.etl_incentives_provider_targeting_features t
+JOIN main.ng_delivery.dim_provider_v2 p ON t.provider_id = p.provider_id
 WHERE t.provider_country_code = 'ua'
   AND {VERTICAL_FILTER_SQL}
-  AND t.date = (SELECT MAX(date) FROM hive_metastore.ng_public_spark.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
+  AND t.date = (SELECT MAX(date) FROM main.ng_public.etl_incentives_provider_targeting_features WHERE provider_country_code = 'ua')
 """
 
 
@@ -668,8 +668,8 @@ def partner_city_breakdown_query():
         f.city_name,
         COUNT(*) as orders,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur
-    FROM hive_metastore.ng_delivery_spark.fact_order_delivery f
-    JOIN hive_metastore.ng_delivery_spark.dim_provider_v2 p ON f.provider_id = p.provider_id
+    FROM main.ng_delivery.fact_order_delivery f
+    JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
     WHERE f.city_country_code = 'ua'
       AND f.order_state = 'delivered'
       AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)
@@ -891,7 +891,7 @@ def main():
     print("15. Fetching active stores count...")
     active_stores_query = f"""
     SELECT {GROUP_KEY} as group_name, COUNT(DISTINCT p.provider_id) as active_stores
-    FROM hive_metastore.ng_delivery_spark.dim_provider_v2 p
+    FROM main.ng_delivery.dim_provider_v2 p
     WHERE p.country_code = 'ua'
       AND p.provider_status = 'active'
       AND {VERTICAL_FILTER_SQL}
