@@ -167,15 +167,19 @@
     </section>
 
     <section id="deepdive" class="panel">
-      <div class="notice"><span>Demand refunds occurred only on delivered orders this week.</span><strong>30 orders · €241.82</strong></div>
+      <div class="notice"><span>Current week: 10–13 Aug inclusive. WoW: the same Mon–Thu window on 3–6 Aug.</span><strong>Complete days only</strong></div>
       <div class="grid kpis" id="deepKpis"></div>
+      <div class="section card">
+        <div class="section-head"><div><h2>Why demand costs increased</h2><p>Root-cause summary based on campaign metadata and customer-support refund reasons.</p></div></div>
+        <div class="insights" id="costDiagnosis"></div>
+      </div>
       <div class="grid equal">
         <div class="card"><h3>Demand incentives by day</h3><div class="chart-wrap short"><canvas id="dailyIncentivesChart"></canvas></div></div>
         <div class="card"><h3>Demand refunds by day</h3><div class="chart-wrap short"><canvas id="dailyRefundsChart"></canvas></div></div>
       </div>
       <div class="section grid equal">
         <div>
-          <div class="section-head"><div><h2>Incentive drivers</h2><p>Mutually exclusive objective groups.</p></div></div>
+          <div class="section-head"><div><h2>Incentive objective drivers</h2><p>Current vs prior comparable weekdays.</p></div></div>
           <div class="table-wrap"><table id="objectiveTable"></table></div>
         </div>
         <div>
@@ -183,18 +187,32 @@
           <div class="card"><div class="chart-wrap short"><canvas id="refundBucketChart"></canvas></div></div>
         </div>
       </div>
+      <div class="section">
+        <div class="section-head"><div><h2>Campaigns behind the increase</h2><p>Named Bolt campaign-spend ledger; use alongside the fact-level objective totals above.</p></div></div>
+        <div class="table-wrap"><table id="campaignTable"></table></div>
+      </div>
       <div class="section grid equal">
         <div>
-          <div class="section-head"><div><h2>Partners driving incentives</h2><p>Current week through Thursday.</p></div></div>
+          <div class="section-head"><div><h2>Partners driving incentive growth</h2><p>Sorted by incremental spend vs prior Mon–Thu.</p></div></div>
           <div class="table-wrap"><table id="incentivePartnerTable"></table></div>
         </div>
         <div>
-          <div class="section-head"><div><h2>Partners driving refunds</h2><p>Current week through Thursday.</p></div></div>
+          <div class="section-head"><div><h2>Partners driving refund growth</h2><p>Current spend and incremental WoW impact.</p></div></div>
           <div class="table-wrap"><table id="refundPartnerTable"></table></div>
         </div>
       </div>
+      <div class="section grid equal">
+        <div>
+          <div class="section-head"><div><h2>Refund reasons: what changed</h2><p>Support reason taxonomy, current vs prior Mon–Thu.</p></div></div>
+          <div class="table-wrap"><table id="refundReasonTable"></table></div>
+        </div>
+        <div>
+          <div class="section-head"><div><h2>Who × why</h2><p>Current-week partner and refund-reason combinations.</p></div></div>
+          <div class="table-wrap"><table id="refundPartnerReasonTable"></table></div>
+        </div>
+      </div>
       <div class="section">
-        <div class="section-head"><div><h2>City view</h2><p>Top cities by demand incentives, with refund context.</p></div></div>
+        <div class="section-head"><div><h2>City growth drivers</h2><p>Incremental demand incentives and refunds vs prior Mon–Thu.</p></div></div>
         <div class="table-wrap"><table id="cityTable"></table></div>
       </div>
     </section>
@@ -319,6 +337,9 @@
       const curRows=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd'), prevRows=D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days');
       const cur=aggregate(curRows), prev=aggregate(prevRows);
       const avgRefund=cur.demand_refunds_eur/cur.demand_refund_orders;
+      const incentiveDelta=cur.demand_incentives_eur-prev.demand_incentives_eur;
+      const refundDelta=cur.demand_refunds_eur-prev.demand_refunds_eur;
+      const signedEur=v=>`${v>=0?'+':''}${fmt.eur2(v)}`;
       document.getElementById('deepKpis').innerHTML=[
         kpi('Demand incentives',fmt.eur(cur.demand_incentives_eur),change(cur.demand_incentives_eur,prev.demand_incentives_eur),'vs prior Mon–Thu',true),
         kpi('Incentive rate',fmt.rate(cur.demand_incentives_eur/cur.gmv_eur*100),change(cur.demand_incentives_eur/cur.gmv_eur,prev.demand_incentives_eur/prev.gmv_eur),'share of GMV',true),
@@ -326,25 +347,48 @@
         kpi('Demand refunds',fmt.eur2(cur.demand_refunds_eur),change(cur.demand_refunds_eur,prev.demand_refunds_eur),'vs prior Mon–Thu',true),
         kpi('Avg refund',fmt.eur2(avgRefund),change(avgRefund,prev.demand_refunds_eur/prev.demand_refund_orders),'per refunded order',true),
       ].join('');
+      document.getElementById('costDiagnosis').innerHTML=`
+        <div class="insight warn"><strong>Incentives: AM Spend explains 94.5% of the increase</strong><span>AM Spend only rose by ${fmt.eur2(4188.80)} and AM Spend combined with other objectives by ${fmt.eur2(980.52)}. Together they contributed ${fmt.eur2(5169.32)} of the ${fmt.eur2(incentiveDelta)} WoW increase.</span></div>
+        <div class="insight warn"><strong>Main campaign trigger: Visa PrivatBank 50% menu discount</strong><span>The new nationwide W33 campaign generated ${fmt.eur2(3013.76)} in the named campaign-spend ledger. Additional free-delivery campaigns for VARUS and KOPIYKA plus New City campaigns added further pressure.</span></div>
+        <div class="insight"><strong>Partner concentration: VARUS drives 45.6% of incentive growth</strong><span>VARUS added ${fmt.eur2(2492.47)}, followed by LOKO ${fmt.eur2(528.09)} and RUKAVYCHKA ${fmt.eur2(451.06)}. These three explain 63.5% of the total increase.</span></div>
+        <div class="insight risk"><strong>Refunds: damaged orders are the actual WoW driver</strong><span>Damaged-order refunds increased from ${fmt.eur2(30.12)} to ${fmt.eur2(105.16)} and explain ${fmt.eur2(75.04)}, or ${fmt.rate(75.04/refundDelta*100)}, of the net refund increase. One NO TABOO case accounts for ${fmt.eur2(55.02)}.</span></div>
+        <div class="insight risk"><strong>Refund ownership is financial, not proven operational fault</strong><span>All 30 current refunds are marked as Bolt-liable, but actor-at-fault is “unknown” on 29 cases. Reasons describe the customer issue; they do not prove whether the partner, courier or platform caused it.</span></div>`;
       const days=D.current_week_daily;
       chart('dailyIncentivesChart',{type:'bar',data:{labels:days.map(x=>new Date(x.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'})),datasets:[{label:'Demand incentives (€)',data:days.map(x=>x.demand_incentives_eur),backgroundColor:'#9b6a17cc',borderRadius:4}]},options:baseOptions('Demand incentives (€)')});
       chart('dailyRefundsChart',{type:'bar',data:{labels:days.map(x=>new Date(x.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'})),datasets:[{label:'Demand refunds (€)',data:days.map(x=>x.demand_refunds_eur),backgroundColor:'#b34646cc',borderRadius:4}]},options:baseOptions('Demand refunds (€)')});
       chart('refundBucketChart',{type:'bar',data:{labels:D.refund_buckets.map(x=>x.bucket),datasets:[{label:'Demand refunds (€)',data:D.refund_buckets.map(x=>x.demand_refunds_eur),backgroundColor:'#b34646cc',borderRadius:4}]},options:baseOptions('Demand refunds (€)')});
 
-      const objectiveTotal=sum(D.incentive_objectives,'demand_incentives_eur');
-      table(document.getElementById('objectiveTable'),['Objective group','Spend','Share','Orders','Spend / order'],D.incentive_objectives.map(r=>[
-        esc(r.objective),fmt.eur2(r.demand_incentives_eur),fmt.rate(r.demand_incentives_eur/objectiveTotal*100),fmt.num(r.incentive_orders),fmt.eur2(r.demand_incentives_eur/r.incentive_orders)
+      const objectiveCurrent=Object.fromEntries(D.incentive_objective_comparison.filter(r=>r.period==='current').map(r=>[r.objective,r]));
+      const objectivePrior=Object.fromEntries(D.incentive_objective_comparison.filter(r=>r.period==='prior').map(r=>[r.objective,r]));
+      const objectiveRows=[...new Set(D.incentive_objective_comparison.map(r=>r.objective))].map(name=>{
+        const c=objectiveCurrent[name]||{spend:0,orders:0},p=objectivePrior[name]||{spend:0,orders:0};
+        return {name,current:c.spend,prior:p.spend,delta:c.spend-p.spend,orders:c.orders};
+      }).sort((a,b)=>b.delta-a.delta);
+      table(document.getElementById('objectiveTable'),['Objective group','Current','Prior','Δ WoW','Share of Δ','Orders'],objectiveRows.map(r=>[
+        esc(r.name),fmt.eur2(r.current),fmt.eur2(r.prior),signedEur(r.delta),fmt.rate(r.delta/incentiveDelta*100),fmt.num(r.orders)
       ]));
-      const incentiveRows=[...curRows].filter(r=>r.demand_incentives_eur>0).sort((a,b)=>b.demand_incentives_eur-a.demand_incentives_eur).slice(0,20);
-      table(document.getElementById('incentivePartnerTable'),['Partner','Spend','Share','DI / GMV','Orders covered'],incentiveRows.map(r=>[
-        esc(r.partner),fmt.eur2(r.demand_incentives_eur),fmt.rate(r.demand_incentives_eur/cur.demand_incentives_eur*100),fmt.rate(r.demand_incentives_eur/r.gmv_eur*100),`${fmt.num(r.incentive_orders)} (${fmt.rate(r.incentive_orders/r.orders*100)})`
+      table(document.getElementById('campaignTable'),['Campaign','Current','Prior','Δ WoW','Why it grew'],D.campaign_growth_drivers.map(r=>[
+        esc(r.campaign),fmt.eur2(r.current),fmt.eur2(r.prior),signedEur(r.delta),esc(r.why)
       ]));
-      const refundRows=[...curRows].filter(r=>r.demand_refunds_eur>0).sort((a,b)=>b.demand_refunds_eur-a.demand_refunds_eur);
-      table(document.getElementById('refundPartnerTable'),['Partner','Refunds','Share','DR / GMV','Refund orders'],refundRows.map(r=>[
-        esc(r.partner),fmt.eur2(r.demand_refunds_eur),fmt.rate(r.demand_refunds_eur/cur.demand_refunds_eur*100),fmt.rate(r.demand_refunds_eur/r.gmv_eur*100),fmt.num(r.demand_refund_orders)
+      const prevByPartner=Object.fromEntries(prevRows.map(r=>[r.partner,r]));
+      const incentiveRows=[...curRows].map(r=>({...r,prior:prevByPartner[r.partner]?.demand_incentives_eur||0}))
+        .map(r=>({...r,delta:r.demand_incentives_eur-r.prior})).filter(r=>r.demand_incentives_eur>0||r.prior>0).sort((a,b)=>b.delta-a.delta).slice(0,20);
+      table(document.getElementById('incentivePartnerTable'),['Partner','Current','Prior','Δ WoW','Share of Δ','DI / GMV'],incentiveRows.map(r=>[
+        esc(r.partner),fmt.eur2(r.demand_incentives_eur),fmt.eur2(r.prior),signedEur(r.delta),fmt.rate(r.delta/incentiveDelta*100),fmt.rate(r.demand_incentives_eur/r.gmv_eur*100)
       ]));
-      table(document.getElementById('cityTable'),['City','Orders','GMV','Incentives','DI / GMV','Refunds','DR / GMV'],D.current_week_cities.map(r=>[
-        esc(r.city),fmt.num(r.orders),fmt.eur(r.gmv_eur),fmt.eur2(r.demand_incentives_eur),fmt.rate(r.demand_incentives_eur/r.gmv_eur*100),fmt.eur2(r.demand_refunds_eur),fmt.rate(r.demand_refunds_eur/r.gmv_eur*100)
+      const refundRows=[...curRows].map(r=>({...r,prior:prevByPartner[r.partner]?.demand_refunds_eur||0}))
+        .map(r=>({...r,delta:r.demand_refunds_eur-r.prior})).filter(r=>r.demand_refunds_eur>0||r.prior>0).sort((a,b)=>b.delta-a.delta);
+      table(document.getElementById('refundPartnerTable'),['Partner','Current','Prior','Δ WoW','Share of Δ','Refund orders'],refundRows.map(r=>[
+        esc(r.partner),fmt.eur2(r.demand_refunds_eur),fmt.eur2(r.prior),signedEur(r.delta),fmt.rate(r.delta/refundDelta*100),fmt.num(r.demand_refund_orders)
+      ]));
+      table(document.getElementById('refundReasonTable'),['Reason','Current','Prior','Δ WoW','Current orders','Prior orders'],D.refund_reason_comparison.map(r=>[
+        esc(r[0]),fmt.eur2(r[3]),fmt.eur2(r[4]),signedEur(r[5]),fmt.num(r[1]),fmt.num(r[2])
+      ]));
+      table(document.getElementById('refundPartnerReasonTable'),['Partner','Reason','Orders','Refunds'],D.refund_partner_reasons.map(r=>[
+        esc(r[0]),esc(r[1]),fmt.num(r[2]),fmt.eur2(r[3])
+      ]));
+      table(document.getElementById('cityTable'),['City','DI current','DI prior','DI Δ','Refund current','Refund prior','Refund Δ'],D.city_growth_drivers.map(r=>[
+        esc(r[0]),fmt.eur2(r[1]),fmt.eur2(r[2]),signedEur(r[3]),fmt.eur2(r[4]),fmt.eur2(r[5]),signedEur(r[6])
       ]));
     }
 
