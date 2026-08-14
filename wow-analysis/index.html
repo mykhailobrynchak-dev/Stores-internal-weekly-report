@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stores WoW Performance</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7f6;
+      --surface: #ffffff;
+      --ink: #14201b;
+      --muted: #66736d;
+      --line: #dfe6e2;
+      --green: #2f7d5b;
+      --green-soft: #e7f2ec;
+      --red: #b34646;
+      --red-soft: #f8eaea;
+      --amber: #9b6a17;
+      --amber-soft: #f7f0df;
+      --blue: #3f68a7;
+      --navy: #19342a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+    .shell { max-width: 1440px; margin: 0 auto; padding: 30px 28px 60px; }
+    header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; margin-bottom: 22px; }
+    .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 5px 0 6px; font-size: clamp(28px, 4vw, 46px); letter-spacing: -.035em; line-height: 1; }
+    h2 { margin: 0 0 14px; font-size: 22px; letter-spacing: -.02em; }
+    h3 { margin: 0 0 12px; font-size: 15px; }
+    p { margin: 0; color: var(--muted); }
+    .meta { text-align: right; font-size: 12px; line-height: 1.6; }
+    .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
+    .tab {
+      border: 0; border-bottom: 3px solid transparent; background: none; color: var(--muted);
+      padding: 11px 15px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap;
+    }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .notice {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: var(--amber-soft); color: #654810; border: 1px solid #ead9af;
+      border-radius: 10px; padding: 12px 15px; margin-bottom: 18px; font-size: 13px;
+    }
+    .notice strong { white-space: nowrap; }
+    .grid { display: grid; gap: 16px; }
+    .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 16px; }
+    .two { grid-template-columns: minmax(0, 1.55fr) minmax(320px, .8fr); }
+    .equal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+    .kpi { min-height: 132px; display: flex; flex-direction: column; justify-content: space-between; }
+    .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .kpi-value { font-size: 28px; line-height: 1; letter-spacing: -.025em; font-weight: 800; margin: 14px 0 8px; }
+    .delta { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; }
+    .delta.good { color: var(--green); }
+    .delta.bad { color: var(--red); }
+    .delta.neutral { color: var(--muted); }
+    .sub { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .chart-wrap { position: relative; height: 320px; }
+    .chart-wrap.short { height: 280px; }
+    .section { margin-top: 24px; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+    .section-head h2, .section-head p { margin: 0; }
+    select {
+      min-width: 230px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+      border-radius: 8px; padding: 9px 12px; font: inherit; font-size: 13px;
+    }
+    .table-wrap { overflow: auto; max-height: 520px; border: 1px solid var(--line); border-radius: 10px; }
+    table { border-collapse: collapse; width: 100%; background: var(--surface); font-size: 12px; }
+    th, td { padding: 10px 11px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    th { position: sticky; top: 0; z-index: 1; background: #eef2f0; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    th:first-child, td:first-child { text-align: left; }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: #f8faf9; }
+    .bar-cell { min-width: 150px; }
+    .bar { height: 6px; background: #edf1ef; border-radius: 999px; margin-top: 5px; overflow: hidden; }
+    .bar span { display: block; height: 100%; background: var(--green); border-radius: inherit; }
+    .insights { display: grid; gap: 10px; }
+    .insight { border-left: 3px solid var(--green); padding: 4px 0 4px 12px; }
+    .insight.warn { border-color: var(--amber); }
+    .insight.risk { border-color: var(--red); }
+    .insight strong { display: block; font-size: 13px; margin-bottom: 3px; }
+    .insight span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .metric-toggle { display: flex; gap: 5px; flex-wrap: wrap; }
+    .metric-toggle button {
+      border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--muted);
+      padding: 7px 10px; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700;
+    }
+    .metric-toggle button.active { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+    footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
+    @media (max-width: 1080px) { .kpis { grid-template-columns: repeat(3, 1fr); } .two, .equal { grid-template-columns: 1fr; } }
+    @media (max-width: 700px) {
+      .shell { padding: 20px 14px 40px; } header { align-items: flex-start; flex-direction: column; }
+      .meta { text-align: left; } .kpis { grid-template-columns: 1fr 1fr; }
+      .section-head { align-items: flex-start; flex-direction: column; } select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">Ukraine · 3P Stores</div>
+        <h1>Weekly performance pulse</h1>
+        <p>GMV, orders, active partners, demand incentives and refunds</p>
+      </div>
+      <div class="meta" id="meta"></div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-panel="overview">Stores overview</button>
+      <button class="tab" data-panel="partners">Partner breakdown</button>
+      <button class="tab" data-panel="deepdive">This week: demand costs</button>
+    </nav>
+
+    <section id="overview" class="panel active">
+      <div class="notice"><span>Current week is shown through Thursday, 13 Aug.</span><strong>WoW compares Mon–Thu vs Mon–Thu</strong></div>
+      <div class="grid kpis" id="kpis"></div>
+      <div class="grid two">
+        <div class="card">
+          <h3>GMV and orders · weekly trend</h3>
+          <div class="chart-wrap"><canvas id="volumeChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>What changed this week</h3>
+          <div class="insights" id="overviewInsights"></div>
+        </div>
+      </div>
+      <div class="section card">
+        <div class="section-head">
+          <div><h2>Demand cost trend</h2><p>Share of delivered GMV, by week</p></div>
+        </div>
+        <div class="chart-wrap short"><canvas id="costRateChart"></canvas></div>
+      </div>
+    </section>
+
+    <section id="partners" class="panel">
+      <div class="section-head">
+        <div><h2>Partner weekly breakdown</h2><p>Select any partner or view the full Stores total.</p></div>
+        <select id="partnerSelect"></select>
+      </div>
+      <div class="grid kpis" id="partnerKpis"></div>
+      <div class="card">
+        <div class="section-head">
+          <h3 id="partnerChartTitle">Weekly trend</h3>
+          <div class="metric-toggle" id="partnerMetric">
+            <button class="active" data-metric="gmv_eur">GMV</button>
+            <button data-metric="orders">Orders</button>
+            <button data-metric="demand_incentives_eur">Incentives</button>
+            <button data-metric="demand_refunds_eur">Refunds</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="partnerChart"></canvas></div>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2>All partners · current WTD</h2><p>Sorted by GMV; WoW uses the same four weekdays.</p></div>
+        <div class="table-wrap"><table id="partnerTable"></table></div>
+      </div>
+    </section>
+
+    <section id="deepdive" class="panel">
+      <div class="notice"><span>Demand refunds occurred only on delivered orders this week.</span><strong>30 orders · €241.82</strong></div>
+      <div class="grid kpis" id="deepKpis"></div>
+      <div class="grid equal">
+        <div class="card"><h3>Demand incentives by day</h3><div class="chart-wrap short"><canvas id="dailyIncentivesChart"></canvas></div></div>
+        <div class="card"><h3>Demand refunds by day</h3><div class="chart-wrap short"><canvas id="dailyRefundsChart"></canvas></div></div>
+      </div>
+      <div class="section grid equal">
+        <div>
+          <div class="section-head"><div><h2>Incentive drivers</h2><p>Mutually exclusive objective groups.</p></div></div>
+          <div class="table-wrap"><table id="objectiveTable"></table></div>
+        </div>
+        <div>
+          <div class="section-head"><div><h2>Refund size distribution</h2><p>One €55+ order contributes 22.8% of WTD refunds.</p></div></div>
+          <div class="card"><div class="chart-wrap short"><canvas id="refundBucketChart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="section grid equal">
+        <div>
+          <div class="section-head"><div><h2>Partners driving incentives</h2><p>Current week through Thursday.</p></div></div>
+          <div class="table-wrap"><table id="incentivePartnerTable"></table></div>
+        </div>
+        <div>
+          <div class="section-head"><div><h2>Partners driving refunds</h2><p>Current week through Thursday.</p></div></div>
+          <div class="table-wrap"><table id="refundPartnerTable"></table></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head"><div><h2>City view</h2><p>Top cities by demand incentives, with refund context.</p></div></div>
+        <div class="table-wrap"><table id="cityTable"></table></div>
+      </div>
+    </section>
+
+    <footer>
+      Source: Databricks · main.ng_delivery.fact_order_delivery joined to dim_provider_v2. Scope: UA providers with delivery_vertical like store_3p%, plus ANRI-PHARM, BRSM, VAPORS and PIVASOV. GMV and orders use delivered orders; demand refunds include all order states and are divided by delivered GMV for rates. Monetary values are EUR.
+    </footer>
+  </main>
+
+  <script>
+    const fmt = {
+      eur: v => new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v),
+      eur2: v => new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(v),
+      num: v => new Intl.NumberFormat('en-GB',{maximumFractionDigits:0}).format(v),
+      pct: v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`,
+      rate: v => `${v.toFixed(2)}%`,
+      week: s => new Date(`${s}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
+    };
+    const sum = (rows, key) => rows.reduce((a,r) => a + (+r[key] || 0), 0);
+    const change = (a,b) => b ? (a / b - 1) * 100 : 0;
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let D, charts = {}, partnerMetric = 'gmv_eur';
+
+    function aggregate(rows) {
+      return {
+        orders: sum(rows,'orders'), gmv_eur: sum(rows,'gmv_eur'),
+        demand_incentives_eur: sum(rows,'demand_incentives_eur'),
+        demand_refunds_eur: sum(rows,'demand_refunds_eur'),
+        total_refunds_eur: sum(rows,'total_refunds_eur'),
+        incentive_orders: sum(rows,'incentive_orders'),
+        demand_refund_orders: sum(rows,'demand_refund_orders'),
+        active_partners: new Set(rows.filter(r => r.orders > 0).map(r => r.partner)).size,
+      };
+    }
+    function kpi(label,value,delta,sub,inverse=false) {
+      const cls = Math.abs(delta) < .05 ? 'neutral' : ((delta > 0) !== inverse ? 'good' : 'bad');
+      const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+      return `<article class="card kpi"><div><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div></div><div><span class="delta ${cls}">${arrow} ${fmt.pct(delta)}</span><div class="sub">${sub}</div></div></article>`;
+    }
+    function table(el, headers, rows) {
+      el.innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    }
+    function chart(id, config) {
+      if (charts[id]) charts[id].destroy();
+      charts[id] = new Chart(document.getElementById(id), config);
+    }
+    const baseOptions = (yTitle) => ({
+      responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{usePointStyle:true,boxWidth:7}},tooltip:{padding:10}},
+      scales:{
+        x:{grid:{display:false},title:{display:true,text:'Week starting'}},
+        y:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:yTitle}}
+      }
+    });
+
+    function renderOverview() {
+      const curRows=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd');
+      const prevRows=D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days');
+      const cur=aggregate(curRows), prev=aggregate(prevRows);
+      document.getElementById('kpis').innerHTML = [
+        kpi('GMV',fmt.eur(cur.gmv_eur),change(cur.gmv_eur,prev.gmv_eur),'vs prior Mon–Thu'),
+        kpi('Orders',fmt.num(cur.orders),change(cur.orders,prev.orders),'vs prior Mon–Thu'),
+        kpi('Active partners',fmt.num(cur.active_partners),change(cur.active_partners,prev.active_partners),'with ≥1 delivered order'),
+        kpi('Demand incentives',fmt.eur(cur.demand_incentives_eur),change(cur.demand_incentives_eur,prev.demand_incentives_eur),`${fmt.rate(cur.demand_incentives_eur/cur.gmv_eur*100)} of GMV`,true),
+        kpi('Demand refunds',fmt.eur2(cur.demand_refunds_eur),change(cur.demand_refunds_eur,prev.demand_refunds_eur),`${fmt.rate(cur.demand_refunds_eur/cur.gmv_eur*100)} of GMV`,true),
+      ].join('');
+
+      const weeks=[...new Set(D.weekly_partner.map(r=>r.week_start))].sort();
+      const totals=weeks.map(w=>aggregate(D.weekly_partner.filter(r=>r.week_start===w)));
+      chart('volumeChart',{type:'bar',data:{labels:weeks.map(fmt.week),datasets:[
+        {label:'GMV (€)',data:totals.map(x=>x.gmv_eur),backgroundColor:'#2f7d5bcc',borderRadius:4,yAxisID:'y'},
+        {label:'Orders',data:totals.map(x=>x.orders),type:'line',borderColor:'#3f68a7',backgroundColor:'#3f68a7',pointRadius:3,tension:.25,yAxisID:'y1'}
+      ]},options:{...baseOptions('GMV (€)'),scales:{x:{grid:{display:false},title:{display:true,text:'Week starting'}},y:{beginAtZero:true,title:{display:true,text:'GMV (€)'}},y1:{beginAtZero:true,position:'right',grid:{display:false},title:{display:true,text:'Orders'}}}}});
+      chart('costRateChart',{type:'line',data:{labels:weeks.map(fmt.week),datasets:[
+        {label:'Demand incentives / GMV',data:totals.map(x=>x.demand_incentives_eur/x.gmv_eur*100),borderColor:'#9b6a17',backgroundColor:'#9b6a17',tension:.25,pointRadius:3},
+        {label:'Demand refunds / GMV',data:totals.map(x=>x.demand_refunds_eur/x.gmv_eur*100),borderColor:'#b34646',backgroundColor:'#b34646',tension:.25,pointRadius:3}
+      ]},options:{...baseOptions('Share of GMV (%)'),scales:{x:{grid:{display:false},title:{display:true,text:'Week starting'}},y:{beginAtZero:true,title:{display:true,text:'Share of GMV (%)'}}}}});
+
+      const curByPartner=Object.fromEntries(curRows.map(r=>[r.partner,r]));
+      const prevByPartner=Object.fromEntries(prevRows.map(r=>[r.partner,r]));
+      const varus=curByPartner['VARUS'], varusPrev=prevByPartner['VARUS'];
+      const topRefund=[...curRows].sort((a,b)=>b.demand_refunds_eur-a.demand_refunds_eur)[0];
+      document.getElementById('overviewInsights').innerHTML = `
+        <div class="insight"><strong>Volume accelerated</strong><span>GMV grew ${fmt.pct(change(cur.gmv_eur,prev.gmv_eur))}, ahead of orders at ${fmt.pct(change(cur.orders,prev.orders))}; AOV moved from ${fmt.eur2(prev.gmv_eur/prev.orders)} to ${fmt.eur2(cur.gmv_eur/cur.orders)}.</span></div>
+        <div class="insight warn"><strong>Incentive intensity tripled</strong><span>Demand incentives reached ${fmt.rate(cur.demand_incentives_eur/cur.gmv_eur*100)} of GMV vs ${fmt.rate(prev.demand_incentives_eur/prev.gmv_eur*100)}. VARUS explains ${fmt.rate(varus.demand_incentives_eur/cur.demand_incentives_eur*100)} of WTD spend and increased ${fmt.pct(change(varus.demand_incentives_eur,varusPrev.demand_incentives_eur))}.</span></div>
+        <div class="insight risk"><strong>Refunds rose from a low base</strong><span>${fmt.eur2(cur.demand_refunds_eur)} across ${fmt.num(cur.demand_refund_orders)} orders. ${esc(topRefund.partner)} is the largest partner contributor at ${fmt.eur2(topRefund.demand_refunds_eur)}.</span></div>
+        <div class="insight"><strong>Partner breadth is stable</strong><span>${cur.active_partners} active partners vs ${prev.active_partners} in the prior comparable period.</span></div>`;
+    }
+
+    function rowsForPartner(partner) {
+      const weeks=[...new Set(D.weekly_partner.map(r=>r.week_start))].sort();
+      if (partner==='__all__') return weeks.map(w=>({week_start:w,...aggregate(D.weekly_partner.filter(r=>r.week_start===w))}));
+      return weeks.map(w=>D.weekly_partner.find(r=>r.week_start===w&&r.partner===partner)||{week_start:w,orders:0,gmv_eur:0,demand_incentives_eur:0,demand_refunds_eur:0,incentive_orders:0,demand_refund_orders:0});
+    }
+    function renderPartner() {
+      const p=document.getElementById('partnerSelect').value||'__all__', rows=rowsForPartner(p), cur=rows.at(-1), prev=rows.at(-2);
+      const name=p==='__all__'?'All Stores':p;
+      document.getElementById('partnerKpis').innerHTML=[
+        kpi('GMV',fmt.eur(cur.gmv_eur),change(cur.gmv_eur,prev.gmv_eur),'current WTD vs prior full week'),
+        kpi('Orders',fmt.num(cur.orders),change(cur.orders,prev.orders),'current WTD vs prior full week'),
+        kpi('AOV',fmt.eur2(cur.orders?cur.gmv_eur/cur.orders:0),change(cur.orders?cur.gmv_eur/cur.orders:0,prev.orders?prev.gmv_eur/prev.orders:0),'GMV per delivered order'),
+        kpi('Incentives',fmt.eur(cur.demand_incentives_eur),change(cur.demand_incentives_eur,prev.demand_incentives_eur),`${fmt.rate(cur.gmv_eur?cur.demand_incentives_eur/cur.gmv_eur*100:0)} of GMV`,true),
+        kpi('Demand refunds',fmt.eur2(cur.demand_refunds_eur),change(cur.demand_refunds_eur,prev.demand_refunds_eur),`${fmt.rate(cur.gmv_eur?cur.demand_refunds_eur/cur.gmv_eur*100:0)} of GMV`,true),
+      ].join('');
+      const labels={gmv_eur:'GMV (€)',orders:'Orders',demand_incentives_eur:'Demand incentives (€)',demand_refunds_eur:'Demand refunds (€)'};
+      document.getElementById('partnerChartTitle').textContent=`${name} · ${labels[partnerMetric]}`;
+      chart('partnerChart',{type:'line',data:{labels:rows.map(r=>fmt.week(r.week_start)),datasets:[{label:labels[partnerMetric],data:rows.map(r=>r[partnerMetric]),borderColor:'#2f7d5b',backgroundColor:'#2f7d5b22',fill:true,tension:.25,pointRadius:3}]},options:baseOptions(labels[partnerMetric])});
+    }
+    function renderPartnerTable() {
+      const cur=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd'), prev=Object.fromEntries(D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days').map(r=>[r.partner,r]));
+      const rows=[...cur].sort((a,b)=>b.gmv_eur-a.gmv_eur).map(r=>{
+        const p=prev[r.partner]||{}; return [
+          esc(r.partner),fmt.num(r.orders),fmt.eur(r.gmv_eur),fmt.pct(change(r.gmv_eur,p.gmv_eur||0)),
+          fmt.eur(r.demand_incentives_eur),fmt.rate(r.gmv_eur?r.demand_incentives_eur/r.gmv_eur*100:0),
+          fmt.eur2(r.demand_refunds_eur),fmt.rate(r.gmv_eur?r.demand_refunds_eur/r.gmv_eur*100:0)
+        ];
+      });
+      table(document.getElementById('partnerTable'),['Partner','Orders','GMV','GMV WoW','Demand incentives','DI / GMV','Demand refunds','DR / GMV'],rows);
+    }
+
+    function renderDeepDive() {
+      const curRows=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd'), prevRows=D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days');
+      const cur=aggregate(curRows), prev=aggregate(prevRows);
+      const avgRefund=cur.demand_refunds_eur/cur.demand_refund_orders;
+      document.getElementById('deepKpis').innerHTML=[
+        kpi('Demand incentives',fmt.eur(cur.demand_incentives_eur),change(cur.demand_incentives_eur,prev.demand_incentives_eur),'vs prior Mon–Thu',true),
+        kpi('Incentive rate',fmt.rate(cur.demand_incentives_eur/cur.gmv_eur*100),change(cur.demand_incentives_eur/cur.gmv_eur,prev.demand_incentives_eur/prev.gmv_eur),'share of GMV',true),
+        kpi('Orders incentivised',fmt.num(cur.incentive_orders),change(cur.incentive_orders,prev.incentive_orders),`${fmt.rate(cur.incentive_orders/cur.orders*100)} of delivered orders`,true),
+        kpi('Demand refunds',fmt.eur2(cur.demand_refunds_eur),change(cur.demand_refunds_eur,prev.demand_refunds_eur),'vs prior Mon–Thu',true),
+        kpi('Avg refund',fmt.eur2(avgRefund),change(avgRefund,prev.demand_refunds_eur/prev.demand_refund_orders),'per refunded order',true),
+      ].join('');
+      const days=D.current_week_daily;
+      chart('dailyIncentivesChart',{type:'bar',data:{labels:days.map(x=>new Date(x.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'})),datasets:[{label:'Demand incentives (€)',data:days.map(x=>x.demand_incentives_eur),backgroundColor:'#9b6a17cc',borderRadius:4}]},options:baseOptions('Demand incentives (€)')});
+      chart('dailyRefundsChart',{type:'bar',data:{labels:days.map(x=>new Date(x.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'})),datasets:[{label:'Demand refunds (€)',data:days.map(x=>x.demand_refunds_eur),backgroundColor:'#b34646cc',borderRadius:4}]},options:baseOptions('Demand refunds (€)')});
+      chart('refundBucketChart',{type:'bar',data:{labels:D.refund_buckets.map(x=>x.bucket),datasets:[{label:'Demand refunds (€)',data:D.refund_buckets.map(x=>x.demand_refunds_eur),backgroundColor:'#b34646cc',borderRadius:4}]},options:baseOptions('Demand refunds (€)')});
+
+      const objectiveTotal=sum(D.incentive_objectives,'demand_incentives_eur');
+      table(document.getElementById('objectiveTable'),['Objective group','Spend','Share','Orders','Spend / order'],D.incentive_objectives.map(r=>[
+        esc(r.objective),fmt.eur2(r.demand_incentives_eur),fmt.rate(r.demand_incentives_eur/objectiveTotal*100),fmt.num(r.incentive_orders),fmt.eur2(r.demand_incentives_eur/r.incentive_orders)
+      ]));
+      const incentiveRows=[...curRows].filter(r=>r.demand_incentives_eur>0).sort((a,b)=>b.demand_incentives_eur-a.demand_incentives_eur).slice(0,20);
+      table(document.getElementById('incentivePartnerTable'),['Partner','Spend','Share','DI / GMV','Orders covered'],incentiveRows.map(r=>[
+        esc(r.partner),fmt.eur2(r.demand_incentives_eur),fmt.rate(r.demand_incentives_eur/cur.demand_incentives_eur*100),fmt.rate(r.demand_incentives_eur/r.gmv_eur*100),`${fmt.num(r.incentive_orders)} (${fmt.rate(r.incentive_orders/r.orders*100)})`
+      ]));
+      const refundRows=[...curRows].filter(r=>r.demand_refunds_eur>0).sort((a,b)=>b.demand_refunds_eur-a.demand_refunds_eur);
+      table(document.getElementById('refundPartnerTable'),['Partner','Refunds','Share','DR / GMV','Refund orders'],refundRows.map(r=>[
+        esc(r.partner),fmt.eur2(r.demand_refunds_eur),fmt.rate(r.demand_refunds_eur/cur.demand_refunds_eur*100),fmt.rate(r.demand_refunds_eur/r.gmv_eur*100),fmt.num(r.demand_refund_orders)
+      ]));
+      table(document.getElementById('cityTable'),['City','Orders','GMV','Incentives','DI / GMV','Refunds','DR / GMV'],D.current_week_cities.map(r=>[
+        esc(r.city),fmt.num(r.orders),fmt.eur(r.gmv_eur),fmt.eur2(r.demand_incentives_eur),fmt.rate(r.demand_incentives_eur/r.gmv_eur*100),fmt.eur2(r.demand_refunds_eur),fmt.rate(r.demand_refunds_eur/r.gmv_eur*100)
+      ]));
+    }
+
+    async function init() {
+      D=await fetch('./data.json').then(r=>r.json());
+      document.getElementById('meta').innerHTML=`Data through <strong>${D.metadata.data_through}</strong><br>Generated 14 Aug 2026 · EUR`;
+      const partners=[...new Set(D.weekly_partner.map(r=>r.partner))].sort();
+      document.getElementById('partnerSelect').innerHTML='<option value="__all__">All Stores</option>'+partners.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      renderOverview(); renderPartner(); renderPartnerTable(); renderDeepDive();
+      document.getElementById('partnerSelect').addEventListener('change',renderPartner);
+      document.getElementById('partnerMetric').addEventListener('click',e=>{
+        if(!e.target.dataset.metric)return; partnerMetric=e.target.dataset.metric;
+        document.querySelectorAll('#partnerMetric button').forEach(b=>b.classList.toggle('active',b===e.target)); renderPartner();
+      });
+      document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+        document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+        document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===t.dataset.panel));
+      }));
+    }
+    init().catch(err=>document.body.innerHTML=`<main class="shell"><div class="card"><h2>Report could not load</h2><p>${esc(err.message)}</p></div></main>`);
+  </script>
+</body>
+</html>
