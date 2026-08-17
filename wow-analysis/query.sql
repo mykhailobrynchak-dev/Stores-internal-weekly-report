@@ -38,7 +38,7 @@ GROUP BY week_start, partner
 HAVING orders > 0 OR demand_refunds_eur != 0
 ORDER BY week_start, gmv_eur DESC;
 
--- Current-WTD commission and CM L1 (CP Margin) from fact_provider_weekly.
+-- Last full week (10–16 Aug) commission and CM L1 (CP Margin) from fact_provider_weekly.
 -- Commission € = GMV-weighted commission amount; Commission % = Commission of GMV.
 -- CM L1 = total_contribution_profit_eur / total_gmv_before_discounts_eur.
 SELECT
