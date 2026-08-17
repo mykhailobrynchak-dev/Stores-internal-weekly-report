@@ -89,3 +89,39 @@ WHERE p.country_code = 'ua'
 GROUP BY 1
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY commission_eur DESC NULLS LAST;
+
+-- All partners table base: orders, GMV, demand incentives and refunds per partner
+-- for the last full week (10–16 Aug) and prior full week (3–9 Aug) from fact_order_delivery.
+-- Orders/GMV/incentives use delivered orders; refunds include all order states.
+-- Last-week delivered orders total 12,381.
+WITH base AS (
+  SELECT
+    CASE WHEN p.brand_name = 'OKKO MARKET' THEN p.brand_name
+         ELSE COALESCE(p.group_name, p.brand_name, f.provider_name) END AS partner,
+    CASE
+      WHEN f.order_created_date BETWEEN DATE '2026-08-10' AND DATE '2026-08-16' THEN 'last_week'
+      WHEN f.order_created_date BETWEEN DATE '2026-08-03' AND DATE '2026-08-09' THEN 'prior_week'
+    END AS wk,
+    f.order_state, f.order_gmv_eur, f.demand_incentives_eur, f.demand_refunds_eur
+  FROM main.ng_delivery.fact_order_delivery f
+  JOIN main.ng_delivery.dim_provider_v2 p
+    ON f.provider_id = p.provider_id
+  WHERE f.city_country_code = 'ua'
+    AND (
+      p.delivery_vertical LIKE 'store_3p%'
+      OR p.group_name IN ('ANRI-PHARM', 'BRSM', 'VAPORS', 'PIVASOV')
+    )
+    AND f.order_created_date BETWEEN DATE '2026-08-03' AND DATE '2026-08-16'
+)
+SELECT
+  wk,
+  partner,
+  SUM(CASE WHEN order_state = 'delivered' THEN 1 ELSE 0 END) AS orders,
+  ROUND(SUM(CASE WHEN order_state = 'delivered' THEN order_gmv_eur ELSE 0 END), 2) AS gmv_eur,
+  ROUND(SUM(CASE WHEN order_state = 'delivered' THEN COALESCE(demand_incentives_eur, 0) ELSE 0 END), 2) AS demand_incentives_eur,
+  ROUND(SUM(COALESCE(demand_refunds_eur, 0)), 2) AS demand_refunds_eur
+FROM base
+WHERE wk IS NOT NULL
+GROUP BY wk, partner
+HAVING orders > 0 OR demand_refunds_eur <> 0
+ORDER BY wk, gmv_eur DESC;

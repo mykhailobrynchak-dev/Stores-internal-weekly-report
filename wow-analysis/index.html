@@ -161,7 +161,7 @@
         <div class="chart-wrap"><canvas id="partnerChart"></canvas></div>
       </div>
       <div class="section">
-        <div class="section-head"><h2>All partners · current WTD</h2><p>Sorted by GMV. WoW uses the same four weekdays (3–6 Aug). Commission and CM L1: last full week 10–16 Aug vs prior full week 3–9 Aug from fact_provider_weekly.</p></div>
+        <div class="section-head"><h2>All partners · last full week</h2><p>Sorted by GMV. All metrics are the last full week (10–16 Aug); WoW compares against the prior full week (3–9 Aug). Orders, GMV, demand incentives and refunds from fact_order_delivery; commission and CM L1 from fact_provider_weekly.</p></div>
         <div class="table-wrap"><table id="partnerTable"></table></div>
       </div>
     </section>
@@ -324,23 +324,21 @@
       chart('partnerChart',{type:'line',data:{labels:rows.map(r=>fmt.week(r.week_start)),datasets:[{label:labels[partnerMetric],data:rows.map(r=>r[partnerMetric]),borderColor:'#2f7d5b',backgroundColor:'#2f7d5b22',fill:true,tension:.25,pointRadius:3}]},options:baseOptions(labels[partnerMetric])});
     }
     function renderPartnerTable() {
-      const cur=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd'), prev=Object.fromEntries(D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days').map(r=>[r.partner,r]));
-      const econLast=Object.fromEntries((D.partner_economics_last_week||D.partner_economics_wtd||[]).map(r=>[r.partner,r]));
-      const econPrev=Object.fromEntries((D.partner_economics_prior_week||[]).map(r=>[r.partner,r]));
+      const cur=(D.partner_last_week||[]), prev=Object.fromEntries((D.partner_prior_week||[]).map(r=>[r.partner,r]));
       const rows=[...cur].sort((a,b)=>b.gmv_eur-a.gmv_eur).map(r=>{
-        const p=prev[r.partner]||{}, e=econLast[r.partner]||{}, ep=econPrev[r.partner]||{};
+        const p=prev[r.partner]||{};
         return [
           esc(r.partner),fmt.num(r.orders),fmt.eur(r.gmv_eur),fmt.pct(change(r.gmv_eur,p.gmv_eur||0)),
-          maybe(e.commission_gmv_pct,fmt.rate1),maybe(ep.commission_gmv_pct,fmt.rate1),
-          maybe(e.commission_eur,fmt.eur2),maybe(ep.commission_eur,fmt.eur2),
-          maybe(e.cm_l1_pct,fmt.rate),maybe(ep.cm_l1_pct,fmt.rate),
-          maybe(e.cm_l1_eur,fmt.eur2),maybe(ep.cm_l1_eur,fmt.eur2),
+          maybe(r.commission_gmv_pct,fmt.rate1),maybe(p.commission_gmv_pct,fmt.rate1),
+          maybe(r.commission_eur,fmt.eur2),maybe(p.commission_eur,fmt.eur2),
+          maybe(r.cm_l1_pct,fmt.rate),maybe(p.cm_l1_pct,fmt.rate),
+          maybe(r.cm_l1_eur,fmt.eur2),maybe(p.cm_l1_eur,fmt.eur2),
           fmt.eur(r.demand_incentives_eur),fmt.rate(r.gmv_eur?r.demand_incentives_eur/r.gmv_eur*100:0),
           fmt.eur2(r.demand_refunds_eur),fmt.rate(r.gmv_eur?r.demand_refunds_eur/r.gmv_eur*100:0)
         ];
       });
       table(document.getElementById('partnerTable'),[
-        'Partner','Orders','GMV','GMV WoW',
+        'Partner','Orders · last wk','GMV · last wk','GMV WoW',
         'Comm % · last wk','Comm % · prior wk','Comm € · last wk','Comm € · prior wk',
         'CM L1 % · last wk','CM L1 % · prior wk','CM L1 € · last wk','CM L1 € · prior wk',
         'Demand incentives','DI / GMV','Demand refunds','DR / GMV'
