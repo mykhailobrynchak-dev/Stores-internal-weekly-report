@@ -122,7 +122,7 @@
     </nav>
 
     <section id="overview" class="panel active">
-      <div class="notice"><span>Current week is shown through Thursday, 13 Aug.</span><strong>WoW compares Mon–Thu vs Mon–Thu</strong></div>
+      <div class="notice"><span>Last full week: 10–16 Aug.</span><strong>WoW compares full week vs full week (3–9 Aug); MTD covers 1–16 Aug vs 1–16 Jul</strong></div>
       <div class="grid kpis" id="kpis"></div>
       <div class="grid two">
         <div class="card">
@@ -161,7 +161,7 @@
         <div class="chart-wrap"><canvas id="partnerChart"></canvas></div>
       </div>
       <div class="section">
-        <div class="section-head"><h2>All partners · last full week</h2><p>Sorted by GMV. All metrics are the last full week (10–16 Aug); WoW compares against the prior full week (3–9 Aug). Orders, GMV, demand incentives and refunds from fact_order_delivery; commission and CM L1 from fact_provider_weekly.</p></div>
+        <div class="section-head"><h2>All partners · last full week</h2><p>Sorted by GMV. Weekly metrics are the last full week (10–16 Aug) with WoW against the prior full week (3–9 Aug); MTD is 1–16 Aug against 1–16 Jul. Orders, GMV, demand incentives and refunds from fact_order_delivery; commission and CM L1 from fact_provider_weekly.</p></div>
         <div class="table-wrap"><table id="partnerTable"></table></div>
       </div>
     </section>
@@ -233,6 +233,7 @@
       week: s => new Date(`${s}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
     };
     const maybe = (v, fn) => v == null || Number.isNaN(+v) ? '—' : fn(+v);
+    const shift = (a, b) => +b ? fmt.pct(((+a || 0) / +b - 1) * 100) : '—';
     const sum = (rows, key) => rows.reduce((a,r) => a + (+r[key] || 0), 0);
     const change = (a,b) => b ? (a / b - 1) * 100 : 0;
     const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -271,18 +272,21 @@
     });
 
     function renderOverview() {
-      const curRows=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd');
-      const prevRows=D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days');
+      const M=D.metadata;
+      const weeks=[...new Set(D.weekly_partner.map(r=>r.week_start))].sort();
+      const curRows=D.weekly_partner.filter(r=>r.week_start===weeks.at(-1));
+      const prevRows=D.weekly_partner.filter(r=>r.week_start===weeks.at(-2));
       const cur=aggregate(curRows), prev=aggregate(prevRows);
+      const mtd=aggregate(D.partner_mtd_current||[]), mtdPrev=aggregate(D.partner_mtd_prior||[]);
       document.getElementById('kpis').innerHTML = [
-        kpi('GMV',fmt.eur(cur.gmv_eur),change(cur.gmv_eur,prev.gmv_eur),'vs prior Mon–Thu'),
-        kpi('Orders',fmt.num(cur.orders),change(cur.orders,prev.orders),'vs prior Mon–Thu'),
+        kpi('GMV',fmt.eur(cur.gmv_eur),change(cur.gmv_eur,prev.gmv_eur),`vs ${M.prior_week_label}`),
+        kpi('Orders',fmt.num(cur.orders),change(cur.orders,prev.orders),`vs ${M.prior_week_label}`),
         kpi('Active partners',fmt.num(cur.active_partners),change(cur.active_partners,prev.active_partners),'with ≥1 delivered order'),
         kpi('Demand incentives',fmt.eur(cur.demand_incentives_eur),change(cur.demand_incentives_eur,prev.demand_incentives_eur),`${fmt.rate(cur.demand_incentives_eur/cur.gmv_eur*100)} of GMV`,true),
         kpi('Demand refunds',fmt.eur2(cur.demand_refunds_eur),change(cur.demand_refunds_eur,prev.demand_refunds_eur),`${fmt.rate(cur.demand_refunds_eur/cur.gmv_eur*100)} of GMV`,true),
+        kpi(`GMV · ${M.mtd_label}`,fmt.eur(mtd.gmv_eur),change(mtd.gmv_eur,mtdPrev.gmv_eur),`month to date vs ${M.mtd_prior_label}`),
       ].join('');
 
-      const weeks=[...new Set(D.weekly_partner.map(r=>r.week_start))].sort();
       const totals=weeks.map(w=>aggregate(D.weekly_partner.filter(r=>r.week_start===w)));
       chart('volumeChart',{type:'bar',data:{labels:weeks.map(fmt.week),datasets:[
         {label:'GMV (€)',data:totals.map(x=>x.gmv_eur),backgroundColor:'#2f7d5bcc',borderRadius:4,yAxisID:'y'},
@@ -297,11 +301,12 @@
       const prevByPartner=Object.fromEntries(prevRows.map(r=>[r.partner,r]));
       const varus=curByPartner['VARUS'], varusPrev=prevByPartner['VARUS'];
       const topRefund=[...curRows].sort((a,b)=>b.demand_refunds_eur-a.demand_refunds_eur)[0];
+      const diRate=cur.demand_incentives_eur/cur.gmv_eur, diRatePrev=prev.demand_incentives_eur/prev.gmv_eur;
       document.getElementById('overviewInsights').innerHTML = `
         <div class="insight"><strong>Volume accelerated</strong><span>GMV grew ${fmt.pct(change(cur.gmv_eur,prev.gmv_eur))}, ahead of orders at ${fmt.pct(change(cur.orders,prev.orders))}; AOV moved from ${fmt.eur2(prev.gmv_eur/prev.orders)} to ${fmt.eur2(cur.gmv_eur/cur.orders)}.</span></div>
-        <div class="insight warn"><strong>Incentive intensity tripled</strong><span>Demand incentives reached ${fmt.rate(cur.demand_incentives_eur/cur.gmv_eur*100)} of GMV vs ${fmt.rate(prev.demand_incentives_eur/prev.gmv_eur*100)}. VARUS explains ${fmt.rate(varus.demand_incentives_eur/cur.demand_incentives_eur*100)} of WTD spend and increased ${fmt.pct(change(varus.demand_incentives_eur,varusPrev.demand_incentives_eur))}.</span></div>
+        <div class="insight warn"><strong>Incentive intensity up ${(diRate/diRatePrev).toFixed(1)}×</strong><span>Demand incentives reached ${fmt.rate(diRate*100)} of GMV vs ${fmt.rate(diRatePrev*100)}. VARUS explains ${fmt.rate(varus.demand_incentives_eur/cur.demand_incentives_eur*100)} of the week's spend and increased ${fmt.pct(change(varus.demand_incentives_eur,varusPrev.demand_incentives_eur))}.</span></div>
         <div class="insight risk"><strong>Refunds rose from a low base</strong><span>${fmt.eur2(cur.demand_refunds_eur)} across ${fmt.num(cur.demand_refund_orders)} orders. ${esc(topRefund.partner)} is the largest partner contributor at ${fmt.eur2(topRefund.demand_refunds_eur)}.</span></div>
-        <div class="insight"><strong>Partner breadth is stable</strong><span>${cur.active_partners} active partners vs ${prev.active_partners} in the prior comparable period.</span></div>`;
+        <div class="insight"><strong>Month to date is ahead</strong><span>${M.mtd_label} GMV of ${fmt.eur(mtd.gmv_eur)} is ${fmt.pct(change(mtd.gmv_eur,mtdPrev.gmv_eur))} vs ${M.mtd_prior_label}, on ${fmt.num(mtd.orders)} orders (${fmt.pct(change(mtd.orders,mtdPrev.orders))}). Incentives are ${fmt.rate(mtd.demand_incentives_eur/mtd.gmv_eur*100)} of GMV vs ${fmt.rate(mtdPrev.demand_incentives_eur/mtdPrev.gmv_eur*100)}.</span></div>`;
     }
 
     function rowsForPartner(partner) {
@@ -313,8 +318,8 @@
       const p=document.getElementById('partnerSelect').value||'__all__', rows=rowsForPartner(p), cur=rows.at(-1), prev=rows.at(-2);
       const name=p==='__all__'?'All Stores':p;
       document.getElementById('partnerKpis').innerHTML=[
-        kpi('GMV',fmt.eur(cur.gmv_eur),change(cur.gmv_eur,prev.gmv_eur),'current WTD vs prior full week'),
-        kpi('Orders',fmt.num(cur.orders),change(cur.orders,prev.orders),'current WTD vs prior full week'),
+        kpi('GMV',fmt.eur(cur.gmv_eur),change(cur.gmv_eur,prev.gmv_eur),'last full week vs prior full week'),
+        kpi('Orders',fmt.num(cur.orders),change(cur.orders,prev.orders),'last full week vs prior full week'),
         kpi('AOV',fmt.eur2(cur.orders?cur.gmv_eur/cur.orders:0),change(cur.orders?cur.gmv_eur/cur.orders:0,prev.orders?prev.gmv_eur/prev.orders:0),'GMV per delivered order'),
         kpi('Incentives',fmt.eur(cur.demand_incentives_eur),change(cur.demand_incentives_eur,prev.demand_incentives_eur),`${fmt.rate(cur.gmv_eur?cur.demand_incentives_eur/cur.gmv_eur*100:0)} of GMV`,true),
         kpi('Demand refunds',fmt.eur2(cur.demand_refunds_eur),change(cur.demand_refunds_eur,prev.demand_refunds_eur),`${fmt.rate(cur.gmv_eur?cur.demand_refunds_eur/cur.gmv_eur*100:0)} of GMV`,true),
@@ -325,23 +330,31 @@
     }
     function renderPartnerTable() {
       const cur=(D.partner_last_week||[]), prev=Object.fromEntries((D.partner_prior_week||[]).map(r=>[r.partner,r]));
+      const mtd=Object.fromEntries((D.partner_mtd_current||[]).map(r=>[r.partner,r]));
+      const mtdPrev=Object.fromEntries((D.partner_mtd_prior||[]).map(r=>[r.partner,r]));
       const rows=[...cur].sort((a,b)=>b.gmv_eur-a.gmv_eur).map(r=>{
-        const p=prev[r.partner]||{};
+        const p=prev[r.partner]||{}, m=mtd[r.partner]||{}, mp=mtdPrev[r.partner]||{};
         return [
-          esc(r.partner),fmt.num(r.orders),fmt.eur(r.gmv_eur),fmt.pct(change(r.gmv_eur,p.gmv_eur||0)),
+          esc(r.partner),fmt.num(r.orders),fmt.eur(r.gmv_eur),shift(r.gmv_eur,p.gmv_eur),
+          maybe(m.gmv_eur,fmt.eur),shift(m.gmv_eur,mp.gmv_eur),
           maybe(r.commission_gmv_pct,fmt.rate1),maybe(p.commission_gmv_pct,fmt.rate1),
-          maybe(r.commission_eur,fmt.eur2),maybe(p.commission_eur,fmt.eur2),
           maybe(r.cm_l1_pct,fmt.rate),maybe(p.cm_l1_pct,fmt.rate),
           maybe(r.cm_l1_eur,fmt.eur2),maybe(p.cm_l1_eur,fmt.eur2),
-          fmt.eur(r.demand_incentives_eur),fmt.rate(r.gmv_eur?r.demand_incentives_eur/r.gmv_eur*100:0),
-          fmt.eur2(r.demand_refunds_eur),fmt.rate(r.gmv_eur?r.demand_refunds_eur/r.gmv_eur*100:0)
+          fmt.eur(r.demand_incentives_eur),maybe(p.demand_incentives_eur,fmt.eur),
+          shift(r.demand_incentives_eur,p.demand_incentives_eur),
+          fmt.rate(r.gmv_eur?r.demand_incentives_eur/r.gmv_eur*100:0),
+          fmt.eur2(r.demand_refunds_eur),maybe(p.demand_refunds_eur,fmt.eur2),
+          shift(r.demand_refunds_eur,p.demand_refunds_eur),
+          fmt.rate(r.gmv_eur?r.demand_refunds_eur/r.gmv_eur*100:0)
         ];
       });
       table(document.getElementById('partnerTable'),[
         'Partner','Orders · last wk','GMV · last wk','GMV WoW',
-        'Comm % · last wk','Comm % · prior wk','Comm € · last wk','Comm € · prior wk',
+        'GMV MTD','MTD vs prior month',
+        'Comm % · last wk','Comm % · prior wk',
         'CM L1 % · last wk','CM L1 % · prior wk','CM L1 € · last wk','CM L1 € · prior wk',
-        'Demand incentives','DI / GMV','Demand refunds','DR / GMV'
+        'DI · last wk','DI · prior wk','DI WoW','DI / GMV',
+        'DR · last wk','DR · prior wk','DR WoW','DR / GMV'
       ],rows);
     }
 
