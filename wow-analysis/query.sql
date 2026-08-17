@@ -64,3 +64,28 @@ WHERE p.country_code = 'ua'
 GROUP BY 1
 HAVING SUM(f.delivered_orders_count) > 0
 ORDER BY commission_eur DESC NULLS LAST;
+
+-- Prior full week (3–9 Aug) commission and CM L1.
+SELECT
+  CASE
+    WHEN p.brand_name = 'OKKO MARKET' THEN p.brand_name
+    ELSE COALESCE(p.group_name, p.brand_name)
+  END AS partner,
+  ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight), 2) AS commission_eur,
+  ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight)
+    / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 1) AS commission_gmv_pct,
+  ROUND(SUM(f.total_contribution_profit_eur), 2) AS cm_l1_eur,
+  ROUND(SUM(f.total_contribution_profit_eur)
+    / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cm_l1_pct
+FROM main.ng_delivery.fact_provider_weekly f
+JOIN main.ng_delivery.dim_provider_v2 p
+  ON f.provider_id = p.provider_id
+WHERE p.country_code = 'ua'
+  AND (
+    p.delivery_vertical LIKE 'store_3p%'
+    OR p.group_name IN ('ANRI-PHARM', 'BRSM', 'VAPORS', 'PIVASOV')
+  )
+  AND f.metric_timestamp_local = DATE '2026-08-03'
+GROUP BY 1
+HAVING SUM(f.delivered_orders_count) > 0
+ORDER BY commission_eur DESC NULLS LAST;
