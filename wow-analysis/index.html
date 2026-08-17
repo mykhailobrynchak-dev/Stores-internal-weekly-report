@@ -161,7 +161,7 @@
         <div class="chart-wrap"><canvas id="partnerChart"></canvas></div>
       </div>
       <div class="section">
-        <div class="section-head"><h2>All partners · current WTD</h2><p>Sorted by GMV; WoW uses the same four weekdays.</p></div>
+        <div class="section-head"><h2>All partners · current WTD</h2><p>Sorted by GMV; WoW uses the same four weekdays. Commission and CM L1 are from fact_provider_weekly for the week starting 10 Aug.</p></div>
         <div class="table-wrap"><table id="partnerTable"></table></div>
       </div>
     </section>
@@ -218,7 +218,7 @@
     </section>
 
     <footer>
-      Source: Databricks · main.ng_delivery.fact_order_delivery joined to dim_provider_v2. Scope: UA providers with delivery_vertical like store_3p%, plus ANRI-PHARM, BRSM, VAPORS and PIVASOV. GMV and orders use delivered orders; demand refunds include all order states and are divided by delivered GMV for rates. Monetary values are EUR.
+      Source: Databricks · fact_order_delivery and fact_provider_weekly joined to dim_provider_v2. Scope: UA providers with delivery_vertical like store_3p%, plus ANRI-PHARM, BRSM, VAPORS and PIVASOV. GMV and orders use delivered orders; demand refunds include all order states and are divided by delivered GMV for rates. Commission and CM L1 come from fact_provider_weekly. Monetary values are EUR.
     </footer>
   </main>
 
@@ -229,8 +229,10 @@
       num: v => new Intl.NumberFormat('en-GB',{maximumFractionDigits:0}).format(v),
       pct: v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`,
       rate: v => `${v.toFixed(2)}%`,
+      rate1: v => `${v.toFixed(1)}%`,
       week: s => new Date(`${s}T00:00:00`).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
     };
+    const maybe = (v, fn) => v == null || Number.isNaN(+v) ? '—' : fn(+v);
     const sum = (rows, key) => rows.reduce((a,r) => a + (+r[key] || 0), 0);
     const change = (a,b) => b ? (a / b - 1) * 100 : 0;
     const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -323,14 +325,18 @@
     }
     function renderPartnerTable() {
       const cur=D.wtd_partner_comparison.filter(r=>r.period==='current_wtd'), prev=Object.fromEntries(D.wtd_partner_comparison.filter(r=>r.period==='prior_same_days').map(r=>[r.partner,r]));
+      const econ=Object.fromEntries((D.partner_economics_wtd||[]).map(r=>[r.partner,r]));
       const rows=[...cur].sort((a,b)=>b.gmv_eur-a.gmv_eur).map(r=>{
-        const p=prev[r.partner]||{}; return [
+        const p=prev[r.partner]||{}, e=econ[r.partner]||{};
+        return [
           esc(r.partner),fmt.num(r.orders),fmt.eur(r.gmv_eur),fmt.pct(change(r.gmv_eur,p.gmv_eur||0)),
+          maybe(e.commission_gmv_pct,fmt.rate1),maybe(e.commission_eur,fmt.eur2),
+          maybe(e.cm_l1_pct,fmt.rate),maybe(e.cm_l1_eur,fmt.eur2),
           fmt.eur(r.demand_incentives_eur),fmt.rate(r.gmv_eur?r.demand_incentives_eur/r.gmv_eur*100:0),
           fmt.eur2(r.demand_refunds_eur),fmt.rate(r.gmv_eur?r.demand_refunds_eur/r.gmv_eur*100:0)
         ];
       });
-      table(document.getElementById('partnerTable'),['Partner','Orders','GMV','GMV WoW','Demand incentives','DI / GMV','Demand refunds','DR / GMV'],rows);
+      table(document.getElementById('partnerTable'),['Partner','Orders','GMV','GMV WoW','Commission %','Commission €','CM L1 %','CM L1 €','Demand incentives','DI / GMV','Demand refunds','DR / GMV'],rows);
     }
 
     function renderDeepDive() {
