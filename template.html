@@ -99,6 +99,36 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 .sub-kpi .val { font-size: 16px; font-weight: 700; margin-top: 2px; }
 .sub-kpi .chg { font-size: 10px; margin-top: 2px; }
 
+/* Weekly notes / insights */
+.notes-banner { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; }
+.notes-banner .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-secondary); margin-bottom: 6px; }
+.notes-banner h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; line-height: 1.35; }
+.notes-banner p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.notes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.notes-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.notes-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.insight { border-left: 3px solid var(--primary); background: #F0FDF6; border-radius: 0 8px 8px 0; padding: 10px 12px; margin-bottom: 8px; }
+.insight.good { border-color: var(--green); background: #F0FDF6; }
+.insight.warn { border-color: var(--orange); background: #FFF8EB; }
+.insight.risk { border-color: var(--red); background: #FEF2F2; }
+.insight.action { border-color: #6366F1; background: #EEF2FF; }
+.insight-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.insight-text { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.notes-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.notes-kpi { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.notes-kpi .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); margin-bottom: 4px; }
+.notes-kpi .val { font-size: 16px; font-weight: 700; }
+.notes-kpi .wow { font-size: 11px; margin-top: 3px; }
+.notes-kpi .wow.up.good, .notes-kpi .wow.down.good { color: var(--green); }
+.notes-kpi .wow.up.bad, .notes-kpi .wow.down.bad { color: var(--red); }
+.notes-kpi .wow.flat { color: var(--text-secondary); }
+.notes-meta { font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
+.partner-chip { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.partner-chip:last-child { border-bottom: none; }
+.partner-chip .name { font-weight: 600; }
+.partner-chip .detail { color: var(--text-secondary); text-align: right; }
+@media (max-width: 900px) { .notes-grid { grid-template-columns: 1fr; } }
+
 .run-rate-block { background: #FFF8E1; border: 2px solid #F59E0B; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
 .run-rate-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .run-rate-badge { background: #F59E0B; color: #fff; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 6px; text-transform: uppercase; }
@@ -244,6 +274,9 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     const partnerSet = new Set(safe(D.partners_list).filter(p => !subBrandKeys.has(p)));
     let html = '<div class="nav-section-title">Overview</div>';
     html += `<div class="nav-item ${currentView==='overview'?'active':''}" data-view="overview">All 3P Stores</div>`;
+    if (D.weekly_insights) {
+      html += `<div class="nav-item ${currentView==='insights'?'active':''}" data-view="insights">Weekly notes</div>`;
+    }
     if (safe(D.city_list).length) {
       html += `<div class="nav-item ${currentView==='city'?'active':''}" data-view="city">City overview</div>`;
     }
@@ -420,6 +453,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   /* ---- display helpers ---- */
   function displayName(view) {
     if (view === 'overview') return 'All 3P Stores';
+    if (view === 'insights') return 'Weekly notes';
     if (view === 'KOPIYKA') return 'KOPIYKA Group';
     return view;
   }
@@ -433,11 +467,134 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
       || (r.item_weight_defect_rate || 0) > 0 || (r.item_price_defect_rate || 0) > 0);
   }
 
+  function renderWeeklyNotes() {
+    const N = D.weekly_insights;
+    if (!N) {
+      $('content').innerHTML = '<div class="section"><div class="section-title">Weekly notes</div><p style="color:var(--text-secondary)">No insights available yet.</p></div>';
+      return;
+    }
+    const sevClass = (s) => s === 'risk' ? 'risk' : s === 'warn' ? 'warn' : s === 'action' ? 'action' : s === 'good' ? 'good' : '';
+    const kpiWowClass = (k) => {
+      if (k.good === true) return `${k.direction} good`;
+      if (k.good === false) return `${k.direction} bad`;
+      return 'flat';
+    };
+
+    let html = '';
+    html += `<div class="notes-banner">
+      <div class="eyebrow">WoW · ${N.week_label} vs ${N.prior_week_label}</div>
+      <h2>${N.headline || ''}</h2>
+      <p>${N.summary || ''}</p>
+      <div class="notes-meta">Auto-generated from report data · refreshed with each weekly update${N.generated_at ? ' · ' + String(N.generated_at).slice(0, 16).replace('T', ' ') + ' UTC' : ''}</div>
+    </div>`;
+
+    html += '<div class="section"><div class="section-title">Key metrics (WoW)</div><div class="notes-kpi-grid">';
+    safe(N.kpis).forEach(k => {
+      html += `<div class="notes-kpi"><div class="label">${k.label}</div><div class="val">${k.value}</div><div class="wow ${kpiWowClass(k)}">${k.wow} WoW</div></div>`;
+    });
+    html += '</div></div>';
+
+    html += '<div class="notes-grid">';
+    html += '<div class="notes-card"><h3>What improved</h3>';
+    if (safe(N.improved).length) {
+      N.improved.forEach(i => {
+        html += `<div class="insight good"><div class="insight-title">${i.title}</div><div class="insight-text">${i.detail}</div></div>`;
+      });
+    } else {
+      html += '<div class="insight-text" style="color:var(--text-secondary)">No large positive moves above the noise threshold this week.</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="notes-card"><h3>What worsened</h3>';
+    if (safe(N.worsened).length) {
+      N.worsened.forEach(i => {
+        html += `<div class="insight risk"><div class="insight-title">${i.title}</div><div class="insight-text">${i.detail}</div></div>`;
+      });
+    } else {
+      html += '<div class="insight-text" style="color:var(--text-secondary)">No large negative moves above the noise threshold this week.</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="notes-grid">';
+    html += '<div class="notes-card"><h3>Partners · GMV up</h3>';
+    if (safe(N.partners_up).length) {
+      N.partners_up.forEach(p => {
+        html += `<div class="partner-chip"><div class="name">${p.name}</div><div class="detail">${p.detail}</div></div>`;
+      });
+    } else {
+      html += '<div class="insight-text" style="color:var(--text-secondary)">No material GMV gainers.</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="notes-card"><h3>Partners · GMV down</h3>';
+    if (safe(N.partners_down).length) {
+      N.partners_down.forEach(p => {
+        html += `<div class="partner-chip"><div class="name">${p.name}</div><div class="detail">${p.detail}</div></div>`;
+      });
+    } else {
+      html += '<div class="insight-text" style="color:var(--text-secondary)">No material GMV droppers.</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="notes-grid">';
+    html += '<div class="notes-card"><h3>Watchouts</h3>';
+    if (safe(N.watchouts).length) {
+      N.watchouts.forEach(i => {
+        html += `<div class="insight ${sevClass(i.severity)}"><div class="insight-title">${i.title}</div><div class="insight-text">${i.detail}</div></div>`;
+      });
+    } else {
+      html += '<div class="insight-text" style="color:var(--text-secondary)">No critical watchouts flagged.</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="notes-card"><h3>Call to action</h3>';
+    if (safe(N.actions).length) {
+      N.actions.forEach(i => {
+        const owner = i.owner_hint ? `<div class="notes-meta">Owner hint: ${i.owner_hint}</div>` : '';
+        html += `<div class="insight action"><div class="insight-title">${i.title}</div><div class="insight-text">${i.detail}</div>${owner}</div>`;
+      });
+    } else {
+      html += '<div class="insight-text" style="color:var(--text-secondary)">No forced actions this week — keep monitoring.</div>';
+    }
+    html += '</div></div>';
+
+    if (N.month) {
+      html += `<div class="section"><div class="section-title">Month context</div>
+        <div class="notes-card">
+          <div class="insight"><div class="insight-title">${N.month.mtd_label || N.month.label}</div>
+          <div class="insight-text">${N.month.note || ''}</div></div>
+        </div></div>`;
+    }
+
+    if (N.campaigns && N.campaigns.bolt_spend_eur != null) {
+      const c = N.campaigns;
+      html += `<div class="section"><div class="section-title">Campaign spend (this week)</div>
+        <div class="notes-kpi-grid">
+          <div class="notes-kpi"><div class="label">Bolt spend</div><div class="val">${fmtEur(c.bolt_spend_eur)}</div><div class="wow flat">${c.bolt_share_pct != null ? c.bolt_share_pct.toFixed(1) + '% of GMV' : ''}</div></div>
+          <div class="notes-kpi"><div class="label">Merchant spend</div><div class="val">${fmtEur(c.merchant_spend_eur)}</div></div>
+          <div class="notes-kpi"><div class="label">Total discount</div><div class="val">${fmtEur(c.campaigns_discount_eur)}</div></div>
+          <div class="notes-kpi"><div class="label">Bolt share WoW</div><div class="val">${c.bolt_share_wow_pp == null ? '—' : ((c.bolt_share_wow_pp > 0 ? '+' : '') + c.bolt_share_wow_pp.toFixed(1) + 'pp')}</div></div>
+        </div></div>`;
+    }
+
+    $('content').innerHTML = html;
+  }
+
   function render() {
     destroyCharts();
     if (currentView === 'city' && !currentCity) currentCity = safe(D.city_list)[0] || null;
     buildSidebar();
     buildCityNav();
+    const controlsRow = document.querySelector('.controls-row');
+    const brandSel = $('brandSelector');
+    if (currentView === 'insights') {
+      if (controlsRow) controlsRow.style.display = 'none';
+      if (brandSel) brandSel.innerHTML = '';
+      $('pageTitle').textContent = 'Weekly notes';
+      renderWeeklyNotes();
+      return;
+    }
+    if (controlsRow) controlsRow.style.display = '';
     buildControls();
     if (currentView === 'city') { renderCity(); return; }
     $('pageTitle').textContent = displayName(currentView);

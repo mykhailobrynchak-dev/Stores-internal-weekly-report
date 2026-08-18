@@ -895,6 +895,409 @@ EMPLOYEE_GROUPS = {
     "Khrystyna": ["TOCHKA", "LEPRUKON", "MAXBEER", "SPRAGA", "DIMPYVA", "ALTBIER", "FLOWER SHOP", "NO TABOO", "RODYNNA KOVBASKA", "VAPERY | VAPE SHOP", "VAPORS", "PIVASOV"],
 }
 
+OWNER_BY_PARTNER = {p: emp for emp, brands in EMPLOYEE_GROUPS.items() for p in brands}
+SUBBRAND_KEYS = {"Kopiyka", "Kopiyka Mini", "Santim"}
+
+
+def _pct(cur, prev):
+    if cur is None or prev is None:
+        return None
+    try:
+        prev = float(prev)
+        cur = float(cur)
+    except (TypeError, ValueError):
+        return None
+    if prev == 0:
+        return None
+    return (cur - prev) / abs(prev) * 100.0
+
+
+def _pp(cur, prev):
+    if cur is None or prev is None:
+        return None
+    try:
+        return float(cur) - float(prev)
+    except (TypeError, ValueError):
+        return None
+
+
+def _fmt_pct(v, digits=1):
+    if v is None:
+        return "—"
+    sign = "+" if v > 0 else ""
+    return f"{sign}{v:.{digits}f}%"
+
+
+def _fmt_pp(v, digits=1):
+    if v is None:
+        return "—"
+    sign = "+" if v > 0 else ""
+    return f"{sign}{v:.{digits}f}pp"
+
+
+def _fmt_eur(v, digits=0):
+    if v is None:
+        return "—"
+    if digits == 0:
+        return f"€{v:,.0f}"
+    return f"€{v:,.{digits}f}"
+
+
+def _fmt_num(v, digits=0):
+    if v is None:
+        return "—"
+    if digits == 0:
+        return f"{v:,.0f}"
+    return f"{v:,.{digits}f}"
+
+
+def _week_range_label(period):
+    """Monday period → 'Aug 10 – Aug 16'."""
+    from datetime import timedelta
+    d = datetime.strptime(period[:10], "%Y-%m-%d")
+    end = d + timedelta(days=6)
+    return f"{d.strftime('%b %-d')} – {end.strftime('%b %-d')}"
+
+
+def _month_label(period):
+    d = datetime.strptime(period[:10], "%Y-%m-%d")
+    return d.strftime("%B %Y")
+
+
+def _by_period(rows):
+    return {fmt_period(r["period"]): r for r in rows}
+
+
+def build_weekly_insights():
+    """Auto-generate WoW + month notes from the same data that powers the report."""
+    fin_w = sorted(overview_fin_weekly, key=lambda r: r["period"])
+    if len(fin_w) < 2:
+        return None
+
+    cur_fin, prev_fin = fin_w[-1], fin_w[-2]
+    cur_p, prev_p = cur_fin["period"], prev_fin["period"]
+    cp_map = _by_period(overview_cp_weekly)
+    ops_map = _by_period(overview_ops_weekly)
+    camp_map = _by_period(overview_camp_weekly)
+    fail_map = _by_period(failed_overview_weekly)
+    cur_cp, prev_cp = cp_map.get(cur_p, {}), cp_map.get(prev_p, {})
+    cur_ops, prev_ops = ops_map.get(cur_p, {}), ops_map.get(prev_p, {})
+    cur_camp, prev_camp = camp_map.get(cur_p, {}), camp_map.get(prev_p, {})
+    cur_fail, prev_fail = fail_map.get(cur_p, {}), fail_map.get(prev_p, {})
+
+    def metric_row(label, cur, prev, *, unit="number", inverted=False, threshold_pct=5.0, threshold_pp=0.5):
+        if unit == "pp":
+            delta = _pp(cur, prev)
+            notable = delta is not None and abs(delta) >= threshold_pp
+            wow = _fmt_pp(delta)
+        else:
+            delta = _pct(cur, prev)
+            notable = delta is not None and abs(delta) >= threshold_pct
+            wow = _fmt_pct(delta)
+        if unit == "eur":
+            value = _fmt_eur(cur)
+        elif unit == "pct":
+            value = f"{cur:.1f}%" if cur is not None else "—"
+        elif unit == "pp":
+            value = f"{cur:.1f}%" if cur is not None else "—"
+        else:
+            value = _fmt_num(cur)
+        direction = "flat"
+        if delta is not None:
+            if delta > 0.05:
+                direction = "up"
+            elif delta < -0.05:
+                direction = "down"
+        good = None
+        if delta is not None:
+            good = (delta < 0) if inverted else (delta > 0)
+            if abs(delta) < (threshold_pp if unit == "pp" else threshold_pct) * 0.2:
+                good = None
+        return {
+            "label": label,
+            "value": value,
+            "wow": wow,
+            "delta": round(delta, 2) if delta is not None else None,
+            "direction": direction,
+            "good": good,
+            "notable": bool(notable),
+            "inverted": inverted,
+        }
+
+    kpis = [
+        metric_row("GMV", cur_fin.get("gmv_eur"), prev_fin.get("gmv_eur"), unit="eur"),
+        metric_row("Orders", cur_fin.get("orders"), prev_fin.get("orders")),
+        metric_row("AOV", cur_fin.get("aov_with_delivery"), prev_fin.get("aov_with_delivery"), unit="eur", threshold_pct=2.0),
+        metric_row("Active users", cur_fin.get("active_users"), prev_fin.get("active_users")),
+        metric_row("CP margin", cur_cp.get("cp_margin_pct"), prev_cp.get("cp_margin_pct"), unit="pp", threshold_pp=0.3),
+        metric_row("CP L2 margin", cur_cp.get("cp_l2_margin_pct"), prev_cp.get("cp_l2_margin_pct"), unit="pp", threshold_pp=0.5),
+        metric_row("Demand incentives % GMV", cur_cp.get("demand_incentives_gmv_share"), prev_cp.get("demand_incentives_gmv_share"), unit="pp", inverted=True, threshold_pp=0.5),
+        metric_row("Availability", cur_ops.get("availability_rate"), prev_ops.get("availability_rate"), unit="pp", threshold_pp=0.5),
+        metric_row("Acceptance", cur_ops.get("acceptance_rate"), prev_ops.get("acceptance_rate"), unit="pp", threshold_pp=0.3),
+        metric_row("Bad order rate", cur_ops.get("bad_order_rate"), prev_ops.get("bad_order_rate"), unit="pp", inverted=True, threshold_pp=0.5),
+        metric_row("Failed rate", cur_fail.get("failed_rate_total"), prev_fail.get("failed_rate_total"), unit="pp", inverted=True, threshold_pp=0.3),
+        metric_row("Stores with orders", cur_ops.get("stores_with_orders"), prev_ops.get("stores_with_orders"), threshold_pct=2.0),
+    ]
+
+    improved = [k for k in kpis if k["notable"] and k["good"] is True]
+    worsened = [k for k in kpis if k["notable"] and k["good"] is False]
+
+    # Partner movers (exclude KOPIYKA sub-brands to avoid double-counting the group)
+    pfin_by = defaultdict(dict)
+    for r in partner_fin_weekly:
+        name = r.get("group_name")
+        if not name or name in SUBBRAND_KEYS:
+            continue
+        pfin_by[name][fmt_period(r["period"])] = r
+    pops_by = defaultdict(dict)
+    for r in ops_partners:
+        name = r.get("group_name")
+        if not name or name in SUBBRAND_KEYS:
+            continue
+        pops_by[name][fmt_period(r["period"])] = r
+
+    movers = []
+    for name, by_p in pfin_by.items():
+        if cur_p not in by_p or prev_p not in by_p:
+            continue
+        c, p = by_p[cur_p], by_p[prev_p]
+        g0, g1 = p.get("gmv_eur") or 0, c.get("gmv_eur") or 0
+        if max(g0, g1) < 500:
+            continue
+        ops_c = pops_by.get(name, {}).get(cur_p, {})
+        ops_p = pops_by.get(name, {}).get(prev_p, {})
+        movers.append({
+            "name": name,
+            "owner": OWNER_BY_PARTNER.get(name),
+            "gmv_eur": g1,
+            "gmv_prev": g0,
+            "gmv_wow_pct": _pct(g1, g0),
+            "gmv_delta_eur": g1 - g0,
+            "orders": c.get("orders"),
+            "orders_wow_pct": _pct(c.get("orders"), p.get("orders")),
+            "availability_rate": ops_c.get("availability_rate"),
+            "availability_wow_pp": _pp(ops_c.get("availability_rate"), ops_p.get("availability_rate")),
+            "bad_order_rate": ops_c.get("bad_order_rate"),
+            "demand_incentives_gmv_share": ops_c.get("demand_incentives_gmv_share"),
+        })
+
+    partners_up = sorted(movers, key=lambda x: -(x["gmv_delta_eur"] or 0))[:5]
+    partners_down = sorted(movers, key=lambda x: (x["gmv_delta_eur"] or 0))[:5]
+    partners_down = [p for p in partners_down if (p["gmv_delta_eur"] or 0) < 0][:5]
+
+    def partner_note(row, direction):
+        bits = [f"GMV {_fmt_eur(row['gmv_eur'])} ({_fmt_pct(row['gmv_wow_pct'])} WoW)"]
+        if row.get("orders_wow_pct") is not None:
+            bits.append(f"orders {_fmt_pct(row['orders_wow_pct'])}")
+        if row.get("availability_wow_pp") is not None and abs(row["availability_wow_pp"]) >= 1:
+            bits.append(f"availability {_fmt_pp(row['availability_wow_pp'])}")
+        if direction == "down" and row.get("bad_order_rate") is not None and row["bad_order_rate"] >= 18:
+            bits.append(f"bad rate {row['bad_order_rate']:.1f}%")
+        owner = f" · {row['owner']}" if row.get("owner") else ""
+        return {"name": row["name"], "owner": row.get("owner"), "detail": ", ".join(bits) + owner,
+                "gmv_wow_pct": round(row["gmv_wow_pct"], 1) if row.get("gmv_wow_pct") is not None else None,
+                "gmv_delta_eur": round(row["gmv_delta_eur"], 0) if row.get("gmv_delta_eur") is not None else None}
+
+    partners_up_notes = [partner_note(r, "up") for r in partners_up if (r["gmv_delta_eur"] or 0) > 0]
+    partners_down_notes = [partner_note(r, "down") for r in partners_down]
+
+    # Campaign intensity
+    bolt_share = None
+    bolt_share_prev = None
+    if cur_camp.get("gmv_eur"):
+        bolt_share = (cur_camp.get("bolt_spend_eur") or 0) / cur_camp["gmv_eur"] * 100
+    if prev_camp.get("gmv_eur"):
+        bolt_share_prev = (prev_camp.get("bolt_spend_eur") or 0) / prev_camp["gmv_eur"] * 100
+
+    watchouts = []
+    actions = []
+
+    di = cur_cp.get("demand_incentives_gmv_share")
+    di_prev = prev_cp.get("demand_incentives_gmv_share")
+    di_pp = _pp(di, di_prev)
+    if di is not None and (di >= 6 or (di_pp is not None and di_pp >= 2)):
+        # Who drove incentives if available on partner ops
+        di_movers = []
+        for name, by_p in pops_by.items():
+            c, p = by_p.get(cur_p), by_p.get(prev_p)
+            if not c or not p:
+                continue
+            # approximate spend proxy: share * gmv
+            fin_c = pfin_by.get(name, {}).get(cur_p, {})
+            fin_p = pfin_by.get(name, {}).get(prev_p, {})
+            g1, g0 = fin_c.get("gmv_eur") or 0, fin_p.get("gmv_eur") or 0
+            s1 = (c.get("demand_incentives_gmv_share") or 0) / 100 * g1
+            s0 = (p.get("demand_incentives_gmv_share") or 0) / 100 * g0
+            di_movers.append((name, s1 - s0, s1, c.get("demand_incentives_gmv_share")))
+        di_movers = sorted(di_movers, key=lambda x: -x[1])
+        top = di_movers[0] if di_movers else None
+        detail = f"Demand incentives at {di:.1f}% of GMV ({_fmt_pp(di_pp)} WoW)."
+        if top and top[1] > 0:
+            detail += f" Largest estimated uplift: {top[0]} ({_fmt_eur(top[1])} incremental; {top[3]:.1f}% of partner GMV)."
+        if bolt_share is not None:
+            detail += f" Bolt campaign spend ≈ {bolt_share:.1f}% of GMV ({_fmt_eur(cur_camp.get('bolt_spend_eur'))})."
+        watchouts.append({"title": "Incentive intensity spiked", "detail": detail, "severity": "risk"})
+        actions.append({
+            "title": "Review demand spend concentration",
+            "detail": "Check whether the incentive uplift is converting efficiently and whether spend is over-concentrated in 1–2 partners/campaigns. Tighten or rebalance before next week if CM L2 stays deep negative.",
+            "owner_hint": top[0] if top else "Commercial / Incentives",
+        })
+
+    l2 = cur_cp.get("cp_l2_margin_pct")
+    l2_pp = _pp(l2, prev_cp.get("cp_l2_margin_pct"))
+    if l2 is not None and (l2 <= -5 or (l2_pp is not None and l2_pp <= -2)):
+        watchouts.append({
+            "title": "CP L2 margin deteriorated",
+            "detail": f"CP L2 at {l2:.1f}% ({_fmt_pp(l2_pp)} WoW). Usually tracks incentive/refund pressure — pair with demand-cost review.",
+            "severity": "risk",
+        })
+        actions.append({
+            "title": "Protect unit economics",
+            "detail": "Walk CP L2 bridge for the week (incentives, refunds, courier/CPO). Freeze low-ROI campaigns if L2 remains < −5%.",
+            "owner_hint": "Finance / Commercial",
+        })
+
+    fr = cur_fail.get("failed_rate_total")
+    fr_pp = _pp(fr, prev_fail.get("failed_rate_total"))
+    fb = cur_fail.get("failed_bolt_courier")
+    fb_prev = prev_fail.get("failed_bolt_courier")
+    if fr is not None and (fr >= 7.5 or (fr_pp is not None and fr_pp >= 0.8)):
+        detail = f"Failed rate {fr:.1f}% ({_fmt_pp(fr_pp)} WoW)."
+        if fb is not None and fb_prev is not None:
+            detail += f" Bolt+courier failures {_fmt_num(fb)} vs {_fmt_num(fb_prev)} prior week."
+        watchouts.append({"title": "Failed orders up", "detail": detail, "severity": "warn"})
+        actions.append({
+            "title": "Investigate failed Bolt+courier spike",
+            "detail": "Check courier coverage in top cities and peak hours; compare merchant vs Bolt+courier split.",
+            "owner_hint": "Ops / Courier",
+        })
+
+    bad = cur_ops.get("bad_order_rate")
+    bad_pp = _pp(bad, prev_ops.get("bad_order_rate"))
+    if bad is not None and (bad >= 16 or (bad_pp is not None and bad_pp >= 1)):
+        watchouts.append({
+            "title": "Quality pressure (bad order rate)",
+            "detail": f"Bad order rate {bad:.1f}% ({_fmt_pp(bad_pp)} WoW). Watch partners with high bad rate among GMV droppers.",
+            "severity": "warn",
+        })
+
+    # Partner-specific CTAs for sharp drops
+    for row in partners_down[:3]:
+        if (row.get("gmv_wow_pct") or 0) <= -10 and (row.get("gmv_prev") or 0) >= 800:
+            avail = row.get("availability_wow_pp")
+            detail = f"{row['name']} GMV {_fmt_pct(row['gmv_wow_pct'])} WoW ({_fmt_eur(row['gmv_delta_eur'])})."
+            if avail is not None and avail <= -2:
+                detail += f" Availability also {_fmt_pp(avail)} — likely supply/online hours issue."
+                action_detail = f"Confirm online hours, menu/availability and local demand for {row['name']}."
+            else:
+                action_detail = f"Review demand, assortment and campaign support for {row['name']}."
+            actions.append({
+                "title": f"Follow up: {row['name']}",
+                "detail": action_detail + ((" Owner: " + row["owner"]) if row.get("owner") else ""),
+                "owner_hint": row.get("owner") or row["name"],
+            })
+            watchouts.append({
+                "title": f"{row['name']} soft week",
+                "detail": detail,
+                "severity": "warn",
+            })
+
+    # Headline
+    gmv_wow = _pct(cur_fin.get("gmv_eur"), prev_fin.get("gmv_eur"))
+    orders_wow = _pct(cur_fin.get("orders"), prev_fin.get("orders"))
+    if gmv_wow is not None and gmv_wow >= 8:
+        tone = "strong growth"
+    elif gmv_wow is not None and gmv_wow <= -5:
+        tone = "soft week"
+    else:
+        tone = "mixed week"
+    headline = (
+        f"{_week_range_label(cur_p)}: {tone} — GMV {_fmt_eur(cur_fin.get('gmv_eur'))} "
+        f"({_fmt_pct(gmv_wow)}), orders {_fmt_num(cur_fin.get('orders'))} ({_fmt_pct(orders_wow)})"
+    )
+
+    summary_bits = []
+    if partners_up_notes:
+        top = partners_up_notes[0]
+        summary_bits.append(f"Largest GMV contributor: {top['name']} ({top['detail']}).")
+    if worsened:
+        summary_bits.append("Key pressures: " + ", ".join(w["label"] for w in worsened[:4]) + ".")
+    if improved:
+        summary_bits.append("Improved: " + ", ".join(w["label"] for w in improved[:4]) + ".")
+    summary = " ".join(summary_bits) if summary_bits else "See KPI and partner sections below."
+
+    # Month context: MTD = weeks whose Monday falls in the current month; vs prior full month if available
+    cur_month = cur_p[:7]
+    mtd_rows = [r for r in fin_w if r["period"][:7] == cur_month]
+    mtd_gmv = sum(r.get("gmv_eur") or 0 for r in mtd_rows)
+    mtd_orders = sum(r.get("orders") or 0 for r in mtd_rows)
+    mtd_end = datetime.strptime(cur_p[:10], "%Y-%m-%d")
+    from datetime import timedelta as _td
+    mtd_end_label = (mtd_end + _td(days=6)).strftime("%b %-d")
+    month_name = _month_label(cur_p)
+
+    prior_month_rows = [r for r in overview_fin_monthly if r["period"][:7] < cur_month]
+    prior_month = prior_month_rows[-1] if prior_month_rows else None
+    month_note = (
+        f"{month_name} MTD through {mtd_end_label} (complete weeks only): "
+        f"GMV {_fmt_eur(mtd_gmv)} · orders {_fmt_num(mtd_orders)} across {len(mtd_rows)} week(s)."
+    )
+    if prior_month:
+        # Rough pace: MTD vs same days ratio using prior full month / days — keep simple: vs prior month total as context only
+        month_note += (
+            f" Prior full month ({_month_label(prior_month['period'])}): "
+            f"GMV {_fmt_eur(prior_month.get('gmv_eur'))} · orders {_fmt_num(prior_month.get('orders'))}."
+        )
+
+    # Deduplicate actions by title
+    seen = set()
+    uniq_actions = []
+    for a in actions:
+        if a["title"] in seen:
+            continue
+        seen.add(a["title"])
+        uniq_actions.append(a)
+
+    return {
+        "week_period": cur_p,
+        "week_label": _week_range_label(cur_p),
+        "prior_week_period": prev_p,
+        "prior_week_label": _week_range_label(prev_p),
+        "generated_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
+        "headline": headline,
+        "summary": summary,
+        "kpis": kpis,
+        "improved": [{"title": k["label"], "detail": f"{k['value']} · {k['wow']} WoW", "severity": "good"} for k in improved],
+        "worsened": [{"title": k["label"], "detail": f"{k['value']} · {k['wow']} WoW", "severity": "risk"} for k in worsened],
+        "partners_up": partners_up_notes,
+        "partners_down": partners_down_notes,
+        "watchouts": watchouts[:6],
+        "actions": uniq_actions[:6],
+        "month": {
+            "label": month_name,
+            "mtd_label": f"{month_name} MTD through {mtd_end_label}",
+            "gmv_eur": round(mtd_gmv, 2),
+            "orders": mtd_orders,
+            "weeks_included": len(mtd_rows),
+            "note": month_note,
+        },
+        "campaigns": {
+            "bolt_spend_eur": cur_camp.get("bolt_spend_eur"),
+            "merchant_spend_eur": cur_camp.get("merchant_spend_eur"),
+            "campaigns_discount_eur": cur_camp.get("campaigns_discount_eur"),
+            "bolt_share_pct": round(bolt_share, 2) if bolt_share is not None else None,
+            "bolt_share_wow_pp": round(_pp(bolt_share, bolt_share_prev), 2) if bolt_share is not None and bolt_share_prev is not None else None,
+        },
+    }
+
+
+print("Building weekly insights...")
+weekly_insights = build_weekly_insights()
+if weekly_insights:
+    print(f"  Insights for {weekly_insights['week_label']}: {weekly_insights['headline'][:80]}...")
+else:
+    print("  WARNING: not enough weekly data for insights")
+
 # ======== ASSEMBLE FINAL DATA ========
 DATA = {
     "generated_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
@@ -941,6 +1344,7 @@ DATA = {
     "cities": cities_data,
     "city_list": city_list,
     "active_stores_snapshot": active_stores_data if isinstance(active_stores_data, dict) else {},
+    "weekly_insights": weekly_insights,
 }
 
 # ======== GENERATE HTML ========
