@@ -1606,6 +1606,27 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     });
     html += '</tr>';
 
+    const campOrdPct = (r) => (r && r.orders) ? ((r.campaign_orders || 0) / r.orders * 100) : null;
+    const boltOrdPct = (r) => (r && r.orders) ? ((r.bolt_campaign_orders || 0) / r.orders * 100) : null;
+    const hasOrderShare = last10.some(r => r.orders != null && r.campaign_orders != null);
+    if (hasOrderShare) {
+      html += '<tr><td>Orders on campaigns, %</td>';
+      last10.forEach((r, i) => {
+        const val = campOrdPct(r);
+        const pv = i > 0 ? campOrdPct(last10[i-1]) : null;
+        html += `<td>${val != null ? fmtPct(val, 1) : '—'} ${ppChangeHtml(val, pv)}</td>`;
+      });
+      html += '</tr>';
+
+      html += '<tr><td>Orders on Bolt campaigns, %</td>';
+      last10.forEach((r, i) => {
+        const val = boltOrdPct(r);
+        const pv = i > 0 ? boltOrdPct(last10[i-1]) : null;
+        html += `<td>${val != null ? fmtPct(val, 1) : '—'} ${ppChangeHtml(val, pv)}</td>`;
+      });
+      html += '</tr>';
+    }
+
     if (currentView !== 'overview') {
       const promoStore = (D.item_discount_promo || {})[currentGran] || (D.item_discount_promo || {});
       const promoData = safe(promoStore[currentView]);

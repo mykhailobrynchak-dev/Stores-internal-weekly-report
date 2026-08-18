@@ -101,11 +101,17 @@ def aggregate_campaigns(rows):
     total_discount = sum(r.get("campaigns_discount_eur", 0) or 0 for r in rows)
     total_bolt = sum(r.get("bolt_spend_eur", 0) or 0 for r in rows)
     total_merch = sum(r.get("merchant_spend_eur", 0) or 0 for r in rows)
+    total_orders = sum(r.get("orders", 0) or 0 for r in rows)
+    campaign_orders = sum(r.get("campaign_orders", 0) or 0 for r in rows)
+    bolt_campaign_orders = sum(r.get("bolt_campaign_orders", 0) or 0 for r in rows)
     return {
         "gmv_eur": round(total_gmv, 2),
         "campaigns_discount_eur": round(total_discount, 2),
         "bolt_spend_eur": round(total_bolt, 2),
         "merchant_spend_eur": round(total_merch, 2),
+        "orders": total_orders,
+        "campaign_orders": campaign_orders,
+        "bolt_campaign_orders": bolt_campaign_orders,
     }
 
 
@@ -864,6 +870,8 @@ for city in city_list:
         for gn, rows in campp.items():
             for r in rows:
                 out.append({"group_name": gn, "period": r["period"], "gmv_eur": r.get("gmv_eur"),
+                            "orders": r.get("orders"), "campaign_orders": r.get("campaign_orders"),
+                            "bolt_campaign_orders": r.get("bolt_campaign_orders"),
                             "campaigns_discount_eur": r.get("campaigns_discount_eur"), "bolt_spend_eur": r.get("bolt_spend_eur"),
                             "merchant_spend_eur": r.get("merchant_spend_eur")})
         return out

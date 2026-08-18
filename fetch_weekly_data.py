@@ -213,6 +213,12 @@ def campaign_query(granularity, group_filter=None):
     return f"""
     SELECT
         {group_select}CAST({time_col} AS STRING) as period,
+        COUNT(*) as orders,
+        SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0) + COALESCE(m.bolt_menu_campaign_cost_eur, 0)
+                      + COALESCE(m.provider_delivery_campaign_cost_eur, 0) + COALESCE(m.provider_menu_campaign_cost_eur, 0) > 0
+                 THEN 1 ELSE 0 END) as campaign_orders,
+        SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0) + COALESCE(m.bolt_menu_campaign_cost_eur, 0) > 0
+                 THEN 1 ELSE 0 END) as bolt_campaign_orders,
         ROUND(SUM(m.gmv_eur), 2) as gmv_eur,
         ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
         ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
@@ -607,6 +613,12 @@ def city_campaign_query(granularity, by_partner=False):
     week_filter = f"AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE()) AND CAST(m.order_created_date AS DATE) >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
     return f"""
     SELECT {dim}CAST({time_col} AS STRING) as period,
+        COUNT(*) as orders,
+        SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0) + COALESCE(m.bolt_menu_campaign_cost_eur, 0)
+                      + COALESCE(m.provider_delivery_campaign_cost_eur, 0) + COALESCE(m.provider_menu_campaign_cost_eur, 0) > 0
+                 THEN 1 ELSE 0 END) as campaign_orders,
+        SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0) + COALESCE(m.bolt_menu_campaign_cost_eur, 0) > 0
+                 THEN 1 ELSE 0 END) as bolt_campaign_orders,
         ROUND(SUM(m.gmv_eur), 2) as gmv_eur,
         ROUND(SUM(m.delivery_discount_eur) + SUM(m.menu_discount_eur), 2) as campaigns_discount_eur,
         ROUND(SUM(m.bolt_delivery_campaign_cost_eur) + SUM(m.bolt_menu_campaign_cost_eur), 2) as bolt_spend_eur,
