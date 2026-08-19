@@ -94,26 +94,25 @@
 
     <!-- SECTION 1 -->
     <section class="section">
-      <div class="section-head"><h2>1. Фінанси проти ринку і пірів</h2>
+      <div class="section-head"><h2>1. Фінанси проти ринку</h2>
         <p>Ринок 3P Stores UA ріс кратно; Cafe Rynok — flat-to-down. Active users −31% (1006→691), нові активовані 41→13/міс.</p></div>
       <div class="grid two">
         <div class="card"><h3>GMV Cafe Rynok vs ринок (індекс, Jan=100)</h3><div class="chart-wrap"><canvas id="indexChart"></canvas></div></div>
         <div class="card"><h3>Частка CR серед трекд-партнерів, %</h3><div class="chart-wrap"><canvas id="shareChart"></canvas></div></div>
       </div>
-      <div class="card section"><h3>GMV пірів, € / міс</h3><div class="chart-wrap"><canvas id="peerChart"></canvas></div></div>
       <div class="section"><div class="table-wrap"><table id="finTable"></table></div></div>
     </section>
 
     <!-- SECTION 2 -->
     <section class="section">
-      <div class="section-head"><h2>2. Операційка та unit economics — не корінь падіння</h2>
-        <p>Ops покращились по всіх фронтах. Ризик для видачі — лише падіння повноти меню (SKU availability 87%→75%) і рейтинг −0.23.</p></div>
+      <div class="section-head"><h2>2. Операційка — не корінь падіння</h2>
+        <p>Ops покращились по всіх фронтах. Ризик для видачі — падіння повноти меню (SKU availability 87%→75%) і рейтинг −0.23.</p></div>
       <div class="grid two">
         <div class="card"><h3>Late delivery % та Failed %</h3><div class="chart-wrap short"><canvas id="opsChart"></canvas></div></div>
-        <div class="card"><h3>CP margin % та SKU availability %</h3><div class="chart-wrap short"><canvas id="econChart"></canvas></div></div>
+        <div class="card"><h3>SKU availability %</h3><div class="chart-wrap short"><canvas id="econChart"></canvas></div></div>
       </div>
-      <div class="section"><div class="table-wrap"><table id="peerOpsTable"></table></div>
-        <p class="sub" style="margin-top:8px">Snapshot за липень. CR: найкраща по failed/late/honey, але нижчі availability і rating за HOP HEY.</p></div>
+      <div class="section"><div class="table-wrap"><table id="opsMonthlyTable"></table></div>
+        <p class="sub" style="margin-top:8px">CAFE RYNOK · помісячна динаміка ops-метрик (Jan–Jul).</p></div>
     </section>
 
     <!-- SECTION 3 -->
@@ -179,7 +178,7 @@
     <section class="section">
       <div class="section-head"><h2>5. Вердикт і next steps</h2></div>
       <div class="grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="card"><h3>Хто вони є</h3><p>Сильний Lviv ready-meal / sandwich store-бренд: honey ~63%, добрий acceptance, AOV ~€13, unit economics вийшли в плюс. Не «зламаний» партнер.</p></div>
+        <div class="card"><h3>Хто вони є</h3><p>Сильний Lviv ready-meal / sandwich store-бренд: honey ~63%, добрий acceptance, AOV ~€13. Не «зламаний» партнер.</p></div>
         <div class="card"><h3>У чому проблема</h3><p>Втрата discovery-share на тлі вибуху grocery 3P. Home category reach −55%, гірша позиція в стрічці, менше нових користувачів. Конверсія після показу — ок.</p></div>
         <div class="card"><h3>Чи ростуть</h3><p>Jan–May: спад. Jun–Jul: слабке відновлення GMV (+5% MoM у липні). Тиждень 10 Aug: €6.2k / 452 orders — локальний WoW uptick, ще не тренд.</p></div>
       </div>
@@ -206,7 +205,10 @@
     const ACTIVE_USERS = [1006,934,846,810,688,723,691];
     const ACTIVATED = [41,37,26,23,13,12,13];
     const BOLTPLUS = [19.0,21.2,23.9,23.8,19.6,21.4,21.9];
-    const CAMP_PCT = [7.0,4.4,7.0,5.4,6.1,5.4,9.0];
+    const BOLT_CAMP_GMV = [3.1,3.8,4.1,2.5,1.9,1.9,1.4];
+    const MERCH_CAMP_GMV = [3.9,0.6,2.9,2.9,4.2,3.5,7.5];
+    const CAMP_ORD_PCT = [61.7,60.3,82.3,64.8,63.5,64.5,77.3];
+    const ITEM_DISC = [4.18,1.09,7.61,2.05,5.68,4.94,8.02];
     const MARKET_GMV = [178336,204816,256995,305299,400689,441844,513069];
     const CR_SHARE = [12.44,11.39,8.31,6.67,4.55,4.27,3.91];
 
@@ -224,36 +226,16 @@
     const FEED_IMP = [157,48,4929,6098,5383,5274,6768];
 
     const AVAIL = [93.2,93.8,91.4,94.5,88.2,92.4,93.7];
+    const ACCEPT = [97.7,97.2,96.8,97.4,98.3,98.4,98.9];
+    const RATING = [4.88,4.84,4.79,4.89,4.80,4.71,4.65];
+    const HONEY = [30.2,47.4,56.9,56.4,59.1,61.0,62.8];
+    const BAD = [19.1,11.38,8.86,9.68,6.77,5.74,5.24];
     const LATE_D = [31.4,23.5,20.4,20.3,19.7,14.1,11.6];
+    const LATE_P = [57.3,38.1,27.6,30.5,27.9,28.2,28.2];
+    const DELIV = [36.3,29.5,25.3,25.8,24.5,24.5,23.3];
     const FAILED = [6.28,4.05,3.58,4.56,2.81,2.19,2.47];
     const SKU = [87.4,86.7,89.1,85.6,79.7,76.8,75.1];
-    const CP = [-17.07,-13.92,-10.17,-0.63,-1.01,0.32,0.68];
 
-    const PEER_GMV = {
-      "CAFE RYNOK": GMV,
-      "HOP HEY": [13085,23839,27002,27751,33820,32504,33734],
-      "TAISTRA": [3609,6632,11225,11858,13639,13642,10816],
-      "BEER MARKET": [19455,18616,26963,31673,32641,23718,24057],
-      "LOKO": [16,420,12182,64072,69687,67296,73912],
-    };
-    const PEER_IMP = [
-      ["CAFE RYNOK",135782,79787,-41.2,-21.9],
-      ["HOP HEY",561984,217913,-61.2,138.7],
-      ["BEER MARKET",508587,179274,-64.8,19.0],
-      ["TAISTRA",35206,58298,65.6,209.0],
-      ["KOPIYKA",122416,109656,-10.4,-17.9],
-    ];
-    const PEER_OPS = [
-      ["Availability %","93.7","96.6","85.8","75.3"],
-      ["Acceptance %","98.9","99.6","94.9","88.6"],
-      ["Avg rating","4.65","4.88","4.83","4.86"],
-      ["Honey %","62.8","43.8","32.5","49.4"],
-      ["Bad %","5.2","10.7","10.8","17.4"],
-      ["Late delivery %","11.6","15.6","11.6","12.1"],
-      ["Avg delivery min","23.3","26.3","24.5","24.0"],
-      ["SKU avail %","75.1","77.7","84.9","100"],
-      ["CP margin %","0.7","3.6","−1.8","5.2"],
-    ];
     const INTENT = [
       ["суші (Jun)","1364","2511","19","0","178"],
       ["піца (Jun)","840","1298","29","5","134"],
@@ -291,24 +273,29 @@
       line(MARKET_GMV.map(v=>Math.round(100*v/MARKET_GMV[0])),C.green,'UA 3P Stores GMV'),
     ]},options:opts('Індекс, Jan=100')});
     mk('shareChart',{type:'bar',data:{labels:MONTHS,datasets:[bar(CR_SHARE,C.amber,'GMV share, %')]},options:opts('Частка, %')});
-    mk('peerChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(PEER_GMV["CAFE RYNOK"],C.red,'CAFE RYNOK'),
-      line(PEER_GMV["HOP HEY"],C.blue,'HOP HEY'),
-      line(PEER_GMV["BEER MARKET"],C.amber,'BEER MARKET'),
-      line(PEER_GMV["TAISTRA"],C.muted,'TAISTRA'),
-      line(PEER_GMV["LOKO"],C.green,'LOKO'),
-    ]},options:opts('GMV, €')});
-    tbl('finTable',['Місяць','Orders','GMV €','AOV €','Active users','Activated','Bolt+ %','Camp % GMV'],
-      MONTHS.map((m,i)=>[m,fmtN(ORDERS[i]),fmtN(GMV[i]),(GMV[i]/ORDERS[i]).toFixed(2),fmtN(ACTIVE_USERS[i]),ACTIVATED[i],BOLTPLUS[i].toFixed(1),CAMP_PCT[i].toFixed(1)]));
+    tbl('finTable',[
+      'Місяць','Orders','GMV €','AOV €','Active users','Activated','Bolt+ %',
+      'Bolt camp % GMV','Merchant camp % GMV','Orders on campaigns %','Item Discount Promo %'
+    ], MONTHS.map((m,i)=>[
+      m,fmtN(ORDERS[i]),fmtN(GMV[i]),(GMV[i]/ORDERS[i]).toFixed(2),fmtN(ACTIVE_USERS[i]),ACTIVATED[i],
+      BOLTPLUS[i].toFixed(1),BOLT_CAMP_GMV[i].toFixed(1),MERCH_CAMP_GMV[i].toFixed(1),
+      CAMP_ORD_PCT[i].toFixed(1),ITEM_DISC[i].toFixed(2)
+    ]));
 
     // S2
     mk('opsChart',{type:'line',data:{labels:MONTHS,datasets:[
       line(LATE_D,C.amber,'Late delivery %'), line(FAILED,C.red,'Failed %'),
     ]},options:opts('%')});
     mk('econChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(CP,C.green,'CP margin %'), line(SKU,C.amber,'SKU availability %','y1'),
-    ]},options:opts('CP margin %','SKU %')});
-    tbl('peerOpsTable',['Метрика (Jul)','CAFE RYNOK','HOP HEY','TAISTRA','BEER MARKET'],PEER_OPS);
+      line(SKU,C.amber,'SKU availability %'),
+    ]},options:{...opts('SKU availability %'),scales:{x:{grid:{display:false},title:{display:true,text:'Місяць'}},y:{beginAtZero:false,min:70,max:95,grid:{color:'#e8edea'},title:{display:true,text:'SKU availability %'}}}}});
+    tbl('opsMonthlyTable',[
+      'Місяць','Availability %','Acceptance %','Avg rating','Honey %','Bad %',
+      'Late delivery %','Late pickup %','Avg delivery min','Failed %','SKU avail %','Item Discount Promo %'
+    ], MONTHS.map((m,i)=>[
+      m,AVAIL[i].toFixed(1),ACCEPT[i].toFixed(1),RATING[i].toFixed(2),HONEY[i].toFixed(1),BAD[i].toFixed(2),
+      LATE_D[i].toFixed(1),LATE_P[i].toFixed(1),DELIV[i].toFixed(1),FAILED[i].toFixed(2),SKU[i].toFixed(1),ITEM_DISC[i].toFixed(2)
+    ]));
 
     // S3
     mk('funnelAbsChart',{type:'line',data:{labels:MONTHS,datasets:[
@@ -322,15 +309,6 @@
     ]},options:{...opts('Session impressions'),scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'Місяць'}},y:{stacked:true,beginAtZero:true,title:{display:true,text:'Session impressions'}}}}});
     tbl('funnelTable',['Місяць','Impressions','CTR %','View→Add %','Imp→Order %','Avg row','Brand queries','У топі search'],
       MONTHS.map((m,i)=>[m,fmtN(IMPRESSIONS[i]),CTR[i].toFixed(1),VIEW_TO_ADD[i].toFixed(1),IMP_TO_ORDER[i].toFixed(2),AVG_ROW[i].toFixed(1),BRAND_Q[i],fmtN(SEARCH_TOP[i])]));
-
-    // S3b - peer imp table appended below funnelTable via section
-    const impSection = document.createElement('div');
-    impSection.className = 'section';
-    impSection.innerHTML = '<h3>Impressions Jan→Jul vs піри</h3><div class="table-wrap"><table id="peerImpTable"></table></div>'+
-      '<p class="sub" style="margin-top:8px">У HOP HEY / BEER MARKET impressions теж впали сильніше, але orders виросли (інша модель попиту + кампанії). У CR і покази, і замовлення вниз.</p>';
-    document.getElementById('funnelTable').closest('.section').appendChild(impSection);
-    tbl('peerImpTable',['Partner','Imp Jan','Imp Jul','Imp Δ','Orders Δ'],
-      PEER_IMP.map(r=>[r[0],fmtN(r[1]),fmtN(r[2]),r[3]+'%',r[4]+'%']),true);
 
     // S4
     mk('brandChart',{type:'bar',data:{labels:MONTHS,datasets:[bar(BRAND_Q,C.blue,'Brand query sessions')]},options:opts('Sessions')});
