@@ -130,9 +130,35 @@
       </div></div>
     </section>
 
-    <!-- SECTION 3 -->
+    <!-- SECTION 3 CATEGORIES / PROMO / COMPETITION -->
     <section class="section">
-      <div class="section-head"><h2>3. Операційка — не корінь падіння</h2>
+      <div class="section-head"><h2>3. Категорії, промо-інвестиції та хто забирає попит</h2>
+        <p>Item-level розбір: що продає CR, скільки промо в кожній категорії, чи стали менше вкладати, і куди пішов попит (LOKO / ресторани / пошук).</p></div>
+      <div class="notice">
+        <span class="badge">Key takeaway</span>
+        <span>CR <strong>не</strong> скоротив промо: сумарний discount стабільний, у липні рекордний (€1.9k), промо-глибина по готових стравах виросла 4.2% → 8.6%. Але <strong>Bolt-кофінансування впало у 3 рази</strong> (€965 → €304), а частину бюджету Bolt переніс на LOKO. Просіли саме <strong>бакалія (−41%)</strong> — пряме пересічення з LOKO — і <strong>сендвічі/випічка (−31%)</strong>. Пошукова видимість CR обвалилась: суші/роли 18.5% → 1.6% появ у топі, круасан 18% → 2%.</span>
+      </div>
+      <div class="grid two">
+        <div class="card"><h3>Інвестиції в кампанії: Bolt vs merchant, € / міс</h3><div class="chart-wrap"><canvas id="investChart"></canvas></div>
+          <p class="sub" style="margin-top:8px">Лютий: merchant-спенд майже зник (€154) — саме коли почалось падіння показів. З квітня merchant нарощує, Bolt скорочує.</p></div>
+        <div class="card"><h3>GMV по категоріях CR, € / міс</h3><div class="chart-wrap"><canvas id="catChart"></canvas></div>
+          <p class="sub" style="margin-top:8px">Готові страви тримаються; бакалія й сендвічі просіли з квітня — момент виходу LOKO.</p></div>
+      </div>
+      <div class="section"><h3>Категорії CR: Jan vs Jul (delivered, item-level)</h3><div class="table-wrap"><table id="catTable"></table></div>
+        <p class="sub" style="margin-top:8px">Promo % = item discount / item price before discount. Джерело: dim_basket_item_delivery + single category tree.</p></div>
+      <div class="section"><h3>Пошук у Львові: чи бачать CR у видачі (Jan–Jul)</h3><div class="table-wrap"><table id="searchVisTable"></table></div>
+        <p class="sub" style="margin-top:8px">% пошуків, де CR у топі видачі. «Шашлик» забирають ресторани: SHASHLIKE, Хінкальня, PARRILLA, Домашній ресторанчик, Врубай. «Суші/роли» — суші-ресторани (10k запитів за 7 міс).</p></div>
+      <div class="card section"><div class="insights">
+        <div class="insight risk"><strong>Бакалія → LOKO</strong><span>CR grocery: €5.4k/міс (Jan–Mar) → €3.2k/міс (Jul). LOKO Lviv за Mar–Jul зібрав €27k у Grocery Food + €11k Food. Це той самий кошик «магазин біля дому».</span></div>
+        <div class="insight risk"><strong>Пошукова видимість — головний важіль</strong><span>CR випав з топу видачі з квітня–травня по всіх категорійних термінах. Ймовірна причина — ranking: SKU availability 87→75%, рейтинг −0.23, менші продажі → нижча позиція → ще менші продажі.</span></div>
+        <div class="insight warn"><strong>Bolt переносить бюджет</strong><span>Bolt-спенд на CR: €965 (Mar) → €304 (Jul). LOKO Lviv отримав від Bolt €314 (Apr), €1 277 (Jun), €513 (Aug). Merchant CR компенсує сам: €1 586 у липні — рекорд.</span></div>
+        <div class="insight"><strong>Шашлик — недооцінений</strong><span>Категорія №1 по GMV серед страв (€16.7k за 7 міс), promo 10% у липні, GMV відновився (€3.1k &gt; Jan). Але у пошуку «шашлик» (1.3k запитів) CR у топі лише 0.5–1.5% — попит існує, видимості нема.</span></div>
+      </div></div>
+    </section>
+
+    <!-- SECTION 4 OPS -->
+    <section class="section">
+      <div class="section-head"><h2>4. Операційка — не корінь падіння</h2>
         <p>Ops покращились по всіх фронтах. Ризик для видачі — падіння повноти меню (SKU availability 87%→75%) і рейтинг −0.23.</p></div>
       <div class="grid two">
         <div class="card"><h3>Late delivery % та Failed %</h3><div class="chart-wrap short"><canvas id="opsChart"></canvas></div></div>
@@ -142,9 +168,9 @@
         <p class="sub" style="margin-top:8px">CAFE RYNOK · помісячна динаміка ops-метрик (Jan–Jul).</p></div>
     </section>
 
-    <!-- SECTION 4 -->
+    <!-- SECTION 5 -->
     <section class="section">
-      <div class="section-head"><h2>4. Воронка клієнтів — підтвердження скарги партнера</h2>
+      <div class="section-head"><h2>5. Воронка клієнтів — підтвердження скарги партнера</h2>
         <p>Партнер правий: абсолютні покази впали майже вдвічі; % етапів воронки стабільні. Головний провал — home category показів (−55%), не search.</p></div>
       <div class="grid two">
         <div class="card"><h3>Абсолюти воронки (sessions)</h3><div class="chart-wrap"><canvas id="funnelAbsChart"></canvas></div></div>
@@ -155,9 +181,9 @@
       <div class="section"><div class="table-wrap"><table id="funnelTable"></table></div></div>
     </section>
 
-    <!-- SECTION 5 -->
+    <!-- SECTION 6 -->
     <section class="section">
-      <div class="section-head"><h2>5. Відповіді на питання Cafe Rynok</h2></div>
+      <div class="section-head"><h2>6. Відповіді на питання Cafe Rynok</h2></div>
       <div class="qa">
         <div class="card">
           <h3><span class="qtag">Q1</span> Що впливає на покази і як показуватись у стрічці більше</h3>
@@ -203,7 +229,7 @@
 
     <!-- SECTION 6 -->
     <section class="section">
-      <div class="section-head"><h2>6. Вердикт і next steps</h2></div>
+      <div class="section-head"><h2>7. Вердикт і next steps</h2></div>
       <div class="grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="card"><h3>Хто вони є</h3><p>Сильний Lviv ready-meal / sandwich store-бренд: honey ~63%, добрий acceptance, AOV ~€13. Не «зламаний» партнер.</p></div>
         <div class="card"><h3>У чому проблема</h3><p>Втрата discovery + частки у Львові (56%→39%) на тлі росту інших партнерів і появи LOKO. Паралельно CR на Glovo. Конверсія після показу — ок; AU/new users падають сильніше за місто.</p></div>
@@ -362,6 +388,50 @@
     ]},options:opts('Views','Clicks')});
     mk('bannerPlaceChart',{type:'bar',data:{labels:PLACE_LABELS,datasets:[bar(PLACE_VIEWS,C.green,'Views')]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'Views Jan–Aug'}},y:{grid:{display:false},title:{display:true,text:'Placement'}}}}});
     tbl('bannerTable',['Start','End','Placement','Campaign','Views','Clicks','CTR %','Provider viewed','Ordered'],BANNERS);
+
+    // S3: categories / promo / competition (Databricks item-level, delivered)
+    const INV_BOLT = [788,1004,965,554,360,382,304];
+    const INV_MERCH = [1003,154,692,647,818,700,1586];
+    const CAT_GMV = {
+      'Готові страви (інше)': [11421,10415,10019,14505,12118,9589,10442],
+      'Бакалія/Grocery': [5407,5572,5264,2364,3138,3279,3206],
+      'Сендвічі & випічка': [4179,4738,4412,2784,1100,2897,2863],
+      'Шашлик': [2761,2882,2449,1130,1893,2478,3122],
+      'Суші/роли': [560,875,596,466,821,1103,741],
+    };
+    // [category, GMV Jan, GMV Jul, Δ%, orders 7m, promo Jan %, promo Jul %]
+    const CAT_ROWS = [
+      ['Готові страви (інше)','11 421','10 442','−9%','10 030','5.2','7.6'],
+      ['Бакалія / Grocery','5 407','3 206','−41%','10 066','3.6','4.2'],
+      ['Сендвічі & випічка','4 179','2 863','−31%','4 002','0.0','7.1'],
+      ['Шашлик','2 761','3 122','+13%','3 397','6.2','10.0'],
+      ['Суші/роли','560','741','+32%','1 145','3.3','2.9'],
+      ['Десерти','853','566','−34%','1 587','0.2','0.3'],
+      ['Напої','702','715','+2%','2 057','0.1','2.0'],
+      ['Салати','451','305','−32%','567','8.2','10.7'],
+    ];
+    // [term, searches 7m, CR in top Jan %, CR in top Jul %, who takes it]
+    const SEARCH_VIS = [
+      ['суші / роли','10 009','18.5','2.6','суші-ресторани'],
+      ['круасан','2 768','18.4','2.2','пекарні / кафе'],
+      ['шашлик','1 310','1.9','1.5','SHASHLIKE, Хінкальня, PARRILLA, Врубай'],
+      ['салат','692','~2','~2','ресторани'],
+      ['плов','302','~1','~1','ресторани (Ахалі й ін.)'],
+      ['сендвіч','239','23','23','CR помітний, але запит малий'],
+    ];
+    mk('investChart',{type:'bar',data:{labels:MONTHS,datasets:[
+      {...bar(INV_BOLT,C.blue,'Bolt spend €'),stack:'s'},
+      {...bar(INV_MERCH,C.green,'Merchant spend €'),stack:'s'},
+    ]},options:{...opts('€ / міс'),scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'Місяць'}},y:{stacked:true,beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'€ / міс'}}}}});
+    mk('catChart',{type:'line',data:{labels:MONTHS,datasets:[
+      line(CAT_GMV['Готові страви (інше)'],C.navy,'Готові страви (інше)'),
+      line(CAT_GMV['Бакалія/Grocery'],C.red,'Бакалія/Grocery'),
+      line(CAT_GMV['Сендвічі & випічка'],C.amber,'Сендвічі & випічка'),
+      line(CAT_GMV['Шашлик'],C.green,'Шашлик'),
+      line(CAT_GMV['Суші/роли'],C.blue,'Суші/роли'),
+    ]},options:opts('GMV €, до знижки')});
+    tbl('catTable',['Категорія','GMV Jan €','GMV Jul €','Δ','Orders 7м','Promo Jan %','Promo Jul %'],CAT_ROWS);
+    tbl('searchVisTable',['Запит','Пошуків Jan–Jul (Львів)','CR у топі Jan %','CR у топі Jul %','Хто забирає'],SEARCH_VIS);
 
     // S2
     mk('opsChart',{type:'line',data:{labels:MONTHS,datasets:[
