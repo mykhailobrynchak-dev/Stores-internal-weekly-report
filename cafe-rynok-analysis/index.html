@@ -107,9 +107,32 @@
       <div class="section"><h3>CAFE RYNOK · фінанси</h3><div class="table-wrap"><table id="finTable"></table></div></div>
     </section>
 
-    <!-- SECTION 2 -->
+    <!-- SECTION 2 BANNERS -->
     <section class="section">
-      <div class="section-head"><h2>2. Операційка — не корінь падіння</h2>
+      <div class="section-head"><h2>2. Банери / in-app (з січня)</h2>
+        <p>Усі approved кампанії з назвою CafeRynok / Kaferynok. Джерело: Looker-аналог (<a href="https://bolt.cloud.looker.com/dashboards/11981?Country=Ukraine&Name=cafe+rynok&Vertical=food%2Cmarket&Action+Date=3+month+ago+for+3+month&Timeframe+Picker=Month" target="_blank" rel="noopener">dashboard 11981</a>) · Databricks modal_modal_poll_campaign + session engagement.</p></div>
+      <div class="notice">
+        <span class="badge">Key takeaway</span>
+        <span>Банери <strong>були</strong>, але з лютого по травень — короткі хвилі з малим охопленням (Feb 9.5k / May 2.7k views vs Jan 54k). Popup-модалки дають CTR ~20–23%, але 0 provider view/order. Найкращі: <strong>Sandwiches & rolls</strong> (CTR 2.2%) і in-store banner 2 (CTR до 3.6%). Основний reach — discovery_stores + in-store; home/popup — пікові хвилі в січні й на межі березня/квітня.</span>
+      </div>
+      <div class="grid two">
+        <div class="card"><h3>Views / clicks по місяцях (усі CR банери)</h3><div class="chart-wrap"><canvas id="bannerVolChart"></canvas></div></div>
+        <div class="card"><h3>Де показувались (views Jan–Aug)</h3><div class="chart-wrap"><canvas id="bannerPlaceChart"></canvas></div>
+          <p class="sub" style="margin-top:8px">discovery_stores = вкладка Stores · home = головна · in-store = екран магазину (часто без screen name) · popup = eater modal</p></div>
+      </div>
+      <div class="section"><h3>Усі кампанії Jan–Aug</h3><div class="table-wrap"><table id="bannerTable"></table></div>
+        <p class="sub" style="margin-top:8px">CTR = clicks / views. Ordered — orders from deep banner funnel. * shared modal_id (home+stores FD 700). † same modal as Asian ID15 (clone reuse). Desserts &amp; Drinks — flight стартував 23.08, views ще 0 на дату зрізу.</p></div>
+      <div class="card section"><div class="insights">
+        <div class="insight"><strong>Січень — пік охоплення</strong><span>54k views / 3.5k clicks: FD 700 UAH (home + stores, spillover з грудня) + launch-popup (~12.5k views, CTR 23.5%). Єдиний місяць з «масовим» in-app push.</span></div>
+        <div class="insight warn"><strong>Лютий–травень — дірки в календарі</strong><span>Короткі 3–7 денні flights, часто &lt;3k views на кампанію. Між 22 лютого і 29 березня — майже місяць без банерів. Між 3 і 25 травня — знову пауза (May лише 2.7k views).</span></div>
+        <div class="insight"><strong>Що працює краще</strong><span>Категорійні оффери (Sandwiches & rolls, CTR 2.2%) і in-store banner 2 (CTR до 3.6%) vs стандартні ID%/FBD на discovery_stores (часто &lt;1.5% CTR).</span></div>
+        <div class="insight risk"><strong>Popup ≠ замовлення</strong><span>Два eater modal (січень launch, квітень −20%+FD): ~4.7k кліків сумарно, 0 provider views / orders у deep funnel. Awareness так, volume — ні.</span></div>
+      </div></div>
+    </section>
+
+    <!-- SECTION 3 -->
+    <section class="section">
+      <div class="section-head"><h2>3. Операційка — не корінь падіння</h2>
         <p>Ops покращились по всіх фронтах. Ризик для видачі — падіння повноти меню (SKU availability 87%→75%) і рейтинг −0.23.</p></div>
       <div class="grid two">
         <div class="card"><h3>Late delivery % та Failed %</h3><div class="chart-wrap short"><canvas id="opsChart"></canvas></div></div>
@@ -119,9 +142,9 @@
         <p class="sub" style="margin-top:8px">CAFE RYNOK · помісячна динаміка ops-метрик (Jan–Jul).</p></div>
     </section>
 
-    <!-- SECTION 3 -->
+    <!-- SECTION 4 -->
     <section class="section">
-      <div class="section-head"><h2>3. Воронка клієнтів — підтвердження скарги партнера</h2>
+      <div class="section-head"><h2>4. Воронка клієнтів — підтвердження скарги партнера</h2>
         <p>Партнер правий: абсолютні покази впали майже вдвічі; % етапів воронки стабільні. Головний провал — home category показів (−55%), не search.</p></div>
       <div class="grid two">
         <div class="card"><h3>Абсолюти воронки (sessions)</h3><div class="chart-wrap"><canvas id="funnelAbsChart"></canvas></div></div>
@@ -132,9 +155,9 @@
       <div class="section"><div class="table-wrap"><table id="funnelTable"></table></div></div>
     </section>
 
-    <!-- SECTION 4 -->
+    <!-- SECTION 5 -->
     <section class="section">
-      <div class="section-head"><h2>4. Відповіді на питання Cafe Rynok</h2></div>
+      <div class="section-head"><h2>5. Відповіді на питання Cafe Rynok</h2></div>
       <div class="qa">
         <div class="card">
           <h3><span class="qtag">Q1</span> Що впливає на покази і як показуватись у стрічці більше</h3>
@@ -178,9 +201,9 @@
       </div>
     </section>
 
-    <!-- SECTION 5 -->
+    <!-- SECTION 6 -->
     <section class="section">
-      <div class="section-head"><h2>5. Вердикт і next steps</h2></div>
+      <div class="section-head"><h2>6. Вердикт і next steps</h2></div>
       <div class="grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="card"><h3>Хто вони є</h3><p>Сильний Lviv ready-meal / sandwich store-бренд: honey ~63%, добрий acceptance, AOV ~€13. Не «зламаний» партнер.</p></div>
         <div class="card"><h3>У чому проблема</h3><p>Втрата discovery + частки у Львові (56%→39%) на тлі росту інших партнерів і появи LOKO. Паралельно CR на Glovo. Конверсія після показу — ок; AU/new users падають сильніше за місто.</p></div>
@@ -294,6 +317,49 @@
       BOLTPLUS[i].toFixed(1),BOLT_CAMP_GMV[i].toFixed(1),
       CAMP_ORD_PCT[i].toFixed(1),ITEM_DISC[i].toFixed(2),CR_LVIV_SHARE[i].toFixed(1)
     ]));
+
+    // Banner data (Databricks · Looker 11981 analogue · approved CafeRynok/Kaferynok)
+    const BANNER_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"];
+    const BANNER_VIEWS = [54215,9530,6869,21131,2719,17174,10645,30387];
+    const BANNER_CLICKS = [3481,130,78,1923,50,288,239,468];
+    // Jan–Aug views by screen (unknown ≈ in-store / provider)
+    const PLACE_LABELS = ["discovery_stores","in-store","home","popup (eater modal)"];
+    const PLACE_VIEWS = [65783,38521,27434,20932];
+    const BANNERS = [
+      ["2025-11-30","2026-01-04","home","Rukavychka & CafeRynok FD if 700UAH",fmtN(126818),fmtN(447),"0.35",fmtN(160),"18"],
+      ["2025-12-01","2026-01-25","home","CafeRynok FD if 700UAH (Home tab)",fmtN(7544),fmtN(108),"1.43","307*","30*"],
+      ["2025-12-01","2026-01-25","discovery_stores","CafeRynok FD if 700UAH (stores tab)",fmtN(38579),fmtN(584),"1.51","307*","30*"],
+      ["2026-01-19","2026-01-25","popup","UA · Kaferynok Launch (eater modal)",fmtN(12540),fmtN(2948),"23.51","0","0"],
+      ["2026-02-02","2026-02-08","discovery_stores","UA Caferynok ID15 FBD100",fmtN(2302),"23","1.00","8","0"],
+      ["2026-02-08","2026-02-12","discovery_stores","UA Caferynok ID10 FBD100 (stores tab)",fmtN(1967),"35","1.78","25","1"],
+      ["2026-02-12","2026-02-15","discovery_stores","UA Caferynok ID10 FBD100",fmtN(1534),"33","2.15","16","0"],
+      ["2026-02-18","2026-02-22","discovery_stores","UA Caferynok ID 10 (store tab)",fmtN(1531),"28","1.83","10","1"],
+      ["2026-03-29","2026-04-05","home / stores","UA Caferynok FBD",fmtN(11321),fmtN(122),"1.08","50","2"],
+      ["2026-03-30","2026-04-05","popup","Kaferynok −20% + FD 100 (eater modal)",fmtN(8689),fmtN(1788),"20.58","0","0"],
+      ["2026-04-05","2026-04-19","discovery_stores","UA Caferynok ID20 FBD75 MOV600",fmtN(5420),"48","0.89","26","3"],
+      ["2026-04-19","2026-04-26","discovery_stores","UA Caferynok Sandwiches ID20 FBD75 MOV600",fmtN(3152),"25","0.79","11","0"],
+      ["2026-04-26","2026-05-03","discovery_stores","UA Caferynok Asian ID15 FBD75 MOV600",fmtN(2430),"49","2.02","31","1"],
+      ["2026-05-25","2026-05-31","discovery_stores","UA Caferynok FBD75 MOV600",fmtN(1742),"21","1.21","31†","1†"],
+      ["2026-06-14","2026-06-28","discovery_stores","UA Caferynok Sandwiches & rolls",fmtN(6794),fmtN(148),"2.18","74","1"],
+      ["2026-06-30","2026-07-12","discovery_stores","UA Caferynok Store tab ID20 FBD75","896","15","1.67","5","0"],
+      ["2026-07-12","2026-07-26","discovery_stores","UA Caferynok Store tab ID15 FBD75",fmtN(1395),"18","1.29","8","0"],
+      ["2026-07-14","2026-07-31","in-store","CafeRynok store banner 1",fmtN(9219),fmtN(137),"1.49","5","1"],
+      ["2026-07-14","2026-07-31","in-store","CafeRynok store banner 2",fmtN(8107),fmtN(171),"2.11","3","1"],
+      ["2026-07-27","2026-08-09","discovery_stores","UA Caferynok Stores Tab ID20 FBD75",fmtN(7850),"42","0.54","25","2"],
+      ["2026-07-28","2026-08-09","in-store","CafeRynok internal store banner 1",fmtN(3237),"32","0.99","0","0"],
+      ["2026-07-29","2026-08-09","in-store","CafeRynok internal store banner 2",fmtN(5160),fmtN(183),"3.55","1","0"],
+      ["2026-08-09","2026-08-23","discovery_stores","UA Caferynok Stores Tab ID15 FBD75",fmtN(3208),"50","1.56","31","0"],
+      ["2026-08-09","2026-08-23","in-store","CafeRynok internal store banner 1 10–23.08",fmtN(4963),"28","0.56","0","0"],
+      ["2026-08-09","2026-08-23","in-store","CafeRynok internal store banner 2 10–23.08",fmtN(7538),fmtN(180),"2.39","1","0"],
+      ["2026-08-23","2026-09-06","discovery_stores","UA Caferynok Stores Tab ID15 Desserts & Drinks FBD75","0","0","—","0","0"],
+    ];
+
+    mk('bannerVolChart',{type:'bar',data:{labels:BANNER_MONTHS,datasets:[
+      bar(BANNER_VIEWS,C.blue,'Views'),
+      {label:'Clicks',data:BANNER_CLICKS,type:'line',borderColor:C.amber,backgroundColor:C.amber,tension:.25,pointRadius:3,yAxisID:'y1',borderWidth:2},
+    ]},options:opts('Views','Clicks')});
+    mk('bannerPlaceChart',{type:'bar',data:{labels:PLACE_LABELS,datasets:[bar(PLACE_VIEWS,C.green,'Views')]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'Views Jan–Aug'}},y:{grid:{display:false},title:{display:true,text:'Placement'}}}}});
+    tbl('bannerTable',['Start','End','Placement','Campaign','Views','Clicks','CTR %','Provider viewed','Ordered'],BANNERS);
 
     // S2
     mk('opsChart',{type:'line',data:{labels:MONTHS,datasets:[
