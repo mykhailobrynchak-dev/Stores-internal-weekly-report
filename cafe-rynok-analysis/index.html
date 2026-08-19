@@ -82,7 +82,7 @@
 
     <div class="notice">
       <span class="badge">Discovery problem</span>
-      <span>Проблема не в конверсії чи операційці — у <strong>показах</strong>. Impressions −41% (Jan→Jul), частки воронки стабільні/кращі; GMV −18% при рості ринку 3P Stores ×2.9. Частка серед трекд-партнерів: 12.4% → 3.9%.</span>
+      <span>Проблема не в конверсії чи операційці — у <strong>показах і частці Львова</strong>. Impressions −41%, GMV −18% при рості Lviv Stores +17%. Частка CR у місті: 56% → 39%. Паралельно — LOKO з березня і CR на Glovo.</span>
     </div>
 
     <div class="grid kpis">
@@ -94,13 +94,20 @@
 
     <!-- SECTION 1 -->
     <section class="section">
-      <div class="section-head"><h2>1. Фінанси проти ринку</h2>
-        <p>Ринок 3P Stores UA ріс кратно; Cafe Rynok — flat-to-down. Active users −31% (1006→691), нові активовані 41→13/міс.</p></div>
+      <div class="section-head"><h2>1. Фінанси + контекст Львова</h2>
+        <p>Спад CR — <strong>не загальноміський</strong>: Lviv 3P Stores GMV Jan→Jul <strong>+17%</strong>, а CR −18%. Active users міста −6%, у CR −31%. Паралельно з’явився LOKO (з березня) і CR є на Glovo — додатковий канал, який може каннібалізувати Bolt-об’єм.</p></div>
       <div class="grid two">
-        <div class="card"><h3>GMV Cafe Rynok vs ринок (індекс, Jan=100)</h3><div class="chart-wrap"><canvas id="indexChart"></canvas></div></div>
-        <div class="card"><h3>Частка CR серед трекд-партнерів, %</h3><div class="chart-wrap"><canvas id="shareChart"></canvas></div></div>
+        <div class="card"><h3>GMV індекс (Jan=100): CR vs Lviv Stores vs Lviv без CR</h3><div class="chart-wrap"><canvas id="indexChart"></canvas></div></div>
+        <div class="card"><h3>Active / new users: CR vs Lviv Stores</h3><div class="chart-wrap"><canvas id="usersChart"></canvas></div></div>
       </div>
-      <div class="section"><div class="table-wrap"><table id="finTable"></table></div></div>
+      <div class="notice" style="margin-top:16px">
+        <span class="badge">Lviv context</span>
+        <span>Частка CR у Lviv Stores GMV: <strong>56% → 39%</strong>. GMV інших партнерів у місті: €20k → €33k (+62%). LOKO увійшов у березні й у липні вже €8.3k. CR також доступний на <a href="https://glovoapp.com/uk/ua/lviv/stores/kafe-rinok-lvi" target="_blank" rel="noopener">Glovo · Львів</a> — частина попиту могла піти туди, а не тільки «пропасти».</span>
+      </div>
+      <div class="section"><h3>CAFE RYNOK · фінанси</h3><div class="table-wrap"><table id="finTable"></table></div></div>
+      <div class="section"><h3>Топ партнери Львова (3P Stores) · GMV €</h3><div class="table-wrap"><table id="lvivPartnersTable"></table></div>
+        <p class="sub" style="margin-top:8px">RUKAVYCHKA теж просів (як grocery). Alcohol / craft (BEER MARKET, REMESLO, HALYTSKYI KUKHOL) — стабільні/зростали. MEALTIME з’явився в червні.</p></div>
+      <div class="section"><h3>Lviv Stores · місто загалом</h3><div class="table-wrap"><table id="lvivCityTable"></table></div></div>
     </section>
 
     <!-- SECTION 2 -->
@@ -179,7 +186,7 @@
       <div class="section-head"><h2>5. Вердикт і next steps</h2></div>
       <div class="grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="card"><h3>Хто вони є</h3><p>Сильний Lviv ready-meal / sandwich store-бренд: honey ~63%, добрий acceptance, AOV ~€13. Не «зламаний» партнер.</p></div>
-        <div class="card"><h3>У чому проблема</h3><p>Втрата discovery-share на тлі вибуху grocery 3P. Home category reach −55%, гірша позиція в стрічці, менше нових користувачів. Конверсія після показу — ок.</p></div>
+        <div class="card"><h3>У чому проблема</h3><p>Втрата discovery + частки у Львові (56%→39%) на тлі росту інших партнерів і появи LOKO. Паралельно CR на Glovo. Конверсія після показу — ок; AU/new users падають сильніше за місто.</p></div>
         <div class="card"><h3>Чи ростуть</h3><p>Jan–May: спад. Jun–Jul: слабке відновлення GMV (+5% MoM у липні). Тиждень 10 Aug: €6.2k / 452 orders — локальний WoW uptick, ще не тренд.</p></div>
       </div>
       <div class="card section"><div class="insights">
@@ -209,8 +216,22 @@
     const MERCH_CAMP_GMV = [3.9,0.6,2.9,2.9,4.2,3.5,7.5];
     const CAMP_ORD_PCT = [61.7,60.3,82.3,64.8,63.5,64.5,77.3];
     const ITEM_DISC = [4.18,1.09,7.61,2.05,5.68,4.94,8.02];
-    const MARKET_GMV = [178336,204816,256995,305299,400689,441844,513069];
-    const CR_SHARE = [12.44,11.39,8.31,6.67,4.55,4.27,3.91];
+    const LVIV_GMV = [45648,51730,53050,50712,51798,57090,53604];
+    const LVIV_ORDERS = [3602,3975,3930,3766,3941,4214,4041];
+    const LVIV_AU = [1942,1973,1842,1821,1800,1874,1815];
+    const LVIV_NEW = [116,111,104,93,87,122,114];
+    const LVIV_EXCL_CR_GMV = [20054,25255,29276,28500,32398,37074,32511];
+    const CR_LVIV_SHARE = [56.1,51.2,44.8,43.8,37.5,35.1,39.3];
+
+    const LVIV_PARTNERS = {
+      "CAFE RYNOK": [25594,26475,23774,22212,19400,20016,21093],
+      "LOKO": [0,0,1697,6179,6267,9283,8332],
+      "RUKAVYCHKA": [11110,14358,14164,10371,12157,11102,7476],
+      "BEER MARKET": [2334,2054,3212,3471,4357,2635,3113],
+      "REMESLO BREWERY": [1743,2393,2640,2238,2250,3535,2645],
+      "HALYTSKYI KUKHOL": [1168,1956,1694,1412,1738,1726,2161],
+      "MEALTIME": [0,0,0,0,0,1777,1334],
+    };
 
     const IMPRESSIONS = [135782,115751,84606,86677,79786,77587,79787];
     const VIEWED = [12490,10722,8106,8877,7223,7225,7162];
@@ -269,18 +290,32 @@
 
     // S1
     mk('indexChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(GMV.map(v=>Math.round(100*v/GMV[0])),C.red,'Cafe Rynok GMV'),
-      line(MARKET_GMV.map(v=>Math.round(100*v/MARKET_GMV[0])),C.green,'UA 3P Stores GMV'),
+      line(GMV.map(v=>Math.round(100*v/GMV[0])),C.red,'Cafe Rynok'),
+      line(LVIV_GMV.map(v=>Math.round(100*v/LVIV_GMV[0])),C.green,'Lviv Stores total'),
+      line(LVIV_EXCL_CR_GMV.map(v=>Math.round(100*v/LVIV_EXCL_CR_GMV[0])),C.blue,'Lviv without CR'),
     ]},options:opts('Індекс, Jan=100')});
-    mk('shareChart',{type:'bar',data:{labels:MONTHS,datasets:[bar(CR_SHARE,C.amber,'GMV share, %')]},options:opts('Частка, %')});
+    mk('usersChart',{type:'line',data:{labels:MONTHS,datasets:[
+      line(ACTIVE_USERS,C.red,'CR active users'),
+      line(LVIV_AU,C.green,'Lviv active users'),
+      line(ACTIVATED,C.amber,'CR new activated','y1'),
+      line(LVIV_NEW,C.blue,'Lviv new activated','y1'),
+    ]},options:opts('Active users','New activated / міс')});
     tbl('finTable',[
       'Місяць','Orders','GMV €','AOV €','Active users','Activated','Bolt+ %',
-      'Bolt camp % GMV','Merchant camp % GMV','Orders on campaigns %','Item Discount Promo %'
+      'Bolt camp % GMV','Merchant camp % GMV','Orders on campaigns %','Item Discount Promo %','CR share of Lviv %'
     ], MONTHS.map((m,i)=>[
       m,fmtN(ORDERS[i]),fmtN(GMV[i]),(GMV[i]/ORDERS[i]).toFixed(2),fmtN(ACTIVE_USERS[i]),ACTIVATED[i],
       BOLTPLUS[i].toFixed(1),BOLT_CAMP_GMV[i].toFixed(1),MERCH_CAMP_GMV[i].toFixed(1),
-      CAMP_ORD_PCT[i].toFixed(1),ITEM_DISC[i].toFixed(2)
+      CAMP_ORD_PCT[i].toFixed(1),ITEM_DISC[i].toFixed(2),CR_LVIV_SHARE[i].toFixed(1)
     ]));
+    tbl('lvivPartnersTable',['Partner',...MONTHS,'Jul vs Jan'],
+      Object.entries(LVIV_PARTNERS).map(([name,vals])=>{
+        const base=vals.find(v=>v>0)||1;
+        const chg=vals[0]>0 ? ((vals[6]/vals[0]-1)*100) : null;
+        return [name, ...vals.map(fmtN), chg==null ? 'new' : ((chg>=0?'+':'')+chg.toFixed(0)+'%')];
+      }));
+    tbl('lvivCityTable',['Місяць','Orders','GMV €','Active users','New activated','CR GMV share %'],
+      MONTHS.map((m,i)=>[m,fmtN(LVIV_ORDERS[i]),fmtN(LVIV_GMV[i]),fmtN(LVIV_AU[i]),LVIV_NEW[i],CR_LVIV_SHARE[i].toFixed(1)]));
 
     // S2
     mk('opsChart',{type:'line',data:{labels:MONTHS,datasets:[
