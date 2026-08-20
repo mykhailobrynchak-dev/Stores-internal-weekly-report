@@ -105,6 +105,7 @@
 
     <nav class="tabs" id="mainTabs" aria-label="Розділи звіту">
       <button class="tab active" data-pane="report">Звіт</button>
+      <button class="tab" data-pane="ceo">MOV 400 · для ЦО</button>
       <button class="tab" data-pane="pitch" data-brand="VARUS">VARUS</button>
       <button class="tab" data-pane="pitch" data-brand="LOKO">LOKO</button>
       <button class="tab" data-pane="pitch" data-brand="HOP HEY">HOP HEY</button>
@@ -349,6 +350,82 @@
       <div id="pitchRoot"></div>
     </div>
 
+    <div id="pane-ceo" class="pane">
+      <div class="notice green">
+        <span class="badge green">Пропозиція</span>
+        <span>Знизити MOV для інтегрованих партнерів <strong>500 → 400 грн</strong>. Ціна питання — <strong>51,9 тис. грн SOF на місяць</strong> (4% усіх клієнтських зборів у Stores). Вигода — 3 907 замовлень/міс виходять із зони штрафу, а партнери, які вже живуть на MOV ≤400, дають <strong>+68% частоти при тому самому чеку</strong>.</span>
+      </div>
+
+      <div class="section-head">
+        <h2>MOV 400 замість 500: докази</h2>
+        <p>Для ген. директора і ЦО. Дані: UA 3P Stores, delivered, липень 2026 (когорти — Jan–Jul). Порівнюємо два наявні тарифи MOV і той, що пропонується.</p>
+      </div>
+
+      <div class="grid kpis">
+        <div class="card kpi"><div><div class="kpi-label">Ціна зміни / міс</div><div class="kpi-value" style="font-size:24px">51,9 тис. грн</div></div><div class="sub">SOF у смузі 400–500 в інтегрованих · 4,1% зборів Stores</div></div>
+        <div class="card kpi"><div><div class="kpi-label">Замовлень виходить зі штрафу</div><div class="kpi-value good">3 907</div></div><div class="sub">14,4% обсягу інтегрованих, щомісяця</div></div>
+        <div class="card kpi"><div><div class="kpi-label">Частота на MOV ≤400</div><div class="kpi-value good">3,47</div></div><div class="sub">проти 2,07 на MOV 500–560 · +68%</div></div>
+        <div class="card kpi"><div><div class="kpi-label">Медіанний чек при цьому</div><div class="kpi-value">585 грн</div></div><div class="sub">проти 575 грн на MOV 500–560 — не падає</div></div>
+      </div>
+
+      <div class="notice red" style="margin-top:16px">
+        <span class="badge red">Доказ №1</span>
+        <span>Смуга 400–500 грн — це <strong>штраф майже виключно для інтегрованих</strong>. У липні вони зібрали там 51 865 грн SOF, неінтегровані (MOV 350) — <strong>190 грн</strong>. Тобто різниця у 273 рази створена не поведінкою клієнта, а порогом.</span>
+      </div>
+
+      <div class="section"><h3>Два тарифи MOV у Stores · липень 2026</h3>
+        <div class="table-wrap" style="max-height:none"><table id="ceoSegTable"></table></div>
+        <p class="sub" style="margin-top:8px">Тариф підтверджений емпірично: у неінтегрованих SOF зникає рівно на 350 грн, в інтегрованих тримається до 500+. Інтегровані — 69% обсягу Stores, тобто зміна стосується основної частини вертикалі.</p></div>
+
+      <div class="grid two section">
+        <div class="card"><h3>Клієнтські збори за розміром кошика, липень, грн</h3><div class="chart-wrap"><canvas id="ceoBandChart"></canvas></div>
+          <p class="sub" style="margin-top:8px">Смуга 400–500 (виділена) — 5 836 замовлень, 14,8% обсягу. Клієнт платить у ній ~39 грн, безкоштовну доставку має лише 18–20%.</p></div>
+        <div class="card"><h3>Розподіл кошиків: де сидить попит, шт (Май–Лип)</h3><div class="chart-wrap"><canvas id="ceoBunchChart"></canvas></div>
+          <p class="sub" style="margin-top:8px">В інтегрованих мода кошика — 390–420 грн, тобто <strong>основна маса попиту стоїть саме під порогом 500</strong>. У неінтегрованих (MOV 350) мода 300–350. Поріг формує кошик, а не навпаки.</p></div>
+      </div>
+
+      <div class="section"><h3>Доказ №2 · натуральний експеримент: партнери з різним MOV</h3>
+        <div class="table-wrap" style="max-height:none"><table id="ceoTierTable"></table></div>
+        <p class="sub" style="margin-top:8px">Партнери з явно налаштованим MOV (168 точок, Jan–Jul). Головне: MOV ≤400 дає 3,47 замовлення на юзера проти 2,07–2,12, при практично однаковому медіанному чеку. GMV на користувача — 2 360 грн проти 1 418 грн (+66%).</p></div>
+
+      <div class="card section"><div class="insights">
+        <div class="insight"><strong>Нижчий MOV не знижує чек — він піднімає частоту</strong><span>AOV 680 грн на MOV ≤400 проти 685 грн на MOV 500–560. Медіана 585 проти 575. Різниця в частоті: 3,47 проти 2,07. Тобто клієнт не «дрібнить кошик», він просто замовляє частіше.</span></div>
+        <div class="insight"><strong>Точка беззбитковості вдвічі нижча за наявний розрив</strong><span>Щоб відбити 51,9 тис. грн SOF лише клієнтськими зборами, треба +1 316 замовлень/міс у смузі — це +34% до 3 907. Розрив частоти між когортами +64–68%. Комісія з GMV у цей розрахунок не включена — це запас.</span></div>
+        <div class="insight warn"><strong>Штраф частішає там, де кошик більший</strong><span>Інтегровані мають AOV 708 грн і платять SOF у 19,4% замовлень. Неінтегровані — AOV 569 грн і 15,1%. Вищий поріг карає клієнта з дорожчим кошиком — це контрінтуїтивно і працює проти вертикалі.</span></div>
+        <div class="insight risk"><strong>Чесне обмеження цих даних</strong><span>Порівняння когорт — кореляція, не A/B: партнери, які вибрали MOV ≤400, можуть відрізнятися категорією і щільністю мережі. Тому просимо не «розкатати одразу», а пілот (нижче).</span></div>
+      </div></div>
+
+      <div class="qa section">
+        <div class="card">
+          <h3><span class="qtag">Ask</span> Що просимо в ЦО</h3>
+          <p class="lead">Пілот MOV 400 для інтегрованих Stores у 2–3 містах на 6–8 тижнів, з контрольною групою.</p>
+          <div class="lbl">Умови пілоту:</div>
+          <ul>
+            <li>Тест: інтегровані партнери MOV 500 → 400. Контроль: решта міст без змін</li>
+            <li>Не чіпати тариф 350 у неінтегрованих — він уже працює як цільова модель</li>
+            <li>Бюджет ризику обмежений: 51,9 тис. грн/міс на всю країну, у пілоті — частка від цього</li>
+          </ul>
+          <div class="lbl">Успіх = будь-що з цього:</div>
+          <ul>
+            <li>Частота в тест-групі +15% і більше (проти когортного розриву +64–68%)</li>
+            <li>Замовлень у смузі 400–500 більше на +34% (точка беззбитковості по зборах)</li>
+            <li>Медіанний чек не падає нижче −5% — головний ризик, який треба спостерігати</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3><span class="qtag">Увага</span> Не плутати два різні пороги</h3>
+          <p class="lead">У Stores діють два незалежні механізми, і в обговоренні їх часто змішують.</p>
+          <p><strong>MOV 350 / 500</strong> — мінімальний кошик; нижче нього клієнт платить small order fee. Саме його пропонуємо змінити на 400.</p>
+          <p><strong>Безкоштовна доставка від 600 грн</strong> — окреме звільнення від плати за доставку, доступне всім. Воно не є перевагою Bolt+ і в цій пропозиції не змінюється.</p>
+          <p class="sub">Побічний ефект для Bolt+: якщо MOV для інтегрованих стане 400, різниця між підпискою і базовими умовами знову звужується. Тому цільова конструкція — MOV 400 для всіх і 350 для Bolt+, як уже діє в підключених до програми партнерів.</p>
+        </div>
+      </div>
+
+      <div class="section"><h3>Динаміка смуги 400–500 грн</h3>
+        <div class="table-wrap" style="max-height:none"><table id="ceoTrendTable"></table></div>
+        <p class="sub" style="margin-top:8px">Смуга росте в абсолюті (3 065 → 5 836 замовлень), але її частка падає (19,9% → 14,8%) — кошики загалом зростають. Водночас SOF, зібраний у смузі, виріс у 7 разів (7,1 тис. → 52,1 тис. грн): штраф стає дорожчим саме там, де попит найгустіший.</p></div>
+    </div>
+
     <footer>
       Author: Yuliia Nikolaieva · Scope: Ukraine 3P Stores (delivery_vertical = store_3p_ent / store_3p_mm_smb / store_unclassified), order_state = delivered, Jan–Jul 2026.
       Sources: Databricks — main.ng_delivery.fact_order_delivery (is_bolt_plus_order, order_gmv, delivery_price_after_discount, small_order_fee),
@@ -356,6 +433,8 @@
       Обмеження: прапорець is_bolt_plus_order позначає замовлення підписника, а не факт застосування вигоди; статус підключення партнера — поточний знімок dim_provider_v2,
       тому історія підключень до серпня 2026 відтворена приблизно. Monetary values in UAH, order_gmv без вартості доставки.
       База знань (ціна 199 грн, перший місяць безкоштовно, FD Food від 249 грн / кап 100 грн, кешбек 5–10%): публічний запуск Bolt Plus в Україні, липень 2025. Умови Stores (MOV партнера, enrollment) — з dim_provider_v2.
+      Вкладка MOV 400: тарифи ідентифіковані через is_integrated_provider і підтверджені емпірично по точці зникнення small_order_fee (350 грн у неінтегрованих, 500+ в інтегрованих).
+      Порівняння когорт MOV — кореляційне (168 партнерів з явно налаштованим min_order_value), не A/B; можливий селекційний зсув за категорією та щільністю мережі.
     </footer>
   </main>
 
@@ -672,6 +751,36 @@
       },
     };
 
+    // ---- MOV 400 case (CEO tab) · UA Stores, Jul 2026 unless stated
+    // seg, orders, users, providers, aov, pct400_500, bandOrders, bandSof, pctPayingSof, gmv
+    const CEO_SEG = [
+      ["Інтегровані · MOV 500",27103,11815,685,708,14.4,3907,51865,19.4,19179665],
+      ["Неінтегровані · MOV 350",12196,5041,631,569,15.8,1929,190,15.1,6935688],
+    ];
+    // tier, orders, users, opu, aov, median, pctSof, avgClientCost, pctFreeDf, pctBelow400, pct400_500
+    const CEO_TIER = [
+      ["MOV ≤400",20089,5795,3.47,680,585,16.6,28.3,44.2,13.0,22.5],
+      ["MOV 500–560",725,351,2.07,685,575,35.7,29.7,85.0,26.1,13.7],
+      ["MOV 590+",17851,8440,2.12,795,630,42.1,37.6,80.3,24.8,11.7],
+    ];
+    // band, orders, pctOfAll, sof, df, avgClientCost, pctFreeDf, aov
+    const CEO_BANDS = [
+      ["<350",8135,20.7,175833,208212,47.2,18.7,274],
+      ["350–400",3052,7.8,31017,88312,39.1,18.2,375],
+      ["400–450",3084,7.8,32739,91137,40.2,20.4,424],
+      ["450–500",2752,7.0,19317,86899,38.6,17.9,475],
+      ["500–550",2458,6.3,16752,76072,37.8,20.8,524],
+      ["550–600",2255,5.7,15539,60545,33.7,33.0,576],
+      ["600+",17563,44.7,33652,326109,20.5,55.1,999],
+    ];
+    const CEO_BINS = [];
+    for (let v=280; v<=610; v+=10) CEO_BINS.push(v);
+    const CEO_BUNCH_INT = [911,951,964,996,910,918,950,967,1007,1033,1138,1212,1128,1276,1185,1007,1095,1006,1048,1048,1059,1037,991,964,961,918,908,818,887,863,862,1014,866,843];
+    const CEO_BUNCH_NON = [540,763,765,747,785,799,726,786,718,620,670,698,622,691,629,640,595,593,605,620,563,593,537,545,490,445,429,445,472,447,452,438,407,431];
+    const CEO_BAND_ORDERS = [3065,4035,4852,4775,5884,5320,5836];
+    const CEO_BAND_SOF    = [7110,27921,28292,13141,25504,46360,52055];
+    const CEO_BAND_USERS  = [2191,2739,3107,3218,3970,3653,3856];
+
     const fmtN = v => new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(v);
     const fmt1 = v => new Intl.NumberFormat('uk-UA',{minimumFractionDigits:1,maximumFractionDigits:1}).format(v);
     const C = { green:'#2f7d5b', red:'#b34646', amber:'#9b6a17', blue:'#3f68a7', muted:'#98a6a0', navy:'#19342a' };
@@ -834,6 +943,48 @@
     // ---- S6
     tbl('kpiTable',['Метрика','База (Jul 2026)','Ціль'],TARGET_KPI);
 
+    let ceoDrawn = false;
+    function renderCeo(){
+      tbl('ceoSegTable',
+        ['Тариф','Замовлень Jul','Юзерів','Точок','AOV, грн','GMV Jul, грн','Замовлень 400–500','SOF у смузі, грн','% замовлень зі SOF'],
+        CEO_SEG.map(s=>[s[0],fmtN(s[1]),fmtN(s[2]),fmtN(s[3]),fmtN(s[4]),fmtN(s[9]),
+          fmtN(s[6])+' ('+fmt1(s[5])+'%)',fmtN(s[7]),fmt1(s[8])+'%']),
+        ['bad','good']);
+
+      tbl('ceoTierTable',
+        ['Тариф партнера','Замовлень','Юзерів','Зам./юзер','GMV/юзер, грн','AOV, грн','Медіана, грн','% зі SOF','Витрати клієнта, грн','% нульової доставки','% кошиків <400','% кошиків 400–500'],
+        CEO_TIER.map(t=>[t[0],fmtN(t[1]),fmtN(t[2]),t[3].toFixed(2),fmtN(Math.round(t[3]*t[4])),fmtN(t[4]),fmtN(t[5]),
+          fmt1(t[6])+'%',fmt1(t[7]),fmt1(t[8])+'%',fmt1(t[9])+'%',fmt1(t[10])+'%']),
+        ['good','bad','']);
+
+      tbl('ceoTrendTable',
+        ['Місяць','Замовлень у смузі 400–500','% усіх Stores','Юзерів у смузі','SOF у смузі, грн'],
+        MONTHS.map((m,i)=>[m,fmtN(CEO_BAND_ORDERS[i]),fmt1(100*CEO_BAND_ORDERS[i]/ORDERS[i])+'%',
+          fmtN(CEO_BAND_USERS[i]),fmtN(CEO_BAND_SOF[i])]));
+
+      if (ceoDrawn) return;
+      ceoDrawn = true;
+
+      const inBand = b => b[0]==='400–450' || b[0]==='450–500';
+      mk('ceoBandChart',{type:'bar',data:{labels:CEO_BANDS.map(b=>b[0]),datasets:[
+        {label:'Small order fee, грн',data:CEO_BANDS.map(b=>b[3]),
+         backgroundColor:CEO_BANDS.map(b=>(inBand(b)?C.red:C.amber)+'cc'),borderRadius:4,stack:'s'},
+        {label:'Плата за доставку, грн',data:CEO_BANDS.map(b=>b[4]),
+         backgroundColor:CEO_BANDS.map(b=>(inBand(b)?C.navy:C.muted)+'cc'),borderRadius:4,stack:'s'},
+      ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},tooltip:{padding:10}},
+        scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'Розмір кошика, грн'}},
+          y:{stacked:true,beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'Збори з клієнтів, грн / міс'}}}}});
+
+      mk('ceoBunchChart',{type:'line',data:{labels:CEO_BINS,datasets:[
+        line(CEO_BUNCH_INT,C.navy,'Інтегровані (MOV 500)'),
+        line(CEO_BUNCH_NON,C.green,'Неінтегровані (MOV 350)'),
+      ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{usePointStyle:true,boxWidth:7,font:{size:11}}},tooltip:{padding:10}},
+        scales:{x:{grid:{display:false},title:{display:true,text:'Розмір кошика, грн (крок 10)'}},
+          y:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'Замовлень, шт'}}}}});
+    }
+
     function renderPitch(brand){
       const p = PITCHES[brand];
       if (!p) return;
@@ -882,16 +1033,19 @@
     function showPane(pane, brand){
       document.getElementById('pane-report').classList.toggle('active', pane==='report');
       document.getElementById('pane-pitch').classList.toggle('active', pane==='pitch');
+      document.getElementById('pane-ceo').classList.toggle('active', pane==='ceo');
       document.querySelectorAll('#mainTabs .tab').forEach(t=>{
-        const on = t.dataset.pane===pane && (pane==='report' || t.dataset.brand===brand);
+        const on = t.dataset.pane===pane && (pane!=='pitch' || t.dataset.brand===brand);
         t.classList.toggle('active', on);
       });
       if (pane==='pitch') renderPitch(brand);
+      else if (pane==='ceo') renderCeo();
       else {
         ['volChart','shareChart','baseChart','penChart','opuChart','dfChart','freeChart','bucketChart','feeChart','brandChart','idxChart','covChart','enrShareChart','cityChart']
           .forEach(id=>{ const c=Chart.getChart(id); if(c) c.resize(); });
       }
-      history.replaceState(null,'', pane==='report' ? '#zvit' : '#'+encodeURIComponent(brand));
+      const frag = pane==='report' ? 'zvit' : (pane==='ceo' ? 'mov400' : encodeURIComponent(brand));
+      history.replaceState(null,'', '#'+frag);
     }
 
     document.getElementById('mainTabs').addEventListener('click', e=>{
@@ -900,7 +1054,8 @@
     });
 
     const hash = decodeURIComponent((location.hash||'#zvit').slice(1));
-    if (PITCHES[hash]) showPane('pitch', hash);
+    if (hash==='mov400') showPane('ceo');
+    else if (PITCHES[hash]) showPane('pitch', hash);
     else if (hash && hash!=='zvit') {
       const match = Object.keys(PITCHES).find(k=>k.replace(/ /g,'')===hash.replace(/ /g,''));
       if (match) showPane('pitch', match);
