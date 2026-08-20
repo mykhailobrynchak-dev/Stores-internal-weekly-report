@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="author" content="Yuliia Nikolaieva">
-  <title>CAFE RYNOK · 7-month analysis</title>
+  <title>КАФЕ РИНОК × Bolt Food · розбір Jan–Jul 2026</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -16,29 +16,29 @@
     body { margin: 0; background: var(--bg); color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-variant-numeric: tabular-nums; }
-    .shell { max-width: 1240px; margin: 0 auto; padding: 30px 28px 60px; }
-    header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; margin-bottom: 22px; }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 30px 28px 60px; }
+    header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; margin-bottom: 20px; }
     .eyebrow { color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 5px 0 6px; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.035em; line-height: 1; }
-    h2 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.02em; }
+    h1 { margin: 5px 0 6px; font-size: clamp(26px, 3.6vw, 40px); letter-spacing: -.035em; line-height: 1.05; }
+    h2 { margin: 0 0 6px; font-size: 21px; letter-spacing: -.02em; }
     h3 { margin: 0 0 12px; font-size: 15px; }
-    p { margin: 0; color: var(--muted); line-height: 1.5; }
+    p { margin: 0; color: var(--muted); line-height: 1.55; }
     .meta { text-align: right; font-size: 12px; line-height: 1.6; }
     .badge { display:inline-block; background:var(--amber-soft); color:#654810; border:1px solid #ead9af;
       border-radius: 999px; padding: 3px 10px; font-size: 11px; font-weight: 800; }
-    .notice { display: flex; align-items: center; gap: 12px; background: var(--amber-soft); color: #654810;
-      border: 1px solid #ead9af; border-radius: 10px; padding: 13px 16px; margin: 6px 0 22px; font-size: 13px; line-height:1.5; }
+    .notice { display: flex; align-items: flex-start; gap: 12px; background: var(--amber-soft); color: #654810;
+      border: 1px solid #ead9af; border-radius: 10px; padding: 14px 16px; margin: 6px 0 20px; font-size: 13px; line-height:1.55; }
     .grid { display: grid; gap: 16px; }
-    .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 8px; }
+    .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 18px; }
     .two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
-    .kpi { min-height: 118px; display: flex; flex-direction: column; justify-content: space-between; }
+    .kpi { min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
     .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
     .kpi-value { font-size: 28px; line-height: 1; letter-spacing: -.025em; font-weight: 800; margin: 12px 0 8px; }
     .kpi-value.bad { color: var(--red); } .kpi-value.good { color: var(--green); }
     .sub { color: var(--muted); font-size: 11px; }
-    .chart-wrap { position: relative; height: 300px; }
-    .chart-wrap.short { height: 250px; }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap.short { height: 230px; }
     .section { margin-top: 26px; }
     .section-head { margin-bottom: 13px; }
     .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
@@ -48,19 +48,20 @@
     th:first-child, td:first-child { text-align: left; }
     tr:last-child td { border-bottom: 0; }
     tr:hover td { background: #f8faf9; }
-    tr.hl td { background: var(--amber-soft); }
-    .insights { display: grid; gap: 10px; }
-    .insight { border-left: 3px solid var(--green); padding: 4px 0 4px 12px; }
-    .insight.warn { border-color: var(--amber); } .insight.risk { border-color: var(--red); }
-    .insight strong { display: block; font-size: 13px; margin-bottom: 3px; }
-    .insight span { color: var(--muted); font-size: 12px; line-height: 1.5; }
-    .qa { display:grid; gap:16px; }
-    .qa .card h3 { display:flex; align-items:center; gap:8px; }
-    .qtag { background:var(--green-soft); color:var(--green); border-radius:6px; padding:2px 8px; font-size:11px; font-weight:800; }
-    .qa .card p { margin-bottom: 8px; }
-    .qa .card p.lead { color: var(--ink); font-weight: 600; }
-    .lbl { color: var(--ink); font-weight: 700; font-size: 12px; margin: 6px 0 2px; }
-    ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+    .takeaway { margin-top: 12px; border-left: 3px solid var(--green); background: var(--green-soft);
+      border-radius: 0 8px 8px 0; padding: 10px 14px; font-size: 12.5px; line-height: 1.55; color: #1d3b2c; }
+    .takeaway.warn { border-color: var(--amber); background: var(--amber-soft); color:#654810; }
+    .takeaway.risk { border-color: var(--red); background: var(--red-soft); color:#7a2f2f; }
+    .takeaway b { font-weight: 800; }
+    .tk-title { display:block; font-weight:800; margin-bottom:3px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+    ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+    ul.plan { color: var(--ink); }
+    ul.plan li { margin-bottom: 6px; }
+    ul.plan b { font-weight: 700; }
+    .tldr { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--green);
+      border-radius: 12px; padding: 18px 20px; margin-bottom: 8px; }
+    .tldr ol { margin: 8px 0 0; padding-left: 20px; color: var(--ink); font-size: 13.5px; line-height: 1.65; }
+    .tldr ol li { margin-bottom: 5px; }
     footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
     @media (max-width: 980px) { .kpis { grid-template-columns: 1fr 1fr; } .two { grid-template-columns: 1fr; } }
   </style>
@@ -69,247 +70,254 @@
   <main class="shell">
     <header>
       <div>
-        <div class="eyebrow">Ukraine · 3P Stores · Lviv</div>
-        <h1>CAFE RYNOK — розбір за 7 місяців</h1>
-        <p>Фінансові + операційні метрики, воронка показів і відповіді на питання партнера про видачу</p>
+        <div class="eyebrow">Bolt Food · Львів · Stores</div>
+        <h1>КАФЕ РИНОК — розбір за 7 місяців</h1>
+        <p>Що сталося з замовленнями, чи справа в промо, де саме втрачається попит і що робимо далі</p>
       </div>
-      <div class="meta" id="meta">
-        Період: <strong>Jan–Jul 2026</strong><br>
-        Author: <strong>Yuliia Nikolaieva</strong><br>
-        Sources: Weekly report · Databricks
+      <div class="meta">
+        Період: <strong>січень – липень 2026</strong><br>
+        Підготувала: <strong>Yuliia Nikolaieva</strong><br>
+        Дані: внутрішня аналітика Bolt Food
       </div>
     </header>
 
-    <div class="notice">
-      <span class="badge">Discovery problem</span>
-      <span>Проблема не в конверсії чи операційці — у <strong>показах і частці Львова</strong>. Impressions −41%, GMV −18% при рості Lviv Stores +17%. Частка CR у місті: 56% → 39%. Паралельно — LOKO з березня і CR на Glovo.</span>
-    </div>
-
     <div class="grid kpis">
-      <div class="card kpi"><div><div class="kpi-label">GMV Jul vs Jan</div><div class="kpi-value bad">−17.6%</div></div><div class="sub">€25.6k → €21.1k</div></div>
-      <div class="card kpi"><div><div class="kpi-label">Impressions Jan→Jul</div><div class="kpi-value bad">−41%</div></div><div class="sub">136k → 80k sessions</div></div>
-      <div class="card kpi"><div><div class="kpi-label">Impression→Order</div><div class="kpi-value good">1.89%</div></div><div class="sub">було 1.42% — конверсія краща</div></div>
-      <div class="card kpi"><div><div class="kpi-label">Failed rate</div><div class="kpi-value good">2.5%</div></div><div class="sub">було 6.3% у січні</div></div>
+      <div class="card kpi"><div><div class="kpi-label">GMV, лип vs січ</div><div class="kpi-value bad">−18%</div></div><div class="sub">замовлення −20%</div></div>
+      <div class="card kpi"><div><div class="kpi-label">Показів у застосунку</div><div class="kpi-value bad">−41%</div></div><div class="sub">136k → 80k за місяць</div></div>
+      <div class="card kpi"><div><div class="kpi-label">Показ → замовлення</div><div class="kpi-value good">1.42% → 1.89%</div></div><div class="sub">конверсія стала краще</div></div>
+      <div class="card kpi"><div><div class="kpi-label">Ваші промо-інвестиції</div><div class="kpi-value good">+58%</div></div><div class="sub">€1.0k (січ) → €1.6k (лип)</div></div>
     </div>
 
-    <!-- SECTION 1 -->
+    <div class="tldr">
+      <span class="badge">Головне</span>
+      <ol>
+        <li><b>Проблема не в промо і не в сервісі.</b> Ви вкладаєте більше, ніж на початку року, а операційні показники покращились майже по всіх метриках.</li>
+        <li><b>Проблема у видимості.</b> Клієнтів, які взагалі бачать вас у застосунку, стало на 41% менше. Хто побачив — замовляє навіть частіше, ніж у січні.</li>
+        <li><b>Це не «просів Львів».</b> Категорія Stores у місті за цей період зростала; ваша частка показів і замовлень у ній зменшилась.</li>
+        <li><b>Найбільша втрата — бакалія / товари (−41%) і сендвічі та випічка (−31%).</b> Готові страви й шашлик тримаються, шашлик навіть +13%.</li>
+        <li><b>Пошук майже перестав вас показувати:</b> по «суші/роли» ви були у топі видачі у 18% пошуків у січні й у 2–3% у липні. Це головний важіль на найближчі 4–6 тижнів.</li>
+      </ol>
+    </div>
+
+    <!-- 1. ЩО СТАЛОСЯ -->
     <section class="section">
-      <div class="section-head"><h2>1. Фінанси + контекст Львова</h2>
-        <p>Спад CR — <strong>не загальноміський</strong>: Lviv 3P Stores GMV Jan→Jul <strong>+17%</strong>, а CR −18%. Active users міста −6%, у CR −31%. Паралельно з’явився LOKO (з березня) і CR є на Glovo — додатковий канал, який може каннібалізувати Bolt-об’єм.</p></div>
+      <div class="section-head"><h2>1. Що сталося з обсягами</h2>
+        <p>Порівнюємо вашу динаміку з динамікою всієї категорії Stores у Львові (сукупно, без розбиття по партнерах).</p></div>
       <div class="grid two">
-        <div class="card"><h3>GMV індекс (Jan=100): CR vs Lviv Stores vs Lviv без CR</h3><div class="chart-wrap"><canvas id="indexChart"></canvas></div></div>
-        <div class="card"><h3>Active / new users: CR vs Lviv Stores</h3><div class="chart-wrap"><canvas id="usersChart"></canvas></div></div>
+        <div class="card"><h3>GMV, індекс (січень = 100)</h3><div class="chart-wrap"><canvas id="indexChart"></canvas></div>
+          <div class="takeaway risk"><span class="tk-title">Висновок</span>Ви −18%, тоді як категорія Stores у Львові за той самий період зростала. Тобто попит на доставку продуктів і готової їжі у місті не впав — перерозподілився. Найгостріше розходження почалось у <b>березні–травні</b>.</div>
+        </div>
+        <div class="card"><h3>Ваші клієнти: активні та нові</h3><div class="chart-wrap"><canvas id="usersChart"></canvas></div>
+          <div class="takeaway risk"><span class="tk-title">Висновок</span>Активні клієнти −31% (1 006 → 691), тоді як по місту в цілому лише близько −7%. Нових клієнтів на місяць: <b>41 → 13</b>. Це типова картина падіння видимості: старі клієнти поступово відвалюються, а нові не приходять, бо не бачать вас.</div>
+        </div>
       </div>
-      <div class="notice" style="margin-top:16px">
-        <span class="badge">Lviv context</span>
-        <span>Частка CR у Lviv Stores GMV: <strong>56% → 39%</strong>. GMV інших партнерів у місті: €20k → €33k (+62%). LOKO увійшов у березні й у липні вже €8.3k. CR також доступний на <a href="https://glovoapp.com/uk/ua/lviv/stores/kafe-rinok-lvi" target="_blank" rel="noopener">Glovo · Львів</a> — частина попиту могла піти туди, а не тільки «пропасти».</span>
+      <div class="section"><h3>Місячна динаміка</h3><div class="table-wrap"><table id="finTable"></table></div>
+        <div class="takeaway warn"><span class="tk-title">Що видно з таблиці</span>Середній чек виріс (€13.7 → €14.0), частка замовлень з промо тримається на рівні 62–77%, Bolt+ клієнти ~22%. Тобто <b>якість попиту не погіршилась</b> — зменшилась його кількість.</div>
       </div>
-      <div class="section"><h3>CAFE RYNOK · фінанси</h3><div class="table-wrap"><table id="finTable"></table></div></div>
     </section>
 
-    <!-- SECTION 2 BANNERS -->
+    <!-- 2. ІНВЕСТИЦІЇ ТА ПРОМО -->
     <section class="section">
-      <div class="section-head"><h2>2. Банери / in-app (з січня)</h2>
-        <p>Усі approved кампанії з назвою CafeRynok / Kaferynok. Джерело: Looker-аналог (<a href="https://bolt.cloud.looker.com/dashboards/11981?Country=Ukraine&Name=cafe+rynok&Vertical=food%2Cmarket&Action+Date=3+month+ago+for+3+month&Timeframe+Picker=Month" target="_blank" rel="noopener">dashboard 11981</a>) · Databricks modal_modal_poll_campaign + session engagement.</p></div>
-      <div class="notice">
-        <span class="badge">Key takeaway</span>
-        <span>Банери <strong>були</strong>, але з лютого по травень — короткі хвилі з малим охопленням (Feb 9.5k / May 2.7k views vs Jan 54k). Popup-модалки дають CTR ~20–23%, але 0 provider view/order. Найкращі: <strong>Sandwiches & rolls</strong> (CTR 2.2%) і in-store banner 2 (CTR до 3.6%). Основний reach — discovery_stores + in-store; home/popup — пікові хвилі в січні й на межі березня/квітня.</span>
-      </div>
+      <div class="section-head"><h2>2. Чи зменшились ваші інвестиції та промо</h2>
+        <p>Головне питання, яке варто закрити першим: чи падіння пов’язане зі скороченням промо з вашого боку.</p></div>
       <div class="grid two">
-        <div class="card"><h3>Views / clicks по місяцях (усі CR банери)</h3><div class="chart-wrap"><canvas id="bannerVolChart"></canvas></div></div>
-        <div class="card"><h3>Де показувались (views Jan–Aug)</h3><div class="chart-wrap"><canvas id="bannerPlaceChart"></canvas></div>
-          <p class="sub" style="margin-top:8px">discovery_stores = вкладка Stores · home = головна · in-store = екран магазину (часто без screen name) · popup = eater modal</p></div>
+        <div class="card"><h3>Ваші промо-інвестиції, € / міс</h3><div class="chart-wrap"><canvas id="promoChart"></canvas></div>
+          <div class="takeaway"><span class="tk-title">Висновок: ні, не зменшились</span>Навпаки: <b>€1 003 у січні → €1 586 у липні (+58%)</b>, липень — максимум за 7 місяців. Виняток один: <b>лютий (€154)</b> — місяць майже без ваших промо. Далі з квітня ви системно наростили вкладення.</div>
+        </div>
+        <div class="card"><h3>Глибина знижки, % від суми товарів</h3><div class="chart-wrap"><canvas id="promoDepthChart"></canvas></div>
+          <div class="takeaway warn"><span class="tk-title">Висновок</span>Глибина промо теж зросла: по готових стравах <b>4.2% → 8.6%</b>, по сендвічах з 0% до ~7%, по шашлику до 10%. Тобто на кожне замовлення ви даєте більшу знижку, ніж на початку року, а замовлень стало менше. <b>Промо перестало бути важелем росту</b> — воно працює тільки на тих, хто вас уже бачить.</div>
+        </div>
       </div>
-      <div class="section"><h3>Усі кампанії Jan–Aug</h3><div class="table-wrap"><table id="bannerTable"></table></div>
-        <p class="sub" style="margin-top:8px">CTR = clicks / views. Ordered — orders from deep banner funnel. * shared modal_id (home+stores FD 700). † same modal as Asian ID15 (clone reuse). Desserts &amp; Drinks — flight стартував 23.08, views ще 0 на дату зрізу.</p></div>
-      <div class="card section"><div class="insights">
-        <div class="insight"><strong>Січень — пік охоплення</strong><span>54k views / 3.5k clicks: FD 700 UAH (home + stores, spillover з грудня) + launch-popup (~12.5k views, CTR 23.5%). Єдиний місяць з «масовим» in-app push.</span></div>
-        <div class="insight warn"><strong>Лютий–травень — дірки в календарі</strong><span>Короткі 3–7 денні flights, часто &lt;3k views на кампанію. Між 22 лютого і 29 березня — майже місяць без банерів. Між 3 і 25 травня — знову пауза (May лише 2.7k views).</span></div>
-        <div class="insight"><strong>Що працює краще</strong><span>Категорійні оффери (Sandwiches & rolls, CTR 2.2%) і in-store banner 2 (CTR до 3.6%) vs стандартні ID%/FBD на discovery_stores (часто &lt;1.5% CTR).</span></div>
-        <div class="insight risk"><strong>Popup ≠ замовлення</strong><span>Два eater modal (січень launch, квітень −20%+FD): ~4.7k кліків сумарно, 0 provider views / orders у deep funnel. Awareness так, volume — ні.</span></div>
-      </div></div>
+      <div class="takeaway risk" style="margin-top:16px"><span class="tk-title">Ключовий вивід секції</span>Гроші вкладаються, знижки глибші, конверсія краща — а обсяг падає. Це означає, що вузьке місце <b>перед</b> промо: клієнт не доходить до вашої картки. Далі дивимось саме на видимість.</div>
     </section>
 
-    <!-- SECTION 3 CATEGORIES / PROMO / COMPETITION -->
+    <!-- 3. КАТЕГОРІЇ -->
     <section class="section">
-      <div class="section-head"><h2>3. Категорії, промо-інвестиції та хто забирає попит</h2>
-        <p>Item-level розбір: що продає CR, скільки промо в кожній категорії, чи стали менше вкладати, і куди пішов попит (LOKO / ресторани / пошук).</p></div>
-      <div class="notice">
-        <span class="badge">Key takeaway</span>
-        <span>CR <strong>не</strong> скоротив промо: сумарний discount стабільний, у липні рекордний (€1.9k), промо-глибина по готових стравах виросла 4.2% → 8.6%. Але <strong>Bolt-кофінансування впало у 3 рази</strong> (€965 → €304), а частину бюджету Bolt переніс на LOKO. Просіли саме <strong>бакалія (−41%)</strong> — пряме пересічення з LOKO — і <strong>сендвічі/випічка (−31%)</strong>. Пошукова видимість CR обвалилась: суші/роли 18.5% → 1.6% появ у топі, круасан 18% → 2%.</span>
+      <div class="section-head"><h2>3. Де саме втрачається обсяг: по категоріях</h2>
+        <p>Розбір на рівні позицій у кошику: що продається, як змінилось і скільки промо в кожній категорії.</p></div>
+      <div class="card">
+        <h3>GMV по категоріях, € / міс</h3><div class="chart-wrap"><canvas id="catChart"></canvas></div>
+        <div class="takeaway risk"><span class="tk-title">Висновок</span>Втрата сконцентрована у двох кошиках: <b>бакалія / товари −41%</b> (€5.4k → €3.2k) і <b>сендвічі та випічка −31%</b> (€4.2k → €2.9k, з провалом у травні до €1.1k). Це саме той попит «магазин біля дому», за який у Львові з березня зросла конкуренція серед магазинів. Готові страви −9%, а <b>шашлик +13%</b> — тобто ваша «ресторанна» частина меню тримається найкраще.</div>
       </div>
-      <div class="grid two">
-        <div class="card"><h3>Інвестиції в кампанії: Bolt vs merchant, € / міс</h3><div class="chart-wrap"><canvas id="investChart"></canvas></div>
-          <p class="sub" style="margin-top:8px">Лютий: merchant-спенд майже зник (€154) — саме коли почалось падіння показів. З квітня merchant нарощує, Bolt скорочує.</p></div>
-        <div class="card"><h3>GMV по категоріях CR, € / міс</h3><div class="chart-wrap"><canvas id="catChart"></canvas></div>
-          <p class="sub" style="margin-top:8px">Готові страви тримаються; бакалія й сендвічі просіли з квітня — момент виходу LOKO.</p></div>
+      <div class="section"><h3>Категорії: січень vs липень</h3><div class="table-wrap"><table id="catTable"></table></div>
+        <div class="takeaway warn"><span class="tk-title">Що з цим робити</span>Категорії, де промо виросло, а GMV впав (сендвічі: промо 0% → 7.1%, GMV −31%), не потребують ще більшої знижки — їм потрібен показ. Категорії, які ростуть на промо (шашлик, суші/роли), варто підсилювати саме банерами й позиціями в пошуку, бо там віддача вже підтверджена.</div>
       </div>
-      <div class="section"><h3>Категорії CR: Jan vs Jul (delivered, item-level)</h3><div class="table-wrap"><table id="catTable"></table></div>
-        <p class="sub" style="margin-top:8px">Promo % = item discount / item price before discount. Джерело: dim_basket_item_delivery + single category tree.</p></div>
-      <div class="section"><h3>Пошук у Львові: чи бачать CR у видачі (Jan–Jul)</h3><div class="table-wrap"><table id="searchVisTable"></table></div>
-        <p class="sub" style="margin-top:8px">% пошуків, де CR у топі видачі. «Шашлик» забирають ресторани: SHASHLIKE, Хінкальня, PARRILLA, Домашній ресторанчик, Врубай. «Суші/роли» — суші-ресторани (10k запитів за 7 міс).</p></div>
-      <div class="card section"><div class="insights">
-        <div class="insight risk"><strong>Бакалія → LOKO</strong><span>CR grocery: €5.4k/міс (Jan–Mar) → €3.2k/міс (Jul). LOKO Lviv за Mar–Jul зібрав €27k у Grocery Food + €11k Food. Це той самий кошик «магазин біля дому».</span></div>
-        <div class="insight risk"><strong>Пошукова видимість — головний важіль</strong><span>CR випав з топу видачі з квітня–травня по всіх категорійних термінах. Ймовірна причина — ranking: SKU availability 87→75%, рейтинг −0.23, менші продажі → нижча позиція → ще менші продажі.</span></div>
-        <div class="insight warn"><strong>Bolt переносить бюджет</strong><span>Bolt-спенд на CR: €965 (Mar) → €304 (Jul). LOKO Lviv отримав від Bolt €314 (Apr), €1 277 (Jun), €513 (Aug). Merchant CR компенсує сам: €1 586 у липні — рекорд.</span></div>
-        <div class="insight"><strong>Шашлик — недооцінений</strong><span>Категорія №1 по GMV серед страв (€16.7k за 7 міс), promo 10% у липні, GMV відновився (€3.1k &gt; Jan). Але у пошуку «шашлик» (1.3k запитів) CR у топі лише 0.5–1.5% — попит існує, видимості нема.</span></div>
-      </div></div>
     </section>
 
-    <!-- SECTION 4 OPS -->
+    <!-- 4. ВИДИМІСТЬ -->
     <section class="section">
-      <div class="section-head"><h2>4. Операційка — не корінь падіння</h2>
-        <p>Ops покращились по всіх фронтах. Ризик для видачі — падіння повноти меню (SKU availability 87%→75%) і рейтинг −0.23.</p></div>
+      <div class="section-head"><h2>4. Видимість у застосунку — корінь проблеми</h2>
+        <p>Три канали, звідки клієнт вас бачить: категорії на головній, пошук і основна стрічка.</p></div>
       <div class="grid two">
-        <div class="card"><h3>Late delivery % та Failed %</h3><div class="chart-wrap short"><canvas id="opsChart"></canvas></div></div>
-        <div class="card"><h3>SKU availability %</h3><div class="chart-wrap short"><canvas id="econChart"></canvas></div></div>
+        <div class="card"><h3>Покази vs конверсія в замовлення</h3><div class="chart-wrap"><canvas id="funnelChart"></canvas></div>
+          <div class="takeaway"><span class="tk-title">Висновок</span>Показів <b>136k → 80k (−41%)</b>, при цьому конверсія показ→замовлення <b>1.42% → 1.89% (+33%)</b>. Ваша скарга підтверджується даними: справа не в тому, що клієнт «не купує», а в тому, що клієнт вас не бачить.</div>
+        </div>
+        <div class="card"><h3>Звідки приходять покази</h3><div class="chart-wrap"><canvas id="sourceChart"></canvas></div>
+          <div class="takeaway risk"><span class="tk-title">Висновок</span>Основний обвал — <b>категорії на головній: 92k → 42k (−55%)</b>. Пошук просів менше (41k → 36k), стрічка додала трохи. Паралельно ваша середня позиція у списку погіршилась з <b>10 на 15</b> — тобто клієнту треба більше скролити, щоб вас побачити.</div>
+        </div>
       </div>
-      <div class="section"><div class="table-wrap"><table id="opsMonthlyTable"></table></div>
-        <p class="sub" style="margin-top:8px">CAFE RYNOK · помісячна динаміка ops-метрик (Jan–Jul).</p></div>
+      <div class="section"><h3>Пошук у Львові: чи потрапляєте ви у видачу</h3><div class="table-wrap"><table id="searchVisTable"></table></div>
+        <div class="takeaway risk"><span class="tk-title">Головна знахідка звіту</span>По ключових запитах ваша присутність у топі видачі впала у 7–8 разів: <b>суші/роли 18.5% → 2.6%</b>, <b>круасан 18.4% → 2.2%</b>. По «шашлику» (1 310 запитів за 7 місяців) ви майже ніколи не в топі — попит є, видимості немає. Бренд-запити «кафе ринок» при цьому стабільні (~600–790 на місяць, −11%), тобто <b>клієнти вас пам’ятають</b> — вас перестав показувати алгоритм у категорійних і dish-запитах.</div>
+      </div>
     </section>
 
-    <!-- SECTION 5 -->
+    <!-- 5. БАНЕРИ -->
     <section class="section">
-      <div class="section-head"><h2>5. Воронка клієнтів — підтвердження скарги партнера</h2>
-        <p>Партнер правий: абсолютні покази впали майже вдвічі; % етапів воронки стабільні. Головний провал — home category показів (−55%), не search.</p></div>
+      <div class="section-head"><h2>5. Банери та in-app просування</h2>
+        <p>Усі ваші кампанії з січня: скільки людей побачили, скільки клікнули, скільки дійшли до замовлення.</p></div>
       <div class="grid two">
-        <div class="card"><h3>Абсолюти воронки (sessions)</h3><div class="chart-wrap"><canvas id="funnelAbsChart"></canvas></div></div>
-        <div class="card"><h3>Конверсії воронки, %</h3><div class="chart-wrap"><canvas id="funnelPctChart"></canvas></div></div>
+        <div class="card"><h3>Покази / кліки банерів по місяцях</h3><div class="chart-wrap"><canvas id="bannerVolChart"></canvas></div>
+          <div class="takeaway warn"><span class="tk-title">Висновок</span>Січень — єдиний місяць з масовим охопленням (54k показів). Далі <b>лютий 9.5k, березень 6.9k, травень 2.7k</b> — короткі кампанії по 3–7 днів з великими паузами між ними (наприклад, з 22 лютого до 29 березня банерів не було). Пік у серпні (30k) — повернення до системного розміщення.</div>
+        </div>
+        <div class="card"><h3>Де показувались (покази, січ–сер)</h3><div class="chart-wrap"><canvas id="bannerPlaceChart"></canvas></div>
+          <div class="takeaway"><span class="tk-title">Висновок</span>Основне охоплення дає <b>вкладка Stores</b> (66k) і <b>банери всередині вашого магазину</b> (39k). Головна — 27k, попапи — 21k. Тобто найстабільніший канал — це вкладка Stores, і саме там варто тримати постійну присутність, а не хвилями.</div>
+        </div>
       </div>
-      <div class="card section"><h3>Джерела показів (session-level)</h3><div class="chart-wrap"><canvas id="sourceChart"></canvas></div>
-        <p class="sub" style="margin-top:8px">Avg row position 10.2 → 15.0 — гірша позиція в стрічці/категорії. Показ у топі search: 11.5k → 5.4k (−53%).</p></div>
-      <div class="section"><div class="table-wrap"><table id="funnelTable"></table></div></div>
+      <div class="section"><h3>Ваші кампанії, січень – серпень</h3><div class="table-wrap"><table id="bannerTable"></table></div>
+        <div class="takeaway warn"><span class="tk-title">Що працює, а що ні</span>Найкращий відгук дають <b>категорійні креативи</b> (сендвічі й роли — CTR 2.2%) та <b>банери всередині магазину</b> (до 3.6%), найгірший — універсальні «−15/−20%» на вкладці Stores (часто менше 1%). Попапи дають CTR 20–23%, але <b>0 замовлень</b> у наскрізній воронці: вони працюють на згадуваність, не на обсяг.</div>
+      </div>
     </section>
 
-    <!-- SECTION 6 -->
+    <!-- 6. ОПЕРАЦІЙКА -->
     <section class="section">
-      <div class="section-head"><h2>6. Відповіді на питання Cafe Rynok</h2></div>
-      <div class="qa">
+      <div class="section-head"><h2>6. Операційні показники</h2>
+        <p>Перевіряємо гіпотезу «впало через якість сервісу».</p></div>
+      <div class="grid two">
+        <div class="card"><h3>Скасовані та спізнілі замовлення, %</h3><div class="chart-wrap short"><canvas id="opsChart"></canvas></div>
+          <div class="takeaway"><span class="tk-title">Висновок</span>Сервіс покращився: скасування <b>6.3% → 2.5%</b>, спізнення <b>31% → 12%</b>, прийняття замовлень 97.7% → 98.9%. Це не причина падіння — це ваша сильна сторона.</div>
+        </div>
+        <div class="card"><h3>Наповненість меню (SKU availability), %</h3><div class="chart-wrap short"><canvas id="skuChart"></canvas></div>
+          <div class="takeaway risk"><span class="tk-title">Єдиний операційний ризик</span><b>87% → 75%</b> за 7 місяців: чверть позицій меню в середньому недоступна. Плюс рейтинг 4.88 → 4.65. Обидва показники впливають на те, як алгоритм ранжує вас у категоріях і пошуку — тобто це прямо підживлює падіння видимості з секції 4.</div>
+        </div>
+      </div>
+      <div class="section"><div class="table-wrap"><table id="opsTable"></table></div></div>
+    </section>
+
+    <!-- 7. ПЛАН -->
+    <section class="section">
+      <div class="section-head"><h2>7. Що робимо далі</h2>
+        <p>Розділено на дії з нашого боку та з вашого. Ефект оцінюємо через 4 тижні на тих самих метриках: покази, позиція в списку, присутність у пошуку.</p></div>
+      <div class="grid two">
         <div class="card">
-          <h3><span class="qtag">Q1</span> Що впливає на покази і як показуватись у стрічці більше</h3>
-          <p class="lead">Покази = ранжування в категоріях Stores + search + (рідко) main feed. У CR ~50–67% показів ішли з home categories — саме цей канал впав з 92k до 42k, а позиція погіршилась з ~10 до ~15.</p>
-          <div class="lbl">Що впливає (практично):</div>
-          <ul>
-            <li>Availability / години роботи в пік (обід, вечеря)</li>
-            <li>Рейтинг і історія замовлень у зоні доставки</li>
-            <li>Conversion після показу (у вас — ок)</li>
-            <li>Кампанії / sponsored placement</li>
-            <li>Повнота меню / SKU availability (у вас −12pp)</li>
-            <li>Конкуренція за слот у категорії з grocery-гігантами (LOKO та ін.)</li>
-            <li>Приналежність до Stores, не Food — теги «ланч/обід» як у HoReCa недоступні</li>
+          <h3>Bolt Food — наша частина</h3>
+          <ul class="plan">
+            <li><b>Перевірити ранжування</b> вашого магазину в категоріях Львова і причину падіння середньої позиції з 10 на 15.</li>
+            <li><b>Постійна присутність на вкладці Stores</b> замість коротких хвиль: закрити паузи в календарі кампаній.</li>
+            <li><b>Ставка на категорійні креативи</b> (сендвічі/роли/шашлик) — вони дають у 2–3 рази вищий CTR за універсальні знижки.</li>
+            <li><b>Запит у продукт:</b> теги часу прийому їжі (ланч/обід) для магазинів з готовою їжею — щоб потрапляти у видачу за цими запитами.</li>
+            <li><b>Повернутись з даними по показах</b> і позиції через 4 тижні.</li>
           </ul>
-          <div class="lbl">Що можна зробити:</div>
-          <ul>
-            <li>Підняти SKU availability до ≥85%</li>
-            <li>Цільові menu/delivery campaigns у lunch/dinner слоти</li>
-            <li>Sponsored / feature у grocery-категоріях Львова</li>
-            <li>SEO меню: назви страв = пошукові запити (сендвіч, онігірі, млинці, олівʼє)</li>
-            <li>Ескалація в product: meal-time / cuisine теги для Stores ready-meal</li>
-            <li>Не витрачати зусилля на acceptance/late — вони вже сильні</li>
+        </div>
+        <div class="card">
+          <h3>КАФЕ РИНОК — ваша частина</h3>
+          <ul class="plan">
+            <li><b>Наповненість меню до ≥85%</b> — найшвидший важіль, який впливає і на ранжування, і на конверсію.</li>
+            <li><b>Назви позицій = те, що люди шукають</b>: «сендвіч», «круасан», «шашлик», «роли», «онігірі» у назві страви, не лише в описі.</li>
+            <li><b>Не збільшувати глибину знижки</b> — вона вже 8–10% у ключових категоріях і не дає приросту. Той самий бюджет краще спрямувати в розміщення.</li>
+            <li><b>Пріоритет промо на шашлик і роли</b> — категорії з підтвердженою віддачею; бакалію промо не витягує.</li>
+            <li><b>Тримати рейтинг</b>: 4.65 — зона, де починає падати позиція у видачі.</li>
           </ul>
         </div>
-
-        <div class="card">
-          <h3><span class="qtag">Q2</span> Пошукова поведінка і бренд-запити</h3>
-          <p class="lead">Клієнти міксують: бренд-пошук, dish/category free-text і кліки по фіксованих категоріях. Для food-like запитів (піца, суші, ланч, обід) видача майже завжди restaurant-first.</p>
-          <div class="chart-wrap short" style="margin:10px 0"><canvas id="brandChart"></canvas></div>
-          <p class="sub">Бренд-запити «кафе ринок»: ~540–730 unique sessions/міс. Jul 602 vs Jan 674 (−11%) — <strong>не «вдвічі»</strong>. Бренд-попит живий; просів саме discovery, а не recall бренду. Попадання CR у топ search results: 11.5k → 5.4k (−53%).</p>
-        </div>
-
-        <div class="card">
-          <h3><span class="qtag">Q3</span> Категорійні запити та конкуренція з ресторанами</h3>
-          <p class="lead">Механіка описана партнером правильно: у Stores потрапляють у dish-search переважно через збіг назви item/category, не через HoReCa-теги (ланч/обід/сніданок).</p>
-          <p>По UA search intent (травень–липень) для кластера сендвіч / млинці / ланч / обід / сніданок / онігірі: <strong>&gt;98% сесій — restaurant-leaning</strong>; store order share лише ~1–3%. Навіть «сендвіч» і «онігірі» частково йдуть у ресторани.</p>
-          <div class="lbl">Висновок для CR:</div>
-          <p>Конкурувати з Food на «ланч/обід/піца/суші» через органічний search у Stores — системно програшна позиція без тегів або sponsored. Реалістичні важелі: бренд-пошук (стабільний), dish-SEO по SKU де є store-match (сендвічі, кулінарія, онігірі, млинці), grocery/ready-meal категорії у Львові, кампанії в пік.</p>
-          <div class="table-wrap section"><table id="intentTable"></table></div>
-        </div>
       </div>
-    </section>
-
-    <!-- SECTION 6 -->
-    <section class="section">
-      <div class="section-head"><h2>7. Вердикт і next steps</h2></div>
-      <div class="grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="card"><h3>Хто вони є</h3><p>Сильний Lviv ready-meal / sandwich store-бренд: honey ~63%, добрий acceptance, AOV ~€13. Не «зламаний» партнер.</p></div>
-        <div class="card"><h3>У чому проблема</h3><p>Втрата discovery + частки у Львові (56%→39%) на тлі росту інших партнерів і появи LOKO. Паралельно CR на Glovo. Конверсія після показу — ок; AU/new users падають сильніше за місто.</p></div>
-        <div class="card"><h3>Чи ростуть</h3><p>Jan–May: спад. Jun–Jul: слабке відновлення GMV (+5% MoM у липні). Тиждень 10 Aug: €6.2k / 452 orders — локальний WoW uptick, ще не тренд.</p></div>
-      </div>
-      <div class="card section"><div class="insights">
-        <div class="insight"><strong>Internal action 1 — Discovery</strong><span>Lviv category / feature + campaign план на lunch peak; переглянути позицію CR у grocery-категоріях.</span></div>
-        <div class="insight warn"><strong>Internal action 2 — Menu</strong><span>Дослідити падіння SKU availability 87%→75% і повноту меню; повернути до ≥85%.</span></div>
-        <div class="insight risk"><strong>Internal action 3 — Product ask</strong><span>Ескалувати потребу meal-time тегів для Stores ready-meal, щоб потрапляти у видачу за «ланч/обід».</span></div>
-        <div class="insight"><strong>Партнеру</strong><span>Надати таблицю бренд-запитів і пояснити: % воронки ок, треба нарощувати обсяг показів, а не «латати» конверсію.</span></div>
-      </div></div>
+      <div class="takeaway" style="margin-top:16px"><span class="tk-title">Підсумок одним рядком</span>Ви — сильний партнер із хорошим сервісом, зростаючим чеком і власними інвестиціями в промо. Завдання на найближчий місяць одне: <b>повернути обсяг показів і присутність у пошуку</b>. Промо й операційка для цього вже готові.</div>
     </section>
 
     <footer>
-      Author: Yuliia Nikolaieva · Scope: brand CAFE RYNOK (store_3p_ent), Lviv, Jan–Jul 2026 (Aug MTD — неповний).
-      Sources: Stores weekly report (fin/ops/camp monthly), Databricks — etl_delivery_provider_eater_session_funnel_aggregates,
-      etl_delivery_session_provider_impressions, etl_delivery_eater_session_search_query, etl_delivery_search_intent_detection_data,
-      modal_modal_poll_campaign + int_delivery_session_screen_modal_engagement + etl_delivery_eater_session_banner_modal_engagement.
-      Looker ref: dashboard 32511 (provider funnel),
-      <a href="https://bolt.cloud.looker.com/dashboards/11981?Country=Ukraine&Name=cafe+rynok&Vertical=food%2Cmarket&Action+Date=3+month+ago+for+3+month&Timeframe+Picker=Month" target="_blank" rel="noopener">dashboard 11981</a> (banners). Monetary values in EUR.
+      Підготувала: Yuliia Nikolaieva · Період: січень – липень 2026 (серпень — неповний місяць).
+      Джерело: внутрішня аналітика Bolt Food (фінансові, операційні та поведінкові метрики магазину).
+      Суми — в EUR, до вирахування знижок, якщо не вказано інше.
     </footer>
   </main>
 
   <script>
-    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul"];
+    const MONTHS = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип"];
     const GMV = [25594,26475,23774,22212,19400,20016,21093];
     const ORDERS = [1866,1941,1749,1612,1419,1472,1501];
     const ACTIVE_USERS = [1006,934,846,810,688,723,691];
     const ACTIVATED = [41,37,26,23,13,12,13];
     const BOLTPLUS = [19.0,21.2,23.9,23.8,19.6,21.4,21.9];
-    const BOLT_CAMP_GMV = [3.1,3.8,4.1,2.5,1.9,1.9,1.4];
     const CAMP_ORD_PCT = [61.7,60.3,82.3,64.8,63.5,64.5,77.3];
     const ITEM_DISC = [4.18,1.09,7.61,2.05,5.68,4.94,8.02];
-    const LVIV_GMV = [45648,51730,53050,50712,51798,57090,53604];
-    const LVIV_AU = [1942,1973,1842,1821,1800,1874,1815];
-    const LVIV_NEW = [116,111,104,93,87,122,114];
-    const LVIV_EXCL_CR_GMV = [20054,25255,29276,28500,32398,37074,32511];
-    const CR_LVIV_SHARE = [56.1,51.2,44.8,43.8,37.5,35.1,39.3];
-
+    const CITY_GMV = [45648,51730,53050,50712,51798,57090,53604];
+    const PARTNER_PROMO = [1003,154,692,647,818,700,1586];
 
     const IMPRESSIONS = [135782,115751,84606,86677,79786,77587,79787];
-    const VIEWED = [12490,10722,8106,8877,7223,7225,7162];
-    const ORDERED_FUNNEL = [1926,1951,1750,1650,1434,1465,1505];
-    const CTR = [9.20,9.26,9.58,10.24,9.05,9.31,8.98];
-    const VIEW_TO_ADD = [25.56,28.34,32.19,29.21,31.08,30.89,31.89];
     const IMP_TO_ORDER = [1.42,1.69,2.07,1.90,1.80,1.89,1.89];
-    const AVG_ROW = [10.15,10.17,12.91,12.54,13.40,13.77,14.95];
-    const BRAND_Q = [674,709,790,623,734,705,602];
-    const SEARCH_TOP = [11526,9940,7497,6616,4987,4946,5363];
     const HOME_CAT = [92530,71348,45843,43873,47481,45729,41692];
     const SEARCH_IMP = [41147,41326,34854,34652,30353,30372,35590];
     const FEED_IMP = [157,48,4929,6098,5383,5274,6768];
 
-    const AVAIL = [93.2,93.8,91.4,94.5,88.2,92.4,93.7];
     const ACCEPT = [97.7,97.2,96.8,97.4,98.3,98.4,98.9];
     const RATING = [4.88,4.84,4.79,4.89,4.80,4.71,4.65];
-    const HONEY = [30.2,47.4,56.9,56.4,59.1,61.0,62.8];
-    const BAD = [19.1,11.38,8.86,9.68,6.77,5.74,5.24];
     const LATE_D = [31.4,23.5,20.4,20.3,19.7,14.1,11.6];
-    const LATE_P = [57.3,38.1,27.6,30.5,27.9,28.2,28.2];
-    const DELIV = [36.3,29.5,25.3,25.8,24.5,24.5,23.3];
     const FAILED = [6.28,4.05,3.58,4.56,2.81,2.19,2.47];
     const SKU = [87.4,86.7,89.1,85.6,79.7,76.8,75.1];
 
-    const INTENT = [
-      ["суші (Jun)","1364","2511","19","0","178"],
-      ["піца (Jun)","840","1298","29","5","134"],
-      ["ланч (Jun)","282","436","3","0","48"],
-      ["млинці (Jun)","271","449","17","1","54"],
-      ["сніданок (Jun)","317","483","9","1","68"],
-      ["обід (Jun)","137","228","0","0","22"],
-      ["сендвіч (Jun)","78","114","1","0","10"],
-      ["онігірі (Jul)","52","65","21","7","9"],
+    const CAT_GMV = {
+      ready:   [11421,10415,10019,14505,12118,9589,10442],
+      grocery: [5407,5572,5264,2364,3138,3279,3206],
+      sandwich:[4179,4738,4412,2784,1100,2897,2863],
+      grill:   [2761,2882,2449,1130,1893,2478,3122],
+      sushi:   [560,875,596,466,821,1103,741],
+    };
+    const CAT_ROWS = [
+      ['Готові страви','11 421','10 442','−9%','10 030','5.2','7.6'],
+      ['Бакалія / товари','5 407','3 206','−41%','10 066','3.6','4.2'],
+      ['Сендвічі та випічка','4 179','2 863','−31%','4 002','0.0','7.1'],
+      ['Шашлик','2 761','3 122','+13%','3 397','6.2','10.0'],
+      ['Суші / роли','560','741','+32%','1 145','3.3','2.9'],
+      ['Десерти','853','566','−34%','1 587','0.2','0.3'],
+      ['Напої','702','715','+2%','2 057','0.1','2.0'],
+      ['Салати','451','305','−32%','567','8.2','10.7'],
+    ];
+    const SEARCH_VIS = [
+      ['суші / роли','10 009','18.5%','2.6%','спеціалізовані ресторани'],
+      ['круасан','2 768','18.4%','2.2%','пекарні та кафе'],
+      ['шашлик','1 310','1.9%','1.5%','ресторани та доставки грилю'],
+      ['салат','692','~2%','~2%','ресторани'],
+      ['плов','302','~1%','~1%','ресторани'],
+      ['сендвіч','239','23%','23%','ви присутні, але запит рідкий'],
+      ['бренд «кафе ринок»','4 837','674 сесії','602 сесії','бренд-попит стабільний'],
     ];
 
-    const fmtN = v => new Intl.NumberFormat('en-GB',{maximumFractionDigits:0}).format(v);
-    const fmtE = v => '€'+new Intl.NumberFormat('en-GB',{maximumFractionDigits:0}).format(v);
+    const BANNER_MONTHS = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер"];
+    const BANNER_VIEWS = [54215,9530,6869,21131,2719,17174,10645,30387];
+    const BANNER_CLICKS = [3481,130,78,1923,50,288,239,468];
+    const PLACE_LABELS = ["Вкладка Stores","Всередині магазину","Головна","Попап"];
+    const PLACE_VIEWS = [65783,38521,27434,20932];
+    const BANNERS = [
+      ['30.11 – 04.01','Головна','Спільний банер, безкоштовна доставка від 700 ₴','126 818','447','0.35%'],
+      ['01.12 – 25.01','Головна','Безкоштовна доставка від 700 ₴','7 544','108','1.43%'],
+      ['01.12 – 25.01','Вкладка Stores','Безкоштовна доставка від 700 ₴','38 579','584','1.51%'],
+      ['19.01 – 25.01','Попап','Запуск у Львові, −20% + доставка','12 540','2 948','23.5%'],
+      ['02.02 – 08.02','Вкладка Stores','−15% + доставка 100 ₴','2 302','23','1.00%'],
+      ['08.02 – 12.02','Вкладка Stores','−10% + доставка 100 ₴','1 967','35','1.78%'],
+      ['12.02 – 15.02','Вкладка Stores','−10% + доставка 100 ₴','1 534','33','2.15%'],
+      ['18.02 – 22.02','Вкладка Stores','−10%','1 531','28','1.83%'],
+      ['29.03 – 05.04','Головна / Stores','Безкоштовна доставка','11 321','122','1.08%'],
+      ['30.03 – 05.04','Попап','−20% + доставка 100 ₴','8 689','1 788','20.6%'],
+      ['05.04 – 19.04','Вкладка Stores','−20%, доставка 75 ₴, від 600 ₴','5 420','48','0.89%'],
+      ['19.04 – 26.04','Вкладка Stores','Сендвічі −20%','3 152','25','0.79%'],
+      ['26.04 – 03.05','Вкладка Stores','Азійське меню −15%','2 430','49','2.02%'],
+      ['25.05 – 31.05','Вкладка Stores','Доставка 75 ₴, від 600 ₴','1 742','21','1.21%'],
+      ['14.06 – 28.06','Вкладка Stores','Сендвічі та роли','6 794','148','2.18%'],
+      ['30.06 – 12.07','Вкладка Stores','−20%, доставка 75 ₴','896','15','1.67%'],
+      ['12.07 – 26.07','Вкладка Stores','−15%, доставка 75 ₴','1 395','18','1.29%'],
+      ['14.07 – 31.07','Всередині магазину','Банер у магазині 1','9 219','137','1.49%'],
+      ['14.07 – 31.07','Всередині магазину','Банер у магазині 2','8 107','171','2.11%'],
+      ['27.07 – 09.08','Вкладка Stores','−20%, доставка 75 ₴','7 850','42','0.54%'],
+      ['28.07 – 09.08','Всередині магазину','Банер у магазині 1','3 237','32','0.99%'],
+      ['29.07 – 09.08','Всередині магазину','Банер у магазині 2','5 160','183','3.55%'],
+      ['09.08 – 23.08','Вкладка Stores','−15%, доставка 75 ₴','3 208','50','1.56%'],
+      ['09.08 – 23.08','Всередині магазину','Банер у магазині 1','4 963','28','0.56%'],
+      ['09.08 – 23.08','Всередині магазину','Банер у магазині 2','7 538','180','2.39%'],
+      ['23.08 – 06.09','Вкладка Stores','Десерти та напої −15%','стартувала','—','—'],
+    ];
+
+    const fmtN = v => new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(v).replace(/\u00a0/g,' ');
     const C = { green:'#2f7d5b', red:'#b34646', amber:'#9b6a17', blue:'#3f68a7', muted:'#98a6a0', navy:'#19342a' };
     const opts = (yT, y1T) => {
-      const s = { x:{grid:{display:false},title:{display:true,text:'Місяць'}},
+      const s = { x:{grid:{display:false}},
         y:{beginAtZero:false,grid:{color:'#e8edea'},title:{display:true,text:yT}} };
       if (y1T) s.y1 = { position:'right', beginAtZero:true, grid:{display:false}, title:{display:true,text:y1T} };
       return { responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
@@ -319,151 +327,72 @@
     const line = (data,color,label,y='y') => ({label,data,borderColor:color,backgroundColor:color,tension:.25,pointRadius:2.5,borderWidth:2,yAxisID:y});
     const bar = (data,color,label,y='y') => ({label,data,backgroundColor:color+'cc',borderRadius:4,yAxisID:y});
 
-    function tbl(id, headers, rows, hlFirst=false){
-      const el=document.getElementById(id);
-      el.innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
-        rows.map((r,i)=>`<tr class="${hlFirst&&i===0?'hl':''}">${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    function tbl(id, headers, rows){
+      document.getElementById(id).innerHTML =
+        `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+          rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
     }
 
-    // S1
+    // 1. Обсяги
     mk('indexChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(GMV.map(v=>Math.round(100*v/GMV[0])),C.red,'Cafe Rynok'),
-      line(LVIV_GMV.map(v=>Math.round(100*v/LVIV_GMV[0])),C.green,'Lviv Stores total'),
-      line(LVIV_EXCL_CR_GMV.map(v=>Math.round(100*v/LVIV_EXCL_CR_GMV[0])),C.blue,'Lviv without CR'),
-    ]},options:opts('Індекс, Jan=100')});
+      line(GMV.map(v=>Math.round(100*v/GMV[0])),C.red,'КАФЕ РИНОК'),
+      line(CITY_GMV.map(v=>Math.round(100*v/CITY_GMV[0])),C.green,'Категорія Stores, Львів (сукупно)'),
+    ]},options:opts('Індекс, січень = 100')});
     mk('usersChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(ACTIVE_USERS,C.red,'CR active users'),
-      line(LVIV_AU,C.green,'Lviv active users'),
-      line(ACTIVATED,C.amber,'CR new activated','y1'),
-      line(LVIV_NEW,C.blue,'Lviv new activated','y1'),
-    ]},options:opts('Active users','New activated / міс')});
-    tbl('finTable',[
-      'Місяць','Orders','GMV €','AOV €','Active users','Activated','Bolt+ %',
-      'Bolt camp % GMV','Orders on campaigns %','Item Discount Promo %','CR share of Lviv %'
-    ], MONTHS.map((m,i)=>[
-      m,fmtN(ORDERS[i]),fmtN(GMV[i]),(GMV[i]/ORDERS[i]).toFixed(2),fmtN(ACTIVE_USERS[i]),ACTIVATED[i],
-      BOLTPLUS[i].toFixed(1),BOLT_CAMP_GMV[i].toFixed(1),
-      CAMP_ORD_PCT[i].toFixed(1),ITEM_DISC[i].toFixed(2),CR_LVIV_SHARE[i].toFixed(1)
-    ]));
+      line(ACTIVE_USERS,C.red,'Активні клієнти'),
+      line(ACTIVATED,C.amber,'Нові клієнти','y1'),
+    ]},options:opts('Активні клієнти','Нові за місяць')});
+    tbl('finTable',
+      ['Місяць','Замовлення','GMV €','Середній чек €','Активні клієнти','Нові клієнти','Bolt+ %','Замовлень з промо %'],
+      MONTHS.map((m,i)=>[m,fmtN(ORDERS[i]),fmtN(GMV[i]),(GMV[i]/ORDERS[i]).toFixed(1),fmtN(ACTIVE_USERS[i]),ACTIVATED[i],
+        BOLTPLUS[i].toFixed(1),CAMP_ORD_PCT[i].toFixed(1)]));
 
-    // Banner data (Databricks · Looker 11981 analogue · approved CafeRynok/Kaferynok)
-    const BANNER_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"];
-    const BANNER_VIEWS = [54215,9530,6869,21131,2719,17174,10645,30387];
-    const BANNER_CLICKS = [3481,130,78,1923,50,288,239,468];
-    // Jan–Aug views by screen (unknown ≈ in-store / provider)
-    const PLACE_LABELS = ["discovery_stores","in-store","home","popup (eater modal)"];
-    const PLACE_VIEWS = [65783,38521,27434,20932];
-    const BANNERS = [
-      ["2025-11-30","2026-01-04","home","Rukavychka & CafeRynok FD if 700UAH",fmtN(126818),fmtN(447),"0.35",fmtN(160),"18"],
-      ["2025-12-01","2026-01-25","home","CafeRynok FD if 700UAH (Home tab)",fmtN(7544),fmtN(108),"1.43","307*","30*"],
-      ["2025-12-01","2026-01-25","discovery_stores","CafeRynok FD if 700UAH (stores tab)",fmtN(38579),fmtN(584),"1.51","307*","30*"],
-      ["2026-01-19","2026-01-25","popup","UA · Kaferynok Launch (eater modal)",fmtN(12540),fmtN(2948),"23.51","0","0"],
-      ["2026-02-02","2026-02-08","discovery_stores","UA Caferynok ID15 FBD100",fmtN(2302),"23","1.00","8","0"],
-      ["2026-02-08","2026-02-12","discovery_stores","UA Caferynok ID10 FBD100 (stores tab)",fmtN(1967),"35","1.78","25","1"],
-      ["2026-02-12","2026-02-15","discovery_stores","UA Caferynok ID10 FBD100",fmtN(1534),"33","2.15","16","0"],
-      ["2026-02-18","2026-02-22","discovery_stores","UA Caferynok ID 10 (store tab)",fmtN(1531),"28","1.83","10","1"],
-      ["2026-03-29","2026-04-05","home / stores","UA Caferynok FBD",fmtN(11321),fmtN(122),"1.08","50","2"],
-      ["2026-03-30","2026-04-05","popup","Kaferynok −20% + FD 100 (eater modal)",fmtN(8689),fmtN(1788),"20.58","0","0"],
-      ["2026-04-05","2026-04-19","discovery_stores","UA Caferynok ID20 FBD75 MOV600",fmtN(5420),"48","0.89","26","3"],
-      ["2026-04-19","2026-04-26","discovery_stores","UA Caferynok Sandwiches ID20 FBD75 MOV600",fmtN(3152),"25","0.79","11","0"],
-      ["2026-04-26","2026-05-03","discovery_stores","UA Caferynok Asian ID15 FBD75 MOV600",fmtN(2430),"49","2.02","31","1"],
-      ["2026-05-25","2026-05-31","discovery_stores","UA Caferynok FBD75 MOV600",fmtN(1742),"21","1.21","31†","1†"],
-      ["2026-06-14","2026-06-28","discovery_stores","UA Caferynok Sandwiches & rolls",fmtN(6794),fmtN(148),"2.18","74","1"],
-      ["2026-06-30","2026-07-12","discovery_stores","UA Caferynok Store tab ID20 FBD75","896","15","1.67","5","0"],
-      ["2026-07-12","2026-07-26","discovery_stores","UA Caferynok Store tab ID15 FBD75",fmtN(1395),"18","1.29","8","0"],
-      ["2026-07-14","2026-07-31","in-store","CafeRynok store banner 1",fmtN(9219),fmtN(137),"1.49","5","1"],
-      ["2026-07-14","2026-07-31","in-store","CafeRynok store banner 2",fmtN(8107),fmtN(171),"2.11","3","1"],
-      ["2026-07-27","2026-08-09","discovery_stores","UA Caferynok Stores Tab ID20 FBD75",fmtN(7850),"42","0.54","25","2"],
-      ["2026-07-28","2026-08-09","in-store","CafeRynok internal store banner 1",fmtN(3237),"32","0.99","0","0"],
-      ["2026-07-29","2026-08-09","in-store","CafeRynok internal store banner 2",fmtN(5160),fmtN(183),"3.55","1","0"],
-      ["2026-08-09","2026-08-23","discovery_stores","UA Caferynok Stores Tab ID15 FBD75",fmtN(3208),"50","1.56","31","0"],
-      ["2026-08-09","2026-08-23","in-store","CafeRynok internal store banner 1 10–23.08",fmtN(4963),"28","0.56","0","0"],
-      ["2026-08-09","2026-08-23","in-store","CafeRynok internal store banner 2 10–23.08",fmtN(7538),fmtN(180),"2.39","1","0"],
-      ["2026-08-23","2026-09-06","discovery_stores","UA Caferynok Stores Tab ID15 Desserts & Drinks FBD75","0","0","—","0","0"],
-    ];
+    // 2. Промо
+    mk('promoChart',{type:'bar',data:{labels:MONTHS,datasets:[
+      bar(PARTNER_PROMO,C.green,'Ваші промо-інвестиції, €'),
+    ]},options:{...opts('€ / міс'),scales:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'€ / міс'}}}}});
+    mk('promoDepthChart',{type:'line',data:{labels:MONTHS,datasets:[
+      line(ITEM_DISC,C.amber,'Знижка, % від суми товарів'),
+    ]},options:{...opts('%'),scales:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'%'}}}}});
 
-    mk('bannerVolChart',{type:'bar',data:{labels:BANNER_MONTHS,datasets:[
-      bar(BANNER_VIEWS,C.blue,'Views'),
-      {label:'Clicks',data:BANNER_CLICKS,type:'line',borderColor:C.amber,backgroundColor:C.amber,tension:.25,pointRadius:3,yAxisID:'y1',borderWidth:2},
-    ]},options:opts('Views','Clicks')});
-    mk('bannerPlaceChart',{type:'bar',data:{labels:PLACE_LABELS,datasets:[bar(PLACE_VIEWS,C.green,'Views')]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'Views Jan–Aug'}},y:{grid:{display:false},title:{display:true,text:'Placement'}}}}});
-    tbl('bannerTable',['Start','End','Placement','Campaign','Views','Clicks','CTR %','Provider viewed','Ordered'],BANNERS);
-
-    // S3: categories / promo / competition (Databricks item-level, delivered)
-    const INV_BOLT = [788,1004,965,554,360,382,304];
-    const INV_MERCH = [1003,154,692,647,818,700,1586];
-    const CAT_GMV = {
-      'Готові страви (інше)': [11421,10415,10019,14505,12118,9589,10442],
-      'Бакалія/Grocery': [5407,5572,5264,2364,3138,3279,3206],
-      'Сендвічі & випічка': [4179,4738,4412,2784,1100,2897,2863],
-      'Шашлик': [2761,2882,2449,1130,1893,2478,3122],
-      'Суші/роли': [560,875,596,466,821,1103,741],
-    };
-    // [category, GMV Jan, GMV Jul, Δ%, orders 7m, promo Jan %, promo Jul %]
-    const CAT_ROWS = [
-      ['Готові страви (інше)','11 421','10 442','−9%','10 030','5.2','7.6'],
-      ['Бакалія / Grocery','5 407','3 206','−41%','10 066','3.6','4.2'],
-      ['Сендвічі & випічка','4 179','2 863','−31%','4 002','0.0','7.1'],
-      ['Шашлик','2 761','3 122','+13%','3 397','6.2','10.0'],
-      ['Суші/роли','560','741','+32%','1 145','3.3','2.9'],
-      ['Десерти','853','566','−34%','1 587','0.2','0.3'],
-      ['Напої','702','715','+2%','2 057','0.1','2.0'],
-      ['Салати','451','305','−32%','567','8.2','10.7'],
-    ];
-    // [term, searches 7m, CR in top Jan %, CR in top Jul %, who takes it]
-    const SEARCH_VIS = [
-      ['суші / роли','10 009','18.5','2.6','суші-ресторани'],
-      ['круасан','2 768','18.4','2.2','пекарні / кафе'],
-      ['шашлик','1 310','1.9','1.5','SHASHLIKE, Хінкальня, PARRILLA, Врубай'],
-      ['салат','692','~2','~2','ресторани'],
-      ['плов','302','~1','~1','ресторани (Ахалі й ін.)'],
-      ['сендвіч','239','23','23','CR помітний, але запит малий'],
-    ];
-    mk('investChart',{type:'bar',data:{labels:MONTHS,datasets:[
-      {...bar(INV_BOLT,C.blue,'Bolt spend €'),stack:'s'},
-      {...bar(INV_MERCH,C.green,'Merchant spend €'),stack:'s'},
-    ]},options:{...opts('€ / міс'),scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'Місяць'}},y:{stacked:true,beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'€ / міс'}}}}});
+    // 3. Категорії
     mk('catChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(CAT_GMV['Готові страви (інше)'],C.navy,'Готові страви (інше)'),
-      line(CAT_GMV['Бакалія/Grocery'],C.red,'Бакалія/Grocery'),
-      line(CAT_GMV['Сендвічі & випічка'],C.amber,'Сендвічі & випічка'),
-      line(CAT_GMV['Шашлик'],C.green,'Шашлик'),
-      line(CAT_GMV['Суші/роли'],C.blue,'Суші/роли'),
-    ]},options:opts('GMV €, до знижки')});
-    tbl('catTable',['Категорія','GMV Jan €','GMV Jul €','Δ','Orders 7м','Promo Jan %','Promo Jul %'],CAT_ROWS);
-    tbl('searchVisTable',['Запит','Пошуків Jan–Jul (Львів)','CR у топі Jan %','CR у топі Jul %','Хто забирає'],SEARCH_VIS);
+      line(CAT_GMV.ready,C.navy,'Готові страви'),
+      line(CAT_GMV.grocery,C.red,'Бакалія / товари'),
+      line(CAT_GMV.sandwich,C.amber,'Сендвічі та випічка'),
+      line(CAT_GMV.grill,C.green,'Шашлик'),
+      line(CAT_GMV.sushi,C.blue,'Суші / роли'),
+    ]},options:opts('GMV €')});
+    tbl('catTable',['Категорія','GMV січень €','GMV липень €','Зміна','Замовлень за 7 міс','Знижка січень %','Знижка липень %'],CAT_ROWS);
 
-    // S2
-    mk('opsChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(LATE_D,C.amber,'Late delivery %'), line(FAILED,C.red,'Failed %'),
-    ]},options:opts('%')});
-    mk('econChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(SKU,C.amber,'SKU availability %'),
-    ]},options:{...opts('SKU availability %'),scales:{x:{grid:{display:false},title:{display:true,text:'Місяць'}},y:{beginAtZero:false,min:70,max:95,grid:{color:'#e8edea'},title:{display:true,text:'SKU availability %'}}}}});
-    tbl('opsMonthlyTable',[
-      'Місяць','Availability %','Acceptance %','Avg rating','Honey %','Bad %',
-      'Late delivery %','Late pickup %','Avg delivery min','Failed %','SKU avail %','Item Discount Promo %'
-    ], MONTHS.map((m,i)=>[
-      m,AVAIL[i].toFixed(1),ACCEPT[i].toFixed(1),RATING[i].toFixed(2),HONEY[i].toFixed(1),BAD[i].toFixed(2),
-      LATE_D[i].toFixed(1),LATE_P[i].toFixed(1),DELIV[i].toFixed(1),FAILED[i].toFixed(2),SKU[i].toFixed(1),ITEM_DISC[i].toFixed(2)
-    ]));
-
-    // S3
-    mk('funnelAbsChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(IMPRESSIONS,C.red,'Impressions'), line(VIEWED,C.amber,'Views','y1'), line(ORDERED_FUNNEL,C.blue,'Orders','y1'),
-    ]},options:opts('Impressions','Views / Orders')});
-    mk('funnelPctChart',{type:'line',data:{labels:MONTHS,datasets:[
-      line(CTR,C.muted,'Impression→View (CTR) %'), line(VIEW_TO_ADD,C.green,'View→Add %'), line(IMP_TO_ORDER,C.blue,'Impression→Order %','y1'),
-    ]},options:opts('CTR / View→Add %','Imp→Order %')});
+    // 4. Видимість
+    mk('funnelChart',{type:'bar',data:{labels:MONTHS,datasets:[
+      bar(IMPRESSIONS,C.blue,'Покази'),
+      {...line(IMP_TO_ORDER,C.green,'Показ → замовлення, %','y1'),type:'line'},
+    ]},options:opts('Покази за місяць','Показ → замовлення, %')});
     mk('sourceChart',{type:'bar',data:{labels:MONTHS,datasets:[
-      bar(HOME_CAT,C.red,'Home category'), bar(SEARCH_IMP,C.blue,'Search results'), bar(FEED_IMP,C.amber,'Main feed'),
-    ]},options:{...opts('Session impressions'),scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'Місяць'}},y:{stacked:true,beginAtZero:true,title:{display:true,text:'Session impressions'}}}}});
-    tbl('funnelTable',['Місяць','Impressions','CTR %','View→Add %','Imp→Order %','Avg row','Brand queries','У топі search'],
-      MONTHS.map((m,i)=>[m,fmtN(IMPRESSIONS[i]),CTR[i].toFixed(1),VIEW_TO_ADD[i].toFixed(1),IMP_TO_ORDER[i].toFixed(2),AVG_ROW[i].toFixed(1),BRAND_Q[i],fmtN(SEARCH_TOP[i])]));
+      bar(HOME_CAT,C.red,'Категорії на головній'), bar(SEARCH_IMP,C.blue,'Пошук'), bar(FEED_IMP,C.amber,'Основна стрічка'),
+    ]},options:{...opts('Покази'),scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,title:{display:true,text:'Покази'}}}}});
+    tbl('searchVisTable',['Запит у Львові','Пошуків за 7 міс','Ви у топі, січень','Ви у топі, липень','Хто зазвичай у топі'],SEARCH_VIS);
 
-    // S4
-    mk('brandChart',{type:'bar',data:{labels:MONTHS,datasets:[bar(BRAND_Q,C.blue,'Brand query sessions')]},options:opts('Sessions')});
-    tbl('intentTable',['Запит','Sessions','Rest. views','Store views','Store orders','Rest. orders'],INTENT);
+    // 5. Банери
+    mk('bannerVolChart',{type:'bar',data:{labels:BANNER_MONTHS,datasets:[
+      bar(BANNER_VIEWS,C.blue,'Покази'),
+      {label:'Кліки',data:BANNER_CLICKS,type:'line',borderColor:C.amber,backgroundColor:C.amber,tension:.25,pointRadius:3,yAxisID:'y1',borderWidth:2},
+    ]},options:opts('Покази','Кліки')});
+    mk('bannerPlaceChart',{type:'bar',data:{labels:PLACE_LABELS,datasets:[bar(PLACE_VIEWS,C.green,'Покази')]},
+      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},
+        scales:{x:{beginAtZero:true,grid:{color:'#e8edea'},title:{display:true,text:'Покази, січень – серпень'}},y:{grid:{display:false}}}}});
+    tbl('bannerTable',['Період','Розміщення','Кампанія','Покази','Кліки','CTR'],BANNERS);
+
+    // 6. Операційка
+    mk('opsChart',{type:'line',data:{labels:MONTHS,datasets:[
+      line(LATE_D,C.amber,'Спізнення, %'), line(FAILED,C.red,'Скасування, %'),
+    ]},options:opts('%')});
+    mk('skuChart',{type:'line',data:{labels:MONTHS,datasets:[line(SKU,C.red,'Наповненість меню, %')]},
+      options:{...opts('%'),scales:{x:{grid:{display:false}},y:{min:70,max:95,grid:{color:'#e8edea'},title:{display:true,text:'%'}}}}});
+    tbl('opsTable',['Місяць','Прийняття замовлень %','Рейтинг','Спізнення %','Скасування %','Наповненість меню %'],
+      MONTHS.map((m,i)=>[m,ACCEPT[i].toFixed(1),RATING[i].toFixed(2),LATE_D[i].toFixed(1),FAILED[i].toFixed(2),SKU[i].toFixed(1)]));
   </script>
 </body>
 </html>
