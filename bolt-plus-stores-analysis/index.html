@@ -69,6 +69,12 @@
     .qa .card p.lead { color: var(--ink); font-weight: 600; }
     .lbl { color: var(--ink); font-weight: 700; font-size: 12px; margin: 6px 0 2px; }
     ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+    .ifgrid { display: grid; grid-template-columns: 140px 1fr 1fr; gap: 8px; }
+    .ifcell { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+    .ifcell.head { background: #eef2f0; color: var(--ink); font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .ifcell.yes { background: var(--green-soft); color: #1e5a3f; border-color: #bcdccb; }
+    .ifcell.no { background: var(--red-soft); color: #7d2b2b; border-color: #e8c4c4; }
+    .ifcell strong { display: block; color: var(--ink); margin-bottom: 4px; font-size: 13px; }
     footer { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
     @media (max-width: 980px) { .kpis { grid-template-columns: 1fr 1fr; } .two, .three { grid-template-columns: 1fr; } }
   </style>
@@ -99,6 +105,67 @@
       <div class="card kpi"><div><div class="kpi-label">GMV Bolt+ юзера vs решти</div><div class="kpi-value good">2,0x</div></div><div class="sub">4 289 грн проти 2 139 грн за 7 міс</div></div>
       <div class="card kpi"><div><div class="kpi-label">Bolt+ бази бували у Stores</div><div class="kpi-value bad">15,3%</div></div><div class="sub">49 576 підписників — незадіяні</div></div>
     </div>
+
+    <!-- KNOWLEDGE BASE -->
+    <section class="section">
+      <div class="section-head"><h2>База знань: що таке Bolt+</h2>
+        <p>Коротко для читача звіту. Bolt+ — це <strong>платна місячна підписка споживача</strong>, не акція магазину. Безкоштовна доставка з підписки <strong>не діє на всіх партнерів</strong> — лише на тих, хто входить у програму і позначений у застосунку значком «+».</p></div>
+
+      <div class="grid three">
+        <div class="card kpi"><div><div class="kpi-label">Скільки платить споживач</div><div class="kpi-value">199 грн</div></div><div class="sub">на місяць · перший місяць безкоштовний (умови запуску, липень 2025)</div></div>
+        <div class="card kpi"><div><div class="kpi-label">Що дає в доставці</div><div class="kpi-value" style="font-size:22px">Безкоштовна доставка</div></div><div class="sub">лише в партнерів програми · при кошику вище MOV · Bolt покриває доставку в межах капу (на запуску Food — до 100 грн)</div></div>
+        <div class="card kpi"><div><div class="kpi-label">Що дає в поїздках</div><div class="kpi-value" style="font-size:22px">Кешбек 5–10%</div></div><div class="sub">на Bolt Balance · 3 безкоштовні скасування / міс · пріоритетна подача авто. Це не залежить від магазину</div></div>
+      </div>
+
+      <div class="qa section">
+        <div class="card">
+          <h3><span class="qtag">Що це</span> Підписка споживача в екосистемі Bolt</h3>
+          <p class="lead">Людина платить 199 грн/міс і отримує пакет переваг у таксі та в доставці. Кількість замовлень з вигодою не обмежена. Заклади програми в застосунку позначені «+».</p>
+          <p>Прапор <code>is_bolt_plus_order</code> у даних означає лише те, що замовлення зробив підписник. Це <strong>не</strong> доказ, що безкоштовна доставка реально спрацювала.</p>
+        </div>
+        <div class="card">
+          <h3><span class="qtag">Переваги</span> Два різні пакети</h3>
+          <div class="lbl">Поїздки — завжди, поки підписка активна:</div>
+          <ul>
+            <li>кешбек 5% на звичайні поїздки, 10% на Premium / Business — на Bolt Balance</li>
+            <li>3 безкоштовні скасування на місяць</li>
+            <li>пріоритет при пошуку авто</li>
+          </ul>
+          <div class="lbl">Доставка — тільки якщо партнер у програмі Bolt+:</div>
+          <ul>
+            <li>компенсація вартості доставки (на запуску Food: кошик від 249 грн, Bolt покриває до 100 грн)</li>
+            <li>пріоритетна обробка замовлення</li>
+            <li>у Stores у підключених <code>store_3p_ent</code> середній MOV нижчий — <strong>350 грн</strong> проти 626 грн у вертикалі загалом</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:22px"><h3>Коли споживач отримує безкоштовну доставку з Bolt+</h3>
+        <p>Коротко: <strong>так, вигода з підписки працює лише якщо партнер входить у програму</strong>. Якщо магазин не підключений — підписник платить за доставку як усі. Окремо ринок Stores може давати безкоштовну доставку всім від MOV 600 грн — це вже не перевага Bolt+.</p></div>
+
+      <div class="ifgrid">
+        <div class="ifcell head"></div>
+        <div class="ifcell head">Партнер у програмі Bolt+ (значок «+»)</div>
+        <div class="ifcell head">Партнер не в програмі</div>
+        <div class="ifcell head">Кошик ≥ MOV партнера</div>
+        <div class="ifcell yes"><strong>Вигода Bolt+ спрацьовує</strong>Доставка безкоштовна в межах капу. Підписник бачить сенс платити 199 грн.</div>
+        <div class="ifcell no"><strong>Вигоди Bolt+ немає</strong>Платить як усі. Якщо ринок дав FD від 600 грн — отримає її і без підписки.</div>
+        <div class="ifcell head">Кошик &lt; MOV партнера</div>
+        <div class="ifcell no"><strong>Вигоди Bolt+ немає</strong>Навіть у «плюсового» партнера підписка не знімає доставку нижче порогу. Тут може лишатися small order fee.</div>
+        <div class="ifcell no"><strong>Вигоди Bolt+ немає</strong>Звичайна доставка / SOF. Саме тут сидить більшість Stores-кошиків (зона 200–600 грн).</div>
+      </div>
+
+      <div class="notice" style="margin-top:16px">
+        <span class="badge">Stores, як зараз</span>
+        <span>Безкоштовна доставка «всім від 600 грн» — це <strong>ринкова умова</strong>, не Bolt+. Підписка додає цінність лише в підключених магазинах і переважно нижче цього порогу. Тому 4 з 5 топ-брендів без enrollment = підписник у VARUS / LOKO / HOP HEY / BEER MARKET платить 199 грн і не отримує нічого додаткового за доставку.</span>
+      </div>
+
+      <div class="card section"><div class="insights">
+        <div class="insight"><strong>Підписка ≠ автоматична безкоштовна доставка скрізь</strong><span>Споживач купує доступ до мережі партнерів зі значком «+». Поза цією мережею умови такі самі, як у клієнта без підписки.</span></div>
+        <div class="insight warn"><strong>MOV і кап обмежують вигоду навіть у «плюсового» партнера</strong><span>Публічний запуск Food: від 249 грн, покриття доставки до 100 грн. У Stores пороги живуть на партнері (<code>min_order_value</code>). Якщо доставка коштує більше капу — різницю все одно платить клієнт.</span></div>
+        <div class="insight risk"><strong>Чому це критично для цього звіту</strong><span>У липні лише 29,9% Stores-замовлень ішли в підключених партнерів. Решта 70% — зона, де Bolt+ фізично не може відрізнятися від «усім від 600 грн».</span></div>
+      </div></div>
+    </section>
 
     <!-- SECTION 1 -->
     <section class="section">
@@ -262,6 +329,7 @@
       main.ng_delivery.dim_provider_v2 (is_bolt_plus_enrolled_provider, min_order_value, brand_name, delivery_vertical).
       Обмеження: прапорець is_bolt_plus_order позначає замовлення підписника, а не факт застосування вигоди; статус підключення партнера — поточний знімок dim_provider_v2,
       тому історія підключень до серпня 2026 відтворена приблизно. Monetary values in UAH, order_gmv без вартості доставки.
+      База знань (ціна 199 грн, перший місяць безкоштовно, FD Food від 249 грн / кап 100 грн, кешбек 5–10%): публічний запуск Bolt Plus в Україні, липень 2025. Умови Stores (MOV партнера, enrollment) — з dim_provider_v2.
     </footer>
   </main>
 
