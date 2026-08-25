@@ -443,7 +443,7 @@
         document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===t.dataset.panel));
       }));
     }
-    init().catch(err=>document.body.innerHTML=`<main class="shell"><div class="card"><h2>Report could not load</h2><p>${esc(err.message)}</p></div></main>`);
   </script>
+  <script src="./cumulative-report.js"></script>
 </body>
 </html>

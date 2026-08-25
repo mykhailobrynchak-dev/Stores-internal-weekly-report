@@ -1,0 +1,81 @@
+name: Update Stores Cumulative Weekly Report
+
+# Two schedules cover Kyiv's summer (UTC+3) and winter (UTC+2) offsets so the run
+# always lands at 10:30 Kyiv time. The guard step below lets exactly one through.
+on:
+  schedule:
+    - cron: '30 7 * * 1'
+    - cron: '30 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stores-cumulative-report
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check this schedule matches 10:30 Kyiv
+        id: guard
+        run: |
+          set -euo pipefail
+          offset="$(TZ=Europe/Kyiv date +%z)"
+          case "$offset" in
+            +0300) want='30 7 * * 1' ;;
+            +0200) want='30 8 * * 1' ;;
+            *) echo "Unexpected Kyiv offset $offset"; exit 1 ;;
+          esac
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$SCHEDULE" = "$want" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Kyiv offset $offset expects '$want', got '$SCHEDULE' - skipping."
+          fi
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+
+      - name: Checkout repository
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        if: steps.guard.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.guard.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Rebuild report data
+        if: steps.guard.outputs.run == 'true'
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_WAREHOUSE_ID: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
+        run: python wow-analysis/build_report.py
+
+      - name: Verify the latest complete week landed
+        if: steps.guard.outputs.run == 'true'
+        run: python wow-analysis/verify_report.py
+
+      - name: Commit and push
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add wow-analysis/data.json
+          if git diff --cached --quiet; then
+            echo "Data unchanged - nothing to commit."
+            exit 0
+          fi
+          git commit -m "Refresh cumulative Stores report through $(TZ=Europe/Kyiv date +'%Y-%m-%d')"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
