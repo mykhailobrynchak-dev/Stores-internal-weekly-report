@@ -1002,6 +1002,33 @@ def _month_metric(label, current, previous, *, mode="pct", inverted=False, value
     }
 
 
+def _gmv_share(spend, gmv):
+    if spend is None or not gmv:
+        return None
+    try:
+        return float(spend) / float(gmv) * 100.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _month_spend_rr(label, spend_rr, prev_spend, gmv_rr, prev_gmv, *, month_name, prior_name):
+    """Euro run-rate plus % of GMV (same ratio as MTD spend / MTD GMV)."""
+    card = _month_metric(
+        label, spend_rr, prev_spend,
+        value_fmt="eur", inverted=True, threshold=5,
+        basis=f"Projected {month_name} vs {prior_name}",
+    )
+    share = _gmv_share(spend_rr, gmv_rr)
+    prev_share = _gmv_share(prev_spend, prev_gmv)
+    share_pp = _pp(share, prev_share)
+    if share is not None:
+        card["value"] = f"{card['value']} ({share:.1f}%)"
+        card["share_pct"] = round(share, 1)
+    if share_pp is not None:
+        card["share_change"] = _fmt_pp(share_pp)
+    return card
+
+
 def build_month_insights(current_week_period):
     """Current-month MTD/RR vs the previous full month, overall and by partner."""
     monthly_fin = sorted(overview_fin_monthly, key=lambda r: r["period"])
@@ -1047,7 +1074,9 @@ def build_month_insights(current_week_period):
         "active_users": rr("active_users"),
         "campaigns_discount_eur": rr("campaigns_discount_eur", cur_camp),
         "bolt_spend_eur": rr("bolt_spend_eur", cur_camp),
+        "merchant_spend_eur": rr("merchant_spend_eur", cur_camp),
     }
+    spend_rr_kw = {"month_name": month_name, "prior_name": prior_name}
     rr_cards = [
         _month_metric("GMV RR", rr_values["gmv_eur"], prev_fin.get("gmv_eur"),
                       value_fmt="eur", threshold=3, basis=f"Projected {month_name} vs {prior_name}"),
@@ -1057,10 +1086,15 @@ def build_month_insights(current_week_period):
                       threshold=5, basis=f"Projected {month_name} vs {prior_name}"),
         _month_metric("Active users RR (directional)", rr_values["active_users"], prev_fin.get("active_users"),
                       threshold=5, basis=f"Linear projection; distinct-user RR vs {prior_name}"),
-        _month_metric("Campaign discount RR", rr_values["campaigns_discount_eur"], prev_camp.get("campaigns_discount_eur"),
-                      value_fmt="eur", inverted=True, threshold=5, basis=f"Projected {month_name} vs {prior_name}"),
-        _month_metric("Bolt campaign spend RR", rr_values["bolt_spend_eur"], prev_camp.get("bolt_spend_eur"),
-                      value_fmt="eur", inverted=True, threshold=5, basis=f"Projected {month_name} vs {prior_name}"),
+        _month_spend_rr("Campaign discount RR", rr_values["campaigns_discount_eur"],
+                        prev_camp.get("campaigns_discount_eur"), rr_values["gmv_eur"], prev_fin.get("gmv_eur"),
+                        **spend_rr_kw),
+        _month_spend_rr("Bolt campaign spend RR", rr_values["bolt_spend_eur"],
+                        prev_camp.get("bolt_spend_eur"), rr_values["gmv_eur"], prev_fin.get("gmv_eur"),
+                        **spend_rr_kw),
+        _month_spend_rr("Merchant spend RR", rr_values["merchant_spend_eur"],
+                        prev_camp.get("merchant_spend_eur"), rr_values["gmv_eur"], prev_fin.get("gmv_eur"),
+                        **spend_rr_kw),
     ]
 
     rate_cards = [
@@ -1351,8 +1385,13 @@ def build_weekly_insights():
     # Campaign intensity
     bolt_share = None
     bolt_share_prev = None
+    merchant_share = None
+    discount_share = None
     if cur_camp.get("gmv_eur"):
-        bolt_share = (cur_camp.get("bolt_spend_eur") or 0) / cur_camp["gmv_eur"] * 100
+        gmv_w = cur_camp["gmv_eur"]
+        bolt_share = (cur_camp.get("bolt_spend_eur") or 0) / gmv_w * 100
+        merchant_share = (cur_camp.get("merchant_spend_eur") or 0) / gmv_w * 100
+        discount_share = (cur_camp.get("campaigns_discount_eur") or 0) / gmv_w * 100
     if prev_camp.get("gmv_eur"):
         bolt_share_prev = (prev_camp.get("bolt_spend_eur") or 0) / prev_camp["gmv_eur"] * 100
 
@@ -1534,6 +1573,8 @@ def build_weekly_insights():
             "merchant_spend_eur": cur_camp.get("merchant_spend_eur"),
             "campaigns_discount_eur": cur_camp.get("campaigns_discount_eur"),
             "bolt_share_pct": round(bolt_share, 2) if bolt_share is not None else None,
+            "merchant_share_pct": round(merchant_share, 2) if merchant_share is not None else None,
+            "discount_share_pct": round(discount_share, 2) if discount_share is not None else None,
             "bolt_share_wow_pp": round(_pp(bolt_share, bolt_share_prev), 2) if bolt_share is not None and bolt_share_prev is not None else None,
         },
     }

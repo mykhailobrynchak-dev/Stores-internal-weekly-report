@@ -574,7 +574,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
         return `<div class="notes-kpi">
           <div class="label">${m.label}</div>
           <div class="val">${m.value}</div>
-          <div class="wow ${direction} ${cls}">${m.change} vs ${M.prior_label}</div>
+          <div class="wow ${direction} ${cls}">${m.change} vs ${M.prior_label}${m.share_change ? ' · ' + m.share_change + ' of GMV' : ''}</div>
           <div class="notes-meta">${m.basis || ''}</div>
         </div>`;
       };
@@ -635,9 +635,9 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
       const c = N.campaigns;
       html += `<div class="section"><div class="section-title">Campaign spend (this week)</div>
         <div class="notes-kpi-grid">
-          <div class="notes-kpi"><div class="label">Bolt spend</div><div class="val">${fmtEur(c.bolt_spend_eur)}</div><div class="wow flat">${c.bolt_share_pct != null ? c.bolt_share_pct.toFixed(1) + '% of GMV' : ''}</div></div>
-          <div class="notes-kpi"><div class="label">Merchant spend</div><div class="val">${fmtEur(c.merchant_spend_eur)}</div></div>
-          <div class="notes-kpi"><div class="label">Total discount</div><div class="val">${fmtEur(c.campaigns_discount_eur)}</div></div>
+          <div class="notes-kpi"><div class="label">Bolt spend</div><div class="val">${fmtEur(c.bolt_spend_eur)}${c.bolt_share_pct != null ? ` (${c.bolt_share_pct.toFixed(1)}%)` : ''}</div><div class="wow flat">${c.bolt_share_pct != null ? c.bolt_share_pct.toFixed(1) + '% of GMV' : ''}</div></div>
+          <div class="notes-kpi"><div class="label">Merchant spend</div><div class="val">${fmtEur(c.merchant_spend_eur)}${c.merchant_share_pct != null ? ` (${c.merchant_share_pct.toFixed(1)}%)` : ''}</div><div class="wow flat">${c.merchant_share_pct != null ? c.merchant_share_pct.toFixed(1) + '% of GMV' : ''}</div></div>
+          <div class="notes-kpi"><div class="label">Total discount</div><div class="val">${fmtEur(c.campaigns_discount_eur)}${c.discount_share_pct != null ? ` (${c.discount_share_pct.toFixed(1)}%)` : ''}</div><div class="wow flat">${c.discount_share_pct != null ? c.discount_share_pct.toFixed(1) + '% of GMV' : ''}</div></div>
           <div class="notes-kpi"><div class="label">Bolt share WoW</div><div class="val">${c.bolt_share_wow_pp == null ? '—' : ((c.bolt_share_wow_pp > 0 ? '+' : '') + c.bolt_share_wow_pp.toFixed(1) + 'pp')}</div></div>
         </div></div>`;
     }
