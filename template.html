@@ -566,6 +566,71 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
         </div></div>`;
     }
 
+    if (N.month_analysis) {
+      const M = N.month_analysis;
+      const monthCard = (m) => {
+        const cls = m.good === true ? 'good' : m.good === false ? 'bad' : 'flat';
+        const direction = m.delta > 0 ? 'up' : m.delta < 0 ? 'down' : 'flat';
+        return `<div class="notes-kpi">
+          <div class="label">${m.label}</div>
+          <div class="val">${m.value}</div>
+          <div class="wow ${direction} ${cls}">${m.change} vs ${M.prior_label}</div>
+          <div class="notes-meta">${m.basis || ''}</div>
+        </div>`;
+      };
+      const monthInsight = (m, severity) =>
+        `<div class="insight ${severity}"><div class="insight-title">${m.label}</div>
+          <div class="insight-text">${m.value} · ${m.change} vs ${M.prior_label} · ${m.basis || ''}</div></div>`;
+
+      html += `<div class="section">
+        <div class="section-title">${M.label} run rate</div>
+        <div class="run-rate-block">
+          <div class="run-rate-header">
+            <span class="run-rate-badge">${M.label.toUpperCase()} RR</span>
+            <span class="run-rate-info">${M.note || ''}</span>
+          </div>
+          <div class="notes-kpi-grid">${safe(M.rr_cards).map(monthCard).join('')}</div>
+        </div>
+      </div>`;
+
+      html += `<div class="section"><div class="section-title">Current month vs ${M.prior_label}</div>
+        <div class="notes-kpi-grid">${safe(M.rate_cards).map(monthCard).join('')}</div>
+        <div class="notes-grid">
+          <div class="notes-card"><h3>Month · what improved</h3>
+            ${safe(M.improved).length ? M.improved.map(m => monthInsight(m, 'good')).join('') :
+              '<div class="insight-text">No material improvements above the threshold.</div>'}
+          </div>
+          <div class="notes-card"><h3>Month · what worsened</h3>
+            ${safe(M.worsened).length ? M.worsened.map(m => monthInsight(m, 'risk')).join('') :
+              '<div class="insight-text">No material deterioration above the threshold.</div>'}
+          </div>
+        </div>
+      </div>`;
+
+      html += '<div class="section"><div class="section-title">Partners · current month vs prior month</div><div class="notes-grid">';
+      html += '<div class="notes-card"><h3>Partner growth / positive signals</h3>';
+      if (safe(M.partners_up).length) {
+        M.partners_up.forEach(p => {
+          const owner = p.owner ? `<div class="notes-meta">Owner: ${p.owner}</div>` : '';
+          html += `<div class="insight good"><div class="insight-title">${p.name}</div>
+            <div class="insight-text">${p.detail}</div>${owner}</div>`;
+        });
+      } else {
+        html += '<div class="insight-text">No material positive partner signals.</div>';
+      }
+      html += '</div><div class="notes-card"><h3>Partner risks / deterioration</h3>';
+      if (safe(M.partners_down).length) {
+        M.partners_down.forEach(p => {
+          const owner = p.owner ? `<div class="notes-meta">Owner: ${p.owner}</div>` : '';
+          html += `<div class="insight risk"><div class="insight-title">${p.name}</div>
+            <div class="insight-text">${p.detail}</div>${owner}</div>`;
+        });
+      } else {
+        html += '<div class="insight-text">No material partner risks above the threshold.</div>';
+      }
+      html += '</div></div></div>';
+    }
+
     if (N.campaigns && N.campaigns.bolt_spend_eur != null) {
       const c = N.campaigns;
       html += `<div class="section"><div class="section-title">Campaign spend (this week)</div>

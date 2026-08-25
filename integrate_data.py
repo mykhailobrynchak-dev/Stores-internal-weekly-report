@@ -1,5 +1,5 @@
 """Assemble all fetched Databricks data into the final HTML report."""
-import json, os, math
+import calendar, json, os, math
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -976,6 +976,245 @@ def _by_period(rows):
     return {fmt_period(r["period"]): r for r in rows}
 
 
+def _month_metric(label, current, previous, *, mode="pct", inverted=False, value_fmt="number",
+                  threshold=3.0, basis="MTD rate vs prior full month"):
+    delta = _pp(current, previous) if mode == "pp" else _pct(current, previous)
+    notable = delta is not None and abs(delta) >= threshold
+    good = None if delta is None else ((delta < 0) if inverted else (delta > 0))
+    if delta is not None and abs(delta) < threshold * 0.2:
+        good = None
+    if value_fmt == "eur":
+        value = _fmt_eur(current)
+    elif value_fmt == "pct":
+        value = f"{current:.1f}%" if current is not None else "—"
+    elif value_fmt == "decimal":
+        value = f"{current:.2f}" if current is not None else "—"
+    else:
+        value = _fmt_num(current)
+    return {
+        "label": label,
+        "value": value,
+        "change": _fmt_pp(delta) if mode == "pp" else _fmt_pct(delta),
+        "delta": round(delta, 2) if delta is not None else None,
+        "good": good,
+        "notable": notable,
+        "basis": basis,
+    }
+
+
+def build_month_insights(current_week_period):
+    """Current-month MTD/RR vs the previous full month, overall and by partner."""
+    monthly_fin = sorted(overview_fin_monthly, key=lambda r: r["period"])
+    if len(monthly_fin) < 2:
+        return None
+
+    cur_fin, prev_fin = monthly_fin[-1], monthly_fin[-2]
+    current_month = cur_fin["period"][:7]
+    if current_month != current_week_period[:7]:
+        return None
+
+    generated_raw = metadata.get("generated_at")
+    try:
+        generated_date = datetime.fromisoformat(generated_raw.replace("Z", "+00:00")).date()
+    except (AttributeError, TypeError, ValueError):
+        generated_date = datetime.now(timezone.utc).date()
+    year, month = map(int, current_month.split("-"))
+    days_in_month = calendar.monthrange(year, month)[1]
+    # Monthly queries may contain a partial generation day; use completed days for a conservative RR.
+    elapsed_days = max(1, min(generated_date.day - 1, days_in_month))
+    multiplier = days_in_month / elapsed_days
+    month_name = datetime(year, month, 1).strftime("%B %Y")
+    prior_name = _month_label(prev_fin["period"])
+
+    cur_cp = _by_period(overview_cp_monthly_computed).get(cur_fin["period"], {})
+    prev_cp = _by_period(overview_cp_monthly_computed).get(prev_fin["period"], {})
+    cur_ops = _by_period(overview_ops_monthly_computed).get(cur_fin["period"], {})
+    prev_ops = _by_period(overview_ops_monthly_computed).get(prev_fin["period"], {})
+    cur_fail = _by_period(failed_monthly).get(cur_fin["period"], {})
+    prev_fail = _by_period(failed_monthly).get(prev_fin["period"], {})
+    cur_camp = _by_period(overview_camp_monthly).get(cur_fin["period"], {})
+    prev_camp = _by_period(overview_camp_monthly).get(prev_fin["period"], {})
+
+    def rr(field, row=cur_fin):
+        value = row.get(field)
+        return value * multiplier if value is not None else None
+
+    rr_values = {
+        "gmv_eur": rr("gmv_eur"),
+        "orders": rr("orders"),
+        "users_activated": rr("users_activated"),
+        # Directional only: monthly active users are distinct, so linear projection is explicitly labelled.
+        "active_users": rr("active_users"),
+        "campaigns_discount_eur": rr("campaigns_discount_eur", cur_camp),
+        "bolt_spend_eur": rr("bolt_spend_eur", cur_camp),
+    }
+    rr_cards = [
+        _month_metric("GMV RR", rr_values["gmv_eur"], prev_fin.get("gmv_eur"),
+                      value_fmt="eur", threshold=3, basis=f"Projected {month_name} vs {prior_name}"),
+        _month_metric("Orders RR", rr_values["orders"], prev_fin.get("orders"),
+                      threshold=3, basis=f"Projected {month_name} vs {prior_name}"),
+        _month_metric("Users activated RR", rr_values["users_activated"], prev_fin.get("users_activated"),
+                      threshold=5, basis=f"Projected {month_name} vs {prior_name}"),
+        _month_metric("Active users RR (directional)", rr_values["active_users"], prev_fin.get("active_users"),
+                      threshold=5, basis=f"Linear projection; distinct-user RR vs {prior_name}"),
+        _month_metric("Campaign discount RR", rr_values["campaigns_discount_eur"], prev_camp.get("campaigns_discount_eur"),
+                      value_fmt="eur", inverted=True, threshold=5, basis=f"Projected {month_name} vs {prior_name}"),
+        _month_metric("Bolt campaign spend RR", rr_values["bolt_spend_eur"], prev_camp.get("bolt_spend_eur"),
+                      value_fmt="eur", inverted=True, threshold=5, basis=f"Projected {month_name} vs {prior_name}"),
+    ]
+
+    rate_cards = [
+        _month_metric("AOV", cur_fin.get("aov_with_delivery"), prev_fin.get("aov_with_delivery"),
+                      value_fmt="eur", threshold=2),
+        _month_metric("Bolt+ GMV share", cur_fin.get("bolt_plus_gmv_share"), prev_fin.get("bolt_plus_gmv_share"),
+                      mode="pp", value_fmt="pct", threshold=0.5),
+        _month_metric("CP margin", cur_cp.get("cp_margin_pct"), prev_cp.get("cp_margin_pct"),
+                      mode="pp", value_fmt="pct", threshold=0.3),
+        _month_metric("CP L2 margin", cur_cp.get("cp_l2_margin_pct"), prev_cp.get("cp_l2_margin_pct"),
+                      mode="pp", value_fmt="pct", threshold=0.5),
+        _month_metric("Demand incentives % GMV", cur_cp.get("demand_incentives_gmv_share"),
+                      prev_cp.get("demand_incentives_gmv_share"), mode="pp", value_fmt="pct",
+                      inverted=True, threshold=0.5),
+        _month_metric("Acceptance", cur_ops.get("acceptance_rate"), prev_ops.get("acceptance_rate"),
+                      mode="pp", value_fmt="pct", threshold=0.3),
+        _month_metric("Availability", cur_ops.get("availability_rate"), prev_ops.get("availability_rate"),
+                      mode="pp", value_fmt="pct", threshold=0.5),
+        _month_metric("Bad order rate", cur_ops.get("bad_order_rate"), prev_ops.get("bad_order_rate"),
+                      mode="pp", value_fmt="pct", inverted=True, threshold=0.5),
+        _month_metric("Failed rate", cur_fail.get("failed_rate_total"), prev_fail.get("failed_rate_total"),
+                      mode="pp", value_fmt="pct", inverted=True, threshold=0.3),
+        _month_metric("Average delivery", cur_ops.get("avg_delivery_minutes"), prev_ops.get("avg_delivery_minutes"),
+                      value_fmt="decimal", inverted=True, threshold=2),
+        _month_metric("CPO", cur_ops.get("cpo_eur"), prev_ops.get("cpo_eur"),
+                      value_fmt="eur", inverted=True, threshold=2),
+        _month_metric("Stores with orders", cur_ops.get("stores_with_orders"), prev_ops.get("stores_with_orders"),
+                      threshold=2),
+    ]
+
+    improved = [m for m in rr_cards + rate_cards if m["notable"] and m["good"] is True]
+    worsened = [m for m in rr_cards + rate_cards if m["notable"] and m["good"] is False]
+
+    partner_month = []
+    for name in partners_list:
+        if name in SUBBRAND_KEYS:
+            continue
+        pdata = partners_data.get(name, {}).get("monthly", {})
+        fin_rows = sorted(pdata.get("financial", []), key=lambda r: r["period"])
+        if len(fin_rows) < 2:
+            continue
+        cfin = next((r for r in fin_rows if r["period"] == cur_fin["period"]), None)
+        pfin = next((r for r in fin_rows if r["period"] == prev_fin["period"]), None)
+        if not cfin or not pfin or max(cfin.get("gmv_eur") or 0, pfin.get("gmv_eur") or 0) < 500:
+            continue
+        cp_rows = _by_period(pdata.get("cp_margins", []))
+        ops_rows = _by_period(pdata.get("operational", []))
+        fail_rows = _by_period(pdata.get("failed_orders", []))
+        ccp, pcp = cp_rows.get(cur_fin["period"], {}), cp_rows.get(prev_fin["period"], {})
+        cops, pops = ops_rows.get(cur_fin["period"], {}), ops_rows.get(prev_fin["period"], {})
+        cfail, pfail = fail_rows.get(cur_fin["period"], {}), fail_rows.get(prev_fin["period"], {})
+        gmv_rr = (cfin.get("gmv_eur") or 0) * multiplier
+        orders_rr = (cfin.get("orders") or 0) * multiplier
+        activated_rr = (cfin.get("users_activated") or 0) * multiplier
+        active_rr = (cfin.get("active_users") or 0) * multiplier
+        partner_month.append({
+            "name": name,
+            "owner": OWNER_BY_PARTNER.get(name),
+            "gmv_rr": gmv_rr,
+            "gmv_change_pct": _pct(gmv_rr, pfin.get("gmv_eur")),
+            "orders_change_pct": _pct(orders_rr, pfin.get("orders")),
+            "users_activated_change_pct": _pct(activated_rr, pfin.get("users_activated")),
+            "active_users_change_pct": _pct(active_rr, pfin.get("active_users")),
+            "aov_change_pct": _pct(cfin.get("aov_with_delivery"), pfin.get("aov_with_delivery")),
+            "availability_change_pp": _pp(cops.get("availability_rate"), pops.get("availability_rate")),
+            "acceptance_change_pp": _pp(cops.get("acceptance_rate"), pops.get("acceptance_rate")),
+            "bad_rate_change_pp": _pp(cops.get("bad_order_rate"), pops.get("bad_order_rate")),
+            "failed_rate_change_pp": _pp(cfail.get("failed_rate_total"), pfail.get("failed_rate_total")),
+            "cp_l2_change_pp": _pp(ccp.get("cp_l2_margin_pct"), pcp.get("cp_l2_margin_pct")),
+            "demand_incentives_change_pp": _pp(ccp.get("demand_incentives_gmv_share"),
+                                               pcp.get("demand_incentives_gmv_share")),
+        })
+
+    def partner_month_note(row):
+        details = [
+            f"GMV RR {_fmt_eur(row['gmv_rr'])} ({_fmt_pct(row['gmv_change_pct'])} vs {prior_name})",
+            f"orders {_fmt_pct(row['orders_change_pct'])}",
+            f"activated users {_fmt_pct(row['users_activated_change_pct'])}",
+            f"active users RR {_fmt_pct(row['active_users_change_pct'])}",
+        ]
+        signals = []
+        for label, key, inverted in (
+            ("availability", "availability_change_pp", False),
+            ("acceptance", "acceptance_change_pp", False),
+            ("bad rate", "bad_rate_change_pp", True),
+            ("failed rate", "failed_rate_change_pp", True),
+            ("CP L2", "cp_l2_change_pp", False),
+            ("demand incentives", "demand_incentives_change_pp", True),
+        ):
+            value = row.get(key)
+            if value is not None and abs(value) >= 0.7:
+                status = "better" if ((value < 0) if inverted else (value > 0)) else "worse"
+                signals.append(f"{label} {_fmt_pp(value)} ({status})")
+        if signals:
+            details.append("; ".join(signals[:4]))
+        return {
+            "name": row["name"],
+            "owner": row.get("owner"),
+            "detail": " · ".join(details),
+            "gmv_change_pct": round(row["gmv_change_pct"], 1) if row.get("gmv_change_pct") is not None else None,
+        }
+
+    def has_positive_signal(row):
+        return (
+            (row.get("gmv_change_pct") or 0) > 3
+            or (row.get("users_activated_change_pct") or 0) > 10
+            or (row.get("active_users_change_pct") or 0) > 10
+            or (row.get("availability_change_pp") or 0) > 1
+            or (row.get("acceptance_change_pp") or 0) > 1
+            or (row.get("bad_rate_change_pp") or 0) < -1
+            or (row.get("failed_rate_change_pp") or 0) < -1
+            or (row.get("cp_l2_change_pp") or 0) > 2
+        )
+
+    def risk_score(row):
+        score = max(0, -(row.get("gmv_change_pct") or 0) / 5)
+        score += max(0, -(row.get("availability_change_pp") or 0))
+        score += max(0, -(row.get("acceptance_change_pp") or 0))
+        score += max(0, row.get("bad_rate_change_pp") or 0)
+        score += max(0, row.get("failed_rate_change_pp") or 0)
+        score += max(0, -(row.get("cp_l2_change_pp") or 0) / 2)
+        score += max(0, (row.get("demand_incentives_change_pp") or 0) / 2)
+        return score
+
+    partner_up = sorted(
+        [r for r in partner_month if has_positive_signal(r)],
+        key=lambda r: -max(r.get("gmv_change_pct") or 0, r.get("users_activated_change_pct") or 0),
+    )[:7]
+    partner_down = sorted(
+        [r for r in partner_month if risk_score(r) >= 1],
+        key=risk_score,
+        reverse=True,
+    )[:7]
+
+    return {
+        "label": month_name,
+        "prior_label": prior_name,
+        "as_of_label": f"{month_name} MTD through day {elapsed_days}",
+        "elapsed_days": elapsed_days,
+        "days_in_month": days_in_month,
+        "rr_multiplier": round(multiplier, 3),
+        "note": (
+            f"{elapsed_days} completed days · ×{multiplier:.2f} run-rate projection to day {days_in_month}. "
+            f"Volume and user totals use RR vs {prior_name}; rates and ops compare MTD with {prior_name}."
+        ),
+        "rr_cards": rr_cards,
+        "rate_cards": rate_cards,
+        "improved": improved,
+        "worsened": worsened,
+        "partners_up": [partner_month_note(r) for r in partner_up],
+        "partners_down": [partner_month_note(r) for r in partner_down],
+    }
+
+
 def build_weekly_insights():
     """Auto-generate WoW + month notes from the same data that powers the report."""
     fin_w = sorted(overview_fin_weekly, key=lambda r: r["period"])
@@ -1289,6 +1528,7 @@ def build_weekly_insights():
             "weeks_included": len(mtd_rows),
             "note": month_note,
         },
+        "month_analysis": build_month_insights(cur_p),
         "campaigns": {
             "bolt_spend_eur": cur_camp.get("bolt_spend_eur"),
             "merchant_spend_eur": cur_camp.get("merchant_spend_eur"),
