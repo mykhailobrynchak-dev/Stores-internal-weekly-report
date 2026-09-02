@@ -738,6 +738,22 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
         html += kpi('Retained Users', fmt(c.retained_users), c, p, 'retained_users');
       }
       html += '</div>';
+
+      if (c.conversion_rate != null || c.retention_rate != null) {
+        const retentionScope = currentView === 'overview'
+          ? 'For Total, a user is retained when they order from any 3P Store again in the next period.'
+          : 'For a partner, a user is retained only when they order from the same partner again in the next period.';
+        const definitions = `<div style="margin-top:10px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.55;color:var(--text-secondary);">
+          <div><strong style="color:var(--text-primary);">Users Activated</strong> — users whose first-ever delivered Bolt Delivery order occurred in the selected period. On a partner tab, that first order was placed with this partner.</div>
+          <div><strong style="color:var(--text-primary);">Active Users</strong> — unique users with at least one delivered order in the selected week or month.</div>
+          <div><strong style="color:var(--text-primary);">Provider-view Sessions</strong> — sessions in which a provider from the selected Total/partner scope was viewed. Total sums provider-level views, so one app session can be counted more than once if several providers were viewed.</div>
+          <div><strong style="color:var(--text-primary);">Ordered Sessions</strong> — provider-view sessions that resulted in an order with that provider.</div>
+          <div><strong style="color:var(--text-primary);">Session Conversion</strong> = Ordered Sessions ÷ Provider-view Sessions × 100%.</div>
+          <div><strong style="color:var(--text-primary);">Retained Users</strong> — users active in both the previous and selected consecutive period. ${retentionScope}</div>
+          <div><strong style="color:var(--text-primary);">User Retention</strong> = Retained Users ÷ Active Users in the previous period × 100%.</div>
+        </div>`;
+        html += collapsible('user metrics definitions', definitions, true);
+      }
     }
 
     // Financial Overview comparison table (WoW/MoM/QoQ), collapsible
