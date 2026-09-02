@@ -164,6 +164,106 @@ def financial_query(granularity, group_filter=None):
     """
 
 
+def user_metrics_query(granularity, group_filter=None, allowed_groups=None):
+    """Session view-to-order conversion and consecutive-period user retention."""
+    time_unit = "week" if granularity == "week" else "month"
+    session_period = f"DATE_TRUNC('{time_unit}', s.session_date)"
+    order_period = f"DATE_TRUNC('{time_unit}', f.order_created_date)"
+    prior_period = "DATE_ADD(c.period, -7)" if granularity == "week" else "ADD_MONTHS(c.period, -1)"
+    history_start = f"DATE_ADD('{DATA_START}', -7)" if granularity == "week" else f"ADD_MONTHS('{DATA_START}', -1)"
+
+    if group_filter == "KOPIYKA_BRANDS":
+        group_select = f"{SUBBRAND_KEY} as group_name, "
+        session_group = f", {SUBBRAND_KEY}"
+        order_group = f", {SUBBRAND_KEY}"
+        group_join = "AND c.group_name = p.group_name"
+        group_output = "c.group_name, "
+        group_clause = SUBBRAND_WHERE
+    elif group_filter == "ALL_BY_GROUP":
+        group_select = f"{GROUP_KEY} as group_name, "
+        session_group = f", {GROUP_KEY}"
+        order_group = f", {GROUP_KEY}"
+        group_join = "AND c.group_name = p.group_name"
+        group_output = "c.group_name, "
+        if allowed_groups:
+            names_sql = ",".join(f"'{name}'" for name in allowed_groups if name not in SUBBRAND_KEYS)
+            group_clause = f"AND {GROUP_KEY} IN ({names_sql})"
+        else:
+            group_clause = ""
+    else:
+        group_select = ""
+        session_group = ""
+        order_group = ""
+        group_join = ""
+        group_output = ""
+        group_clause = ""
+
+    return f"""
+    WITH session_metrics AS (
+        SELECT
+            {group_select}CAST({session_period} AS DATE) AS period,
+            SUM(s.sessions_viewed) AS sessions_viewed,
+            SUM(s.sessions_ordered) AS sessions_ordered
+        FROM main.ng_delivery.etl_delivery_provider_eater_session_funnel_aggregates s
+        JOIN main.ng_delivery.dim_provider_v2 p ON s.provider_id = p.provider_id
+        WHERE s.session_date >= '{DATA_START}'
+          AND s.session_date < CURRENT_DATE()
+          AND {VERTICAL_FILTER_SQL}
+          {group_clause}
+        GROUP BY {session_period}{session_group}
+    ),
+    order_users AS (
+        SELECT DISTINCT
+            {group_select}CAST({order_period} AS DATE) AS period,
+            f.user_id
+        FROM main.ng_delivery.fact_order_delivery f
+        JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
+        WHERE f.city_country_code = 'ua'
+          AND f.order_state = 'delivered'
+          AND f.user_id IS NOT NULL
+          AND f.order_created_date >= {history_start}
+          AND f.order_created_date < CURRENT_DATE()
+          AND {VERTICAL_FILTER_SQL}
+          {group_clause}
+    ),
+    user_counts AS (
+        SELECT {group_output}period, COUNT(*) AS active_users
+        FROM order_users c
+        GROUP BY {group_output}period
+    ),
+    retention AS (
+        SELECT
+            {group_output}c.period,
+            COUNT(p.user_id) AS retained_users,
+            MAX(pc.active_users) AS prior_active_users,
+            ROUND(COUNT(p.user_id) * 100.0 / NULLIF(MAX(pc.active_users), 0), 2) AS retention_rate
+        FROM order_users c
+        LEFT JOIN order_users p
+          ON c.user_id = p.user_id
+         AND p.period = {prior_period}
+         {group_join}
+        LEFT JOIN user_counts pc
+          ON pc.period = {prior_period}
+         {group_join.replace('p.group_name', 'pc.group_name')}
+        WHERE c.period >= DATE '{DATA_START}'
+        GROUP BY {group_output}c.period
+    )
+    SELECT
+        {('s.group_name, ' if group_filter else '')}CAST(s.period AS STRING) AS period,
+        s.sessions_viewed,
+        s.sessions_ordered,
+        ROUND(s.sessions_ordered * 100.0 / NULLIF(s.sessions_viewed, 0), 2) AS conversion_rate,
+        r.retained_users,
+        r.prior_active_users,
+        r.retention_rate
+    FROM session_metrics s
+    LEFT JOIN retention r
+      ON s.period = r.period
+     {('AND s.group_name = r.group_name' if group_filter else '')}
+    ORDER BY period
+    """
+
+
 def refund_query(granularity, group_filter=None):
     """Refunds from ALL orders (not just delivered) to capture supply refunds."""
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
@@ -846,8 +946,25 @@ def main():
     partner_fin_w_clean += [clean_row(r) for r in run_query(cursor, financial_query("week", "KOPIYKA_BRANDS"))]
     save_json("data_partner_fin_weekly.json", partner_fin_w_clean)
 
-    # 8. Partner campaigns (monthly + weekly)
-    print("8. Fetching partner campaigns...")
+    # 8. User metrics (session conversion + consecutive-period retention)
+    print("8. Fetching user metrics...")
+    user_weekly = [clean_row(r) for r in run_query(cursor, user_metrics_query("week"))]
+    user_monthly = [clean_row(r) for r in run_query(cursor, user_metrics_query("month"))]
+    save_json("data_user_metrics_weekly.json", user_weekly)
+    save_json("data_user_metrics_monthly.json", user_monthly)
+
+    partner_user_weekly = [clean_row(r) for r in run_query(cursor, user_metrics_query("week", "ALL_BY_GROUP", all_partners))]
+    partner_user_weekly += [clean_row(r) for r in run_query(cursor, user_metrics_query("week", "KOPIYKA_BRANDS"))]
+    partner_user_monthly = [clean_row(r) for r in run_query(cursor, user_metrics_query("month", "ALL_BY_GROUP", all_partners))]
+    partner_user_monthly += [clean_row(r) for r in run_query(cursor, user_metrics_query("month", "KOPIYKA_BRANDS"))]
+    tracked_set = set(all_partners)
+    partner_user_weekly = [r for r in partner_user_weekly if r.get("group_name") in tracked_set]
+    partner_user_monthly = [r for r in partner_user_monthly if r.get("group_name") in tracked_set]
+    save_json("data_partner_user_metrics_weekly.json", partner_user_weekly)
+    save_json("data_partner_user_metrics_monthly.json", partner_user_monthly)
+
+    # 9. Partner campaigns (monthly + weekly)
+    print("9. Fetching partner campaigns...")
     partner_camp_clean = [clean_row(r) for r in run_query(cursor, campaign_query("month", "ALL_BY_GROUP"))]
     partner_camp_clean += [clean_row(r) for r in run_query(cursor, campaign_query("month", "KOPIYKA_BRANDS"))]
     save_json("data_partner_camp_monthly.json", partner_camp_clean)

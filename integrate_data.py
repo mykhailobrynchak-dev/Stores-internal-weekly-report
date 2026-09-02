@@ -156,6 +156,10 @@ sku_median_weekly = load_json("data_sku_median_weekly.json")
 sku_median_monthly = load_json("data_sku_median_monthly.json")
 partner_fin_monthly = load_json("data_partner_fin_monthly.json")
 partner_fin_weekly = load_json("data_partner_fin_weekly.json")
+user_metrics_weekly = load_json("data_user_metrics_weekly.json")
+user_metrics_monthly = load_json("data_user_metrics_monthly.json")
+partner_user_metrics_weekly = load_json("data_partner_user_metrics_weekly.json")
+partner_user_metrics_monthly = load_json("data_partner_user_metrics_monthly.json")
 partner_camp_monthly = load_json("data_partner_camp_monthly.json")
 partner_camp_weekly = load_json("data_partner_camp_weekly.json")
 acceptance = load_json("data_acceptance.json")
@@ -179,6 +183,8 @@ tenth_partner = metadata.get("tenth_partner")
 for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, overview_camp_monthly,
             failed_monthly, gmv_monthly, gmv_weekly,
             partner_fin_monthly, partner_fin_weekly, partner_camp_monthly, partner_camp_weekly,
+            user_metrics_weekly, user_metrics_monthly,
+            partner_user_metrics_weekly, partner_user_metrics_monthly,
             failed_overview_weekly, partner_failed_weekly, partner_failed_monthly,
             item_defects_raw,
             refund_weekly, refund_monthly, refund_partner_weekly, refund_partner_monthly,
@@ -212,6 +218,31 @@ for r in partner_fin_monthly:
     ref = refund_pm_by_key.get((r.get("group_name"), r["period"]), {})
     r["supply_refund_gmv_pct"] = ref.get("supply_refund_gmv_pct", 0)
     r["demand_refund_gmv_pct"] = ref.get("demand_refund_gmv_pct", 0)
+
+# Merge session conversion and consecutive-period retention into financial rows.
+USER_METRIC_FIELDS = (
+    "sessions_viewed", "sessions_ordered", "conversion_rate",
+    "retained_users", "prior_active_users", "retention_rate",
+)
+
+
+def merge_user_metrics(financial_rows, metric_rows, partner=False):
+    if partner:
+        by_key = {(r.get("group_name"), r["period"]): r for r in metric_rows}
+        key_for = lambda row: (row.get("group_name"), row["period"])
+    else:
+        by_key = {r["period"]: r for r in metric_rows}
+        key_for = lambda row: row["period"]
+    for row in financial_rows:
+        metrics = by_key.get(key_for(row), {})
+        for field in USER_METRIC_FIELDS:
+            row[field] = metrics.get(field)
+
+
+merge_user_metrics(overview_fin_weekly, user_metrics_weekly)
+merge_user_metrics(overview_fin_monthly, user_metrics_monthly)
+merge_user_metrics(partner_fin_weekly, partner_user_metrics_weekly, partner=True)
+merge_user_metrics(partner_fin_monthly, partner_user_metrics_monthly, partner=True)
 
 # Sanitize campaign data: clamp negative values to 0 (data quality issues in source)
 for lst in [overview_camp_weekly, overview_camp_monthly, partner_camp_monthly, partner_camp_weekly]:

@@ -730,6 +730,13 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
       html += kpi('Users Activated', fmt(c.users_activated), c, p, 'users_activated');
       html += kpi('Active Users', fmt(c.active_users), c, p, 'active_users');
+      if (c.conversion_rate != null) {
+        html += kpi('Session Conversion (Viewed → Ordered)', fmtPct(c.conversion_rate, 1), c, p, 'conversion_rate');
+      }
+      if (c.retention_rate != null) {
+        html += kpi('User Retention (Previous → Current Period)', fmtPct(c.retention_rate, 1), c, p, 'retention_rate');
+        html += kpi('Retained Users', fmt(c.retained_users), c, p, 'retained_users');
+      }
       html += '</div>';
     }
 
@@ -1611,6 +1618,16 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
       html += row('Demand Refunds % GMV', r => r.f.demand_refund_gmv_pct, v => fmtPct(v, 2), true);
     html += row('Users Activated', r => r.f.users_activated, v => fmt(v));
     html += row('Active Users', r => r.f.active_users, v => fmt(v));
+    if (rows.some(r => r.f.sessions_viewed != null))
+      html += row('Provider-view Sessions', r => r.f.sessions_viewed, v => fmt(v));
+    if (rows.some(r => r.f.sessions_ordered != null))
+      html += row('Ordered Sessions', r => r.f.sessions_ordered, v => fmt(v));
+    if (rows.some(r => r.f.conversion_rate != null))
+      html += row('Session Conversion (Viewed → Ordered), %', r => r.f.conversion_rate, v => fmtPct(v, 1));
+    if (rows.some(r => r.f.retained_users != null))
+      html += row('Retained Users', r => r.f.retained_users, v => fmt(v));
+    if (rows.some(r => r.f.retention_rate != null))
+      html += row('User Retention (Previous → Current Period), %', r => r.f.retention_rate, v => fmtPct(v, 1));
 
     html += '</tbody></table></div>';
     return html;
