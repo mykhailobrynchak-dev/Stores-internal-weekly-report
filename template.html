@@ -1527,6 +1527,11 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     html += rowFmt('Stores with Orders', r => r.stores_with_orders || r.active_stores, v => fmt(v));
     html += rowFmt('Acceptance Rate, %', r => r.acceptance_rate, v => fmtPct(v, 1));
     html += rowFmt('Availability, %', r => r.availability_rate, v => fmtPct(v, 1));
+    if (currentView === 'overview') {
+      html += rowFmt('Merchant Availability — ENT, %', r => r.availability_ent_pct, v => fmtPct(v, 1));
+      html += rowFmt('Merchant Availability — SMB, %', r => r.availability_smb_pct, v => fmtPct(v, 1));
+      html += rowFmt('Merchant Availability — MM, %', r => r.availability_mm_pct, v => fmtPct(v, 1));
+    }
     html += rowFmt('Avg Rating', r => r.avg_rating, v => fmt(v, 2));
     html += rowFmt('Honey %', r => r.honey_order_rate, v => fmtPct(v, 1));
     html += rowFmt('Bad %', r => r.bad_order_rate, v => fmtPct(v, 1), true);

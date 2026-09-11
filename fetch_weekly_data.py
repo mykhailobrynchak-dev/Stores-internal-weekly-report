@@ -480,6 +480,12 @@ SELECT {period_expr} as period,
   ROUND(SUM(total_contribution_profit_without_demand_incentives_eur) / NULLIF(SUM(total_gmv_before_discounts_eur), 0) * 100, 2) as cp_l2_margin_pct,
   ROUND(SUM(f.provider_acceptance_rate_value * f.provider_acceptance_rate_weight) / NULLIF(SUM(f.provider_acceptance_rate_weight), 0) * 100, 1) as acceptance_rate,
   ROUND(SUM(f.provider_active_rate_value * f.provider_active_rate_weight) / NULLIF(SUM(f.provider_active_rate_weight), 0) * 100, 1) as availability_rate,
+  ROUND(SUM(CASE WHEN p.business_segment_v2 = 'Enterprise (AM Segment)' THEN f.provider_active_rate_value * f.provider_active_rate_weight END)
+    / NULLIF(SUM(CASE WHEN p.business_segment_v2 = 'Enterprise (AM Segment)' THEN f.provider_active_rate_weight END), 0) * 100, 1) as availability_ent_pct,
+  ROUND(SUM(CASE WHEN p.business_segment_v2 = 'SMB (AM Segment)' THEN f.provider_active_rate_value * f.provider_active_rate_weight END)
+    / NULLIF(SUM(CASE WHEN p.business_segment_v2 = 'SMB (AM Segment)' THEN f.provider_active_rate_weight END), 0) * 100, 1) as availability_smb_pct,
+  ROUND(SUM(CASE WHEN p.business_segment_v2 = 'Mid-market (AM Segment)' THEN f.provider_active_rate_value * f.provider_active_rate_weight END)
+    / NULLIF(SUM(CASE WHEN p.business_segment_v2 = 'Mid-market (AM Segment)' THEN f.provider_active_rate_weight END), 0) * 100, 1) as availability_mm_pct,
   ROUND(SUM(f.provider_rating_per_order_value * f.provider_rating_per_order_weight) / NULLIF(SUM(f.provider_rating_per_order_weight), 0), 2) as avg_rating,
   ROUND(SUM(f.honey_order_rate_value * f.honey_order_rate_weight) / NULLIF(SUM(f.honey_order_rate_weight), 0) * 100, 1) as honey_rate,
   ROUND(SUM(f.bad_order_rate_value * f.bad_order_rate_weight) / NULLIF(SUM(f.bad_order_rate_weight), 0) * 100, 2) as bad_rate,
@@ -805,6 +811,9 @@ def clean_ops_overview_row(r):
         "cp_l2_margin_pct": to_float(r["cp_l2_margin_pct"]),
         "acceptance_rate": to_float(r["acceptance_rate"]),
         "availability_rate": to_float(r["availability_rate"]),
+        "availability_ent_pct": to_float(r["availability_ent_pct"]),
+        "availability_smb_pct": to_float(r["availability_smb_pct"]),
+        "availability_mm_pct": to_float(r["availability_mm_pct"]),
         "avg_rating": to_float(r["avg_rating"]),
         "honey_rate": to_float(r["honey_rate"]),
         "bad_rate": to_float(r["bad_rate"]),
