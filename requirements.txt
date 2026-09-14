@@ -1,1 +1,1 @@
-databricks-sql-connector>=3.1.0
+databricks-sql-connector[pyarrow]>=3.1.0

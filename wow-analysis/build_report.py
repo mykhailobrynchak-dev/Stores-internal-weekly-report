@@ -236,6 +236,12 @@ def main() -> None:
         reasons = query(cursor, REFUND_REASONS_SQL)
         daily = query(cursor, DAILY_PARTNER_SQL)
 
+    if not weekly:
+        raise SystemExit(
+            "WEEKLY_SQL returned no rows; refusing to overwrite data.json. "
+            "Check warehouse access and whether cloud fetch needs pyarrow."
+        )
+
     weeks = sorted({row["week_start"] for row in weekly})
     mtd = build_mtd_snapshots(weeks, daily)
     for row in reasons:
