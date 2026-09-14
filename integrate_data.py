@@ -19,7 +19,7 @@ ALL_TRACKED_PARTNERS = [
     "BRSM", "VAPORS", "PIVASOV", "OKKO MARKET", "VAPERY | VAPE SHOP",
     # Future / onboarding key accounts (not yet live on Bolt UA stores; render empty with a banner)
     "AUCHAN", "ATB", "FLOWERS UA", "THRASH", "E-ZOO", "MASTER ZOO",
-    "РОСТ", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"
+    "ROST", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"
 ]
 
 
@@ -939,7 +939,7 @@ for city in city_list:
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
     "Mykhailo": ["LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK", "TAISTRA", "BEERLAND K", "WINETIME", "BRSM", "SPAR", "AUCHAN", "ATB", "FLOWERS UA", "OKKO MARKET"],
-    "Viktor": ["VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "PYVNA BORODA", "ANRI-PHARM", "THRASH", "E-ZOO", "MASTER ZOO", "РОСТ", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"],
+    "Viktor": ["VARUS", "RUKAVYCHKA", "REMESLO BREWERY", "PYVNA BORODA", "ANRI-PHARM", "THRASH", "E-ZOO", "MASTER ZOO", "ROST", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"],
     "Khrystyna": ["TOCHKA", "LEPRUKON", "MAXBEER", "SPRAGA", "DIMPYVA", "ALTBIER", "FLOWER SHOP", "NO TABOO", "RODYNNA KOVBASKA", "VAPERY | VAPE SHOP", "VAPORS", "PIVASOV"],
 }
 

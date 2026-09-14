@@ -392,7 +392,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   function getDataSource() {
     if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
     if (currentView === 'city') return (((D.cities || {})[currentCity] || {})[currentGran]) || {};
-    return ((D.partners || {})[currentView] || {})[currentGran] || {};
+    return ((D.partners || {})[canonicalPartner(currentView)] || {})[currentGran] || {};
   }
 
   function quarterLabel(period) {
@@ -412,7 +412,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   /* ---- acceptance/availability helpers ---- */
   function getAcceptAvail() {
     if (currentView === 'overview') return safe((D.acceptance_availability || {}).overview);
-    return safe((D.acceptance_availability || {})[currentView]);
+    return safe((D.acceptance_availability || {})[canonicalPartner(currentView)]);
   }
 
   /* ---- aggregate partner city data (reuses aggregateCityData logic) ---- */
@@ -455,10 +455,14 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     if (view === 'overview') return 'All 3P Stores';
     if (view === 'insights') return 'Weekly notes';
     if (view === 'KOPIYKA') return 'KOPIYKA Group';
+    if (view === 'РОСТ') return 'ROST';
     return view;
   }
+  function canonicalPartner(view) {
+    return view === 'РОСТ' ? 'ROST' : view;
+  }
   function partnerHasData(view) {
-    const p = (D.partners || {})[view] || {};
+    const p = (D.partners || {})[canonicalPartner(view)] || {};
     return ['weekly', 'monthly', 'quarterly'].some(g =>
       safe((p[g] || {}).financial).length > 0 || safe((p[g] || {}).operational).length > 0);
   }
@@ -776,7 +780,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
     // Partner city breakdown (brand views with 2+ cities, all granularities)
     if (currentView !== 'overview') {
-      const partnerCityAll = safe(D.partner_city_weekly).filter(r => r.group_name === currentView);
+      const partnerCityAll = safe(D.partner_city_weekly).filter(r => r.group_name === canonicalPartner(currentView));
       const curCities = aggregatePartnerCityData(partnerCityAll, currentPeriod, currentGran);
       if (curCities.length >= 2) {
         const prevPer = getPrevPeriod(currentPeriod, currentGran);
@@ -844,7 +848,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
       html += '<div class="kpi-grid">';
       if (oc) {
         const snap = D.active_stores_snapshot || {};
-        const activeCount = currentView === 'overview' ? snap.total : (snap[currentView] || null);
+        const activeCount = currentView === 'overview' ? snap.total : (snap[canonicalPartner(currentView)] || null);
         if (activeCount != null) {
           html += `<div class="kpi-card"><div class="kpi-label">ACTIVE STORES</div><div class="kpi-value">${fmt(activeCount)}</div><span class="kpi-change neutral">status: active</span></div>`;
         }
@@ -886,7 +890,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
       /* Order & Item Adjustments sub-block (brand views only; hidden when all-zero) */
       if (oc && currentView !== 'overview') {
-        const defectsArr = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
+        const defectsArr = safe(((D.item_defects || {})[currentGran] || {})[canonicalPartner(currentView)]);
         const defRow = defectsArr.find(r => r.period === currentPeriod) || last(defectsArr);
         const defRowPIdx = defRow ? defectsArr.indexOf(defRow) : -1;
         const defPrev = defRowPIdx > 0 ? defectsArr[defRowPIdx - 1] : null;
@@ -927,7 +931,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     }
     if (currentView !== 'overview') {
       const promoStore = (D.item_discount_promo || {})[currentGran] || (D.item_discount_promo || {});
-      const promoData = safe(promoStore[currentView]);
+      const promoData = safe(promoStore[canonicalPartner(currentView)]);
       if (promoData.length) {
         const promoIdx = promoData.findIndex(r => r.period === currentPeriod);
         const promoC = promoIdx >= 0 ? promoData[promoIdx] : last(promoData);
@@ -1573,7 +1577,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
     /* ===== Block 4: Order & Item Adjustments (brand views only) ===== */
     if (currentView !== 'overview') {
-      const defectsAll = safe(((D.item_defects || {})[currentGran] || {})[currentView]);
+      const defectsAll = safe(((D.item_defects || {})[currentGran] || {})[canonicalPartner(currentView)]);
       if (anyDefect(defectsAll)) {
         function defectRow(label, field) {
           let tr = `<tr><td>${label}</td>`;
@@ -1732,7 +1736,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
     if (currentView !== 'overview') {
       const promoStore = (D.item_discount_promo || {})[currentGran] || (D.item_discount_promo || {});
-      const promoData = safe(promoStore[currentView]);
+      const promoData = safe(promoStore[canonicalPartner(currentView)]);
       if (promoData.length) {
         html += '<tr><td>Item Discount Promo, %</td>';
         last10.forEach((r, i) => {
