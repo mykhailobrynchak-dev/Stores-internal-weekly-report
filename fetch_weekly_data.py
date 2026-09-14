@@ -59,7 +59,7 @@ ALL_TRACKED_PARTNERS = [
     "BRSM", "VAPORS", "PIVASOV", "MEALTIME", "CHILL TIME", "MILLION FLOWERS", "OKKO MARKET", "VAPERY | VAPE SHOP",
     # Future / onboarding key accounts (not yet live on Bolt UA stores; render empty with a banner)
     "AUCHAN", "ATB", "FLOWERS UA", "THRASH", "E-ZOO", "MASTER ZOO",
-    "ROST", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"
+    "ROST", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24", "EKO MARKET"
 ]
 
 EXTRA_PARTNERS = ["ANRI-PHARM", "BRSM", "VAPORS", "PIVASOV"]
