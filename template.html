@@ -280,6 +280,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     if (safe(D.city_list).length) {
       html += `<div class="nav-item ${currentView==='city'?'active':''}" data-view="city">City overview</div>`;
     }
+    html += `<div class="nav-item ${currentView==='portfolio'?'active':''}" data-view="portfolio">AM Performance</div>`;
 
     const groups = D.employee_groups || {};
     const groupNames = Object.keys(groups);
@@ -391,6 +392,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
   function getDataSource() {
     if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
+    if (currentView === 'portfolio') return (D.overview || {})[currentGran] || {};
     if (currentView === 'city') return (((D.cities || {})[currentCity] || {})[currentGran]) || {};
     return ((D.partners || {})[canonicalPartner(currentView)] || {})[currentGran] || {};
   }
@@ -454,6 +456,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   function displayName(view) {
     if (view === 'overview') return 'All 3P Stores';
     if (view === 'insights') return 'Weekly notes';
+    if (view === 'portfolio') return 'AM Performance';
     if (view === 'KOPIYKA') return 'KOPIYKA Group';
     if (view === 'РОСТ') return 'ROST';
     if (view === 'MEALTIME') return 'Mealtime';
@@ -652,6 +655,129 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     $('content').innerHTML = html;
   }
 
+  function renderAMPortfolio() {
+    $('pageTitle').textContent = 'AM Performance';
+    const overview = (D.overview || {})[currentGran] || {};
+    const totalFin = safe(overview.financial).find(r => r.period === currentPeriod);
+    const totalCp = safe(overview.cp_margins).find(r => r.period === currentPeriod) || {};
+    const totalOps = safe(overview.operational).find(r => r.period === currentPeriod) || {};
+    const totalCamp = safe(overview.campaigns).find(r => r.period === currentPeriod) || {};
+    if (!totalFin) {
+      $('content').innerHTML = '<div class="section"><div class="section-title">AM Performance</div><p>No data for this period.</p></div>';
+      return;
+    }
+
+    const groups = D.employee_groups || {};
+    const getPeriod = (name, section) => {
+      const node = (((D.partners || {})[canonicalPartner(name)] || {})[currentGran] || {});
+      return safe(node[section]).find(r => r.period === currentPeriod) || null;
+    };
+    const sum = (rows, field) => rows.reduce((a, r) => a + Number((r && r[field]) || 0), 0);
+    const rate = (num, den) => den ? num / den * 100 : null;
+    const weighted = (rows, field) => {
+      let num = 0, den = 0;
+      rows.forEach(r => {
+        if (!r || r[field] == null) return;
+        const w = Number(r.delivered_orders || 0);
+        if (w <= 0) return;
+        num += Number(r[field]) * w;
+        den += w;
+      });
+      return den ? num / den : null;
+    };
+
+    const rows = Object.keys(groups).map(owner => {
+      const names = safe(groups[owner]);
+      const fin = names.map(n => getPeriod(n, 'financial')).filter(Boolean);
+      const cp = names.map(n => getPeriod(n, 'cp_margins')).filter(Boolean);
+      const ops = names.map(n => getPeriod(n, 'operational')).filter(Boolean);
+      const camp = names.map(n => getPeriod(n, 'campaigns')).filter(Boolean);
+      const gmv = sum(fin, 'gmv_eur');
+      const orders = sum(fin, 'orders');
+      const opsGmv = sum(cp, 'ops_gmv_eur');
+      const sessionsViewed = sum(fin, 'sessions_viewed');
+      const sessionsOrdered = sum(fin, 'sessions_ordered');
+      const retained = sum(fin, 'retained_users');
+      const priorActive = sum(fin, 'prior_active_users');
+      const delivered = sum(ops, 'delivered_orders');
+      return {
+        owner,
+        assigned: names.length,
+        gmv,
+        orders,
+        gmv_share: rate(gmv, totalFin.gmv_eur),
+        order_share: rate(orders, totalFin.orders),
+        avg_gmv: null,
+        ops_gmv: opsGmv,
+        commission: sum(cp, 'commission_eur'),
+        cp_l1: sum(cp, 'cp_l1_eur'),
+        cp_l2: sum(cp, 'cp_l2_eur'),
+        courier_cost: sum(cp, 'courier_cost_eur'),
+        delivered,
+        acceptance: weighted(ops, 'acceptance_rate'),
+        availability: weighted(ops, 'availability_rate'),
+        rating: weighted(ops, 'avg_rating'),
+        honey: weighted(ops, 'honey_order_rate'),
+        bad: weighted(ops, 'bad_order_rate'),
+        late: weighted(ops, 'late_delivery_rate'),
+        delivery_time: weighted(ops, 'avg_delivery_minutes'),
+        stores: sum(ops, 'stores_with_orders'),
+        discount: sum(camp, 'campaigns_discount_eur'),
+        bolt_spend: sum(camp, 'bolt_spend_eur'),
+        merchant_spend: sum(camp, 'merchant_spend_eur'),
+        active_users: sum(fin, 'active_users'),
+        conversion: rate(sessionsOrdered, sessionsViewed),
+        retention: rate(retained, priorActive),
+      };
+    });
+    rows.forEach(r => { r.avg_gmv = r.assigned ? r.gmv / r.assigned : null; });
+
+    const managedRows = rows.filter(r => r.owner !== 'NEW w/o AM');
+    const coveredGmv = sum(managedRows, 'gmv');
+    const coveredOrders = sum(managedRows, 'orders');
+    const assigned = sum(managedRows, 'assigned');
+    const coveredPct = rate(coveredGmv, totalFin.gmv_eur);
+    const unassignedGmv = Math.max(0, Number(totalFin.gmv_eur || 0) - coveredGmv);
+
+    const table = (title, headers, body) =>
+      `<div class="section"><div class="section-title">${title}</div>
+        <div class="data-table-wrap"><table class="data-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${body}</tbody></table></div></div>`;
+    const ownerCell = r => `<td><strong>${r.owner}</strong></td>`;
+    const totalStyle = ' style="font-weight:700;background:var(--bg);"';
+
+    let html = `<div class="section"><div class="section-title">Portfolio summary · ${periodLabel(currentPeriod, currentGran)}</div>
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">AM-assigned accounts</div><div class="kpi-value">${fmt(assigned)}</div><span class="kpi-change neutral">excluding NEW w/o AM</span></div>
+        <div class="kpi-card"><div class="kpi-label">GMV / assigned account</div><div class="kpi-value">${fmtEur(assigned ? coveredGmv/assigned : null)}</div><span class="kpi-change neutral">${fmt(assigned)} assigned accounts</span></div>
+        <div class="kpi-card"><div class="kpi-label">AM-managed GMV coverage</div><div class="kpi-value">${fmtPct(coveredPct, 1)}</div><span class="kpi-change neutral">${fmtEur(coveredGmv)}</span></div>
+        <div class="kpi-card"><div class="kpi-label">Unmanaged / other GMV</div><div class="kpi-value">${fmtEur(unassignedGmv)}</div><span class="kpi-change neutral">${fmtPct(rate(unassignedGmv, totalFin.gmv_eur), 1)} of business</span></div>
+      </div></div>`;
+
+    html += table('Business ownership', ['AM / section','Assigned partners','GMV','% business','Orders','% business','GMV / assigned partner'],
+      rows.map(r => `<tr>${ownerCell(r)}<td>${fmt(r.assigned)}</td><td>${fmtEur(r.gmv)}</td><td>${fmtPct(r.gmv_share,1)}</td><td>${fmt(r.orders)}</td><td>${fmtPct(r.order_share,1)}</td><td>${fmtEur(r.avg_gmv)}</td></tr>`).join('') +
+      `<tr${totalStyle}><td>Total AM-managed</td><td>${fmt(assigned)}</td><td>${fmtEur(coveredGmv)}</td><td>${fmtPct(coveredPct,1)}</td><td>${fmt(coveredOrders)}</td><td>${fmtPct(rate(coveredOrders,totalFin.orders),1)}</td><td>${fmtEur(assigned ? coveredGmv/assigned : null)}</td></tr>
+       <tr${totalStyle}><td>All 3P Stores</td><td>—</td><td>${fmtEur(totalFin.gmv_eur)}</td><td>100.0%</td><td>${fmt(totalFin.orders)}</td><td>100.0%</td><td>—</td></tr>`);
+
+    html += table('Account roster', ['AM / section','Assigned partners'],
+      rows.map(r => `<tr>${ownerCell(r)}<td>${safe(groups[r.owner]).map(displayName).join(', ')}</td></tr>`).join(''));
+
+    html += table('Economics', ['AM / section','Commission, €','Commission, % GMV','CP L1, €','CP L1, %','CP L2, €','CP L2, %','CPO'],
+      rows.map(r => `<tr>${ownerCell(r)}<td>${fmtEur(r.commission)}</td><td>${fmtPct(rate(r.commission,r.ops_gmv),1)}</td><td>${fmtEur(r.cp_l1)}</td><td>${fmtPct(rate(r.cp_l1,r.ops_gmv),1)}</td><td>${fmtEur(r.cp_l2)}</td><td>${fmtPct(rate(r.cp_l2,r.ops_gmv),1)}</td><td>${fmtEur(r.delivered ? r.courier_cost/r.delivered : null,2)}</td></tr>`).join('') +
+      `<tr${totalStyle}><td>All 3P Stores</td><td>${fmtEur(totalCp.commission_eur)}</td><td>${fmtPct(rate(totalCp.commission_eur,totalCp.ops_gmv_eur),1)}</td><td>${fmtEur(totalCp.cp_l1_eur)}</td><td>${fmtPct(rate(totalCp.cp_l1_eur,totalCp.ops_gmv_eur),1)}</td><td>${fmtEur(totalCp.cp_l2_eur)}</td><td>${fmtPct(rate(totalCp.cp_l2_eur,totalCp.ops_gmv_eur),1)}</td><td>${fmtEur(totalOps.delivered_orders ? totalCp.courier_cost_eur/totalOps.delivered_orders : null,2)}</td></tr>`);
+
+    html += table('Operational performance', ['AM / section','Stores w/ orders','Acceptance','Availability','Rating','Honey','Bad','Late delivery','Avg delivery'],
+      rows.map(r => `<tr>${ownerCell(r)}<td>${fmt(r.stores)}</td><td>${fmtPct(r.acceptance,1)}</td><td>${fmtPct(r.availability,1)}</td><td>${fmt(r.rating,2)}</td><td>${fmtPct(r.honey,1)}</td><td>${fmtPct(r.bad,1)}</td><td>${fmtPct(r.late,1)}</td><td>${fmt(r.delivery_time,1)} min</td></tr>`).join('') +
+      `<tr${totalStyle}><td>All 3P Stores</td><td>${fmt(totalOps.stores_with_orders)}</td><td>${fmtPct(totalOps.acceptance_rate,1)}</td><td>${fmtPct(totalOps.availability_rate,1)}</td><td>${fmt(totalOps.avg_rating,2)}</td><td>${fmtPct(totalOps.honey_order_rate,1)}</td><td>${fmtPct(totalOps.bad_order_rate,1)}</td><td>${fmtPct(totalOps.late_delivery_rate,1)}</td><td>${fmt(totalOps.avg_delivery_minutes,1)} min</td></tr>`);
+
+    html += table('Campaigns & users', ['AM / section','Discount, €','Bolt spend, €','Merchant spend, €','Discount, % GMV','Active users*','Conversion','Retention'],
+      rows.map(r => `<tr>${ownerCell(r)}<td>${fmtEur(r.discount)}</td><td>${fmtEur(r.bolt_spend)}</td><td>${fmtEur(r.merchant_spend)}</td><td>${fmtPct(rate(r.discount,r.gmv),1)}</td><td>${fmt(r.active_users)}</td><td>${fmtPct(r.conversion,1)}</td><td>${fmtPct(r.retention,1)}</td></tr>`).join('') +
+      `<tr${totalStyle}><td>All 3P Stores</td><td>${fmtEur(totalCamp.campaigns_discount_eur)}</td><td>${fmtEur(totalCamp.bolt_spend_eur)}</td><td>${fmtEur(totalCamp.merchant_spend_eur)}</td><td>${fmtPct(rate(totalCamp.campaigns_discount_eur,totalFin.gmv_eur),1)}</td><td>${fmt(totalFin.active_users)}</td><td>${fmtPct(totalFin.conversion_rate,1)}</td><td>${fmtPct(totalFin.retention_rate,1)}</td></tr>`);
+
+    html += '<div class="section"><div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">* AM-level active users are summed across partner accounts and are not deduplicated between partners. Operational AM rates are weighted by delivered orders; All 3P uses the source-weighted total metric. CP and commission amounts come directly from provider weekly/monthly facts.</div></div>';
+    $('content').innerHTML = html;
+  }
+
   function render() {
     destroyCharts();
     if (currentView === 'city' && !currentCity) currentCity = safe(D.city_list)[0] || null;
@@ -669,6 +795,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     if (controlsRow) controlsRow.style.display = '';
     buildControls();
     if (currentView === 'city') { renderCity(); return; }
+    if (currentView === 'portfolio') { renderAMPortfolio(); return; }
     $('pageTitle').textContent = displayName(currentView);
 
     // Future / onboarding key accounts with no data yet -> "Not yet activated" banner
