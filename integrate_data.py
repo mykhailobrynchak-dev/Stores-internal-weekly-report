@@ -1676,6 +1676,11 @@ DATA = {
     "weekly_insights": weekly_insights,
 }
 
+if len(overview_fin_weekly) < 8:
+    raise SystemExit(
+        f"Refusing to publish empty weekly report: {len(overview_fin_weekly)} financial rows"
+    )
+
 # ======== GENERATE HTML ========
 print("\nGenerating HTML...")
 with open(os.path.join(SCRIPT_DIR, "template.html"), "r") as f:

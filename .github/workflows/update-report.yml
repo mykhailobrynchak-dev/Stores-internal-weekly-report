@@ -60,6 +60,17 @@ jobs:
           DATABRICKS_WAREHOUSE_ID: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
         run: python fetch_weekly_data.py
 
+      - name: Verify weekly extract is not empty
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          rows = json.load(open("data_overview_fin_weekly.json"))
+          if len(rows) < 8:
+              raise SystemExit(f"Aborting: weekly financial extract has {len(rows)} rows")
+          print(f"OK: {len(rows)} weekly rows, last {rows[-1].get('period')}")
+          PY
+
       - name: Generate HTML report
         if: steps.guard.outputs.run == 'true'
         run: python integrate_data.py

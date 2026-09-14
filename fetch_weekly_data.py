@@ -890,6 +890,10 @@ def main():
     print("2. Fetching overview financial...")
     overview_fin_weekly = [clean_row(r) for r in run_query(cursor, financial_query("week"))]
     overview_fin_monthly = [clean_row(r) for r in run_query(cursor, financial_query("month"))]
+    if len(overview_fin_weekly) < 8:
+        raise SystemExit(
+            f"Refusing to overwrite weekly data: Databricks returned {len(overview_fin_weekly)} financial rows"
+        )
     save_json("data_overview_fin_weekly.json", overview_fin_weekly)
     save_json("data_overview_fin_monthly.json", overview_fin_monthly)
 
