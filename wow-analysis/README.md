@@ -46,12 +46,12 @@ month`; it is a run-rate estimate, not a seasonality-adjusted forecast.
 
 ## Refreshing
 
-The report refreshes itself every Monday at 10:30 Kyiv time through the
+The report refreshes itself every Monday at 10:00 Kyiv time through the
 `Update Stores Cumulative Weekly Report` GitHub Actions workflow, which rebuilds
 `data.json`, verifies it and commits the result. Because cron only accepts UTC,
-the workflow registers both 07:30 and 08:30 UTC and a guard step lets through
+the workflow registers both 07:00 and 08:00 UTC and a guard step lets through
 only the one matching Kyiv's current offset, so the time holds across the
-daylight-saving switch.
+daylight-saving switch. GitHub may start a scheduled job a few minutes later.
 
 To refresh manually, either run the workflow from the Actions tab or set
 `DATABRICKS_HOST`, `DATABRICKS_TOKEN` and `DATABRICKS_WAREHOUSE_ID` locally:

@@ -1,11 +1,11 @@
 name: Update Stores Cumulative Weekly Report
 
 # Two schedules cover Kyiv's summer (UTC+3) and winter (UTC+2) offsets so the run
-# always lands at 10:30 Kyiv time. The guard step below lets exactly one through.
+# always lands at 10:00 Kyiv time. The guard step below lets exactly one through.
 on:
   schedule:
-    - cron: '30 7 * * 1'
-    - cron: '30 8 * * 1'
+    - cron: '0 7 * * 1'
+    - cron: '0 8 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -19,14 +19,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check this schedule matches 10:30 Kyiv
+      - name: Check this schedule matches 10:00 Kyiv
         id: guard
         run: |
           set -euo pipefail
           offset="$(TZ=Europe/Kyiv date +%z)"
           case "$offset" in
-            +0300) want='30 7 * * 1' ;;
-            +0200) want='30 8 * * 1' ;;
+            +0300) want='0 7 * * 1' ;;
+            +0200) want='0 8 * * 1' ;;
             *) echo "Unexpected Kyiv offset $offset"; exit 1 ;;
           esac
           if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$SCHEDULE" = "$want" ]; then
