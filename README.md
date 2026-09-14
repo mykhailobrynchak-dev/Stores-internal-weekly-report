@@ -20,7 +20,7 @@ All data is sourced from Databricks (tables: `fact_order_delivery`, `etl_deliver
 
 ## Automation
 
-The report auto-updates every Monday at 06:00 UTC via GitHub Actions. Manual trigger is also available via the Actions tab.
+The report auto-updates every Monday at 10:00 Kyiv time via GitHub Actions. Manual trigger is also available via the Actions tab.
 
 ## Setup (GitHub Secrets)
 
