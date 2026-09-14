@@ -56,7 +56,7 @@ ALL_TRACKED_PARTNERS = [
     "PYVNA BORODA", "WINETIME", "LEPRUKON", "TOCHKA", "SPRAGA",
     "DIMPYVA", "MAXBEER", "FLOWER SHOP", "ALTBIER",
     "RODYNNA KOVBASKA", "NO TABOO", "SPAR", "ANRI-PHARM",
-    "BRSM", "VAPORS", "PIVASOV", "OKKO MARKET", "VAPERY | VAPE SHOP",
+    "BRSM", "VAPORS", "PIVASOV", "MEALTIME", "CHILL TIME", "OKKO MARKET", "VAPERY | VAPE SHOP",
     # Future / onboarding key accounts (not yet live on Bolt UA stores; render empty with a banner)
     "AUCHAN", "ATB", "FLOWERS UA", "THRASH", "E-ZOO", "MASTER ZOO",
     "ROST", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24"
