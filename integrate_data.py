@@ -192,6 +192,131 @@ for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, ove
     for r in lst:
         r["period"] = fmt_period(r["period"])
 
+# ======== PARTNER ALIAS NORMALIZATION ========
+# Some partners appear under inconsistent group-name spellings in the source
+# (e.g. the same brand split across "MEAL TIME" and "MEALTIME"). Merge them so a
+# partner's page shows complete data, exactly as a single SQL GROUP BY would.
+# Idempotent: once the source normalizes the names, these become no-ops.
+PARTNER_ALIASES = {"MEAL TIME": "MEALTIME"}
+
+_ALIAS_SUM_FIELDS = {
+    "orders", "gmv_eur", "delivery_fee_total", "small_order_fee_total", "service_fee_total",
+    "users_activated", "active_users", "total_refunds_eur",
+    "ops_gmv_eur", "commission_eur", "cp_l1_eur", "cp_l2_eur", "courier_cost_eur",
+    "total_stores", "stores_with_orders",
+    "campaign_orders", "bolt_campaign_orders", "campaigns_discount_eur", "bolt_spend_eur", "merchant_spend_eur",
+    "total_placed", "delivered", "failed_merchant", "failed_bolt_courier",
+    "sessions_viewed", "sessions_ordered", "retained_users", "prior_active_users",
+    "net_income_eur", "bolt_delivery_campaign_eur", "bolt_menu_campaign_eur",
+    "provider_delivery_campaign_eur", "provider_menu_campaign_eur",
+}
+_ALIAS_GMV_WEIGHTED = {"bolt_plus_gmv_share", "supply_refund_gmv_pct", "demand_refund_gmv_pct", "demand_incentives_gmv_share"}
+_ALIAS_IDENTITY = ("group_name", "period", "city_name", "partner_name")
+
+
+def _alias_wavg(rows, field, wkey):
+    num = den = 0.0
+    for r in rows:
+        v, w = r.get(field), r.get(wkey)
+        if v is not None and w:
+            num += v * w
+            den += w
+    if den:
+        return round(num / den, 2)
+    vals = [r.get(field) for r in rows if r.get(field) is not None]
+    return round(sum(vals) / len(vals), 2) if vals else None
+
+
+def _merge_alias_group(rows):
+    if len(rows) == 1:
+        return rows[0]
+    out = {k: rows[0].get(k) for k in _ALIAS_IDENTITY if k in rows[0]}
+    gmv_w = "ops_gmv_eur" if any(r.get("ops_gmv_eur") for r in rows) else "gmv_eur"
+    ord_w = "orders" if any(r.get("orders") for r in rows) else gmv_w
+    fields = set().union(*(r.keys() for r in rows)) - set(_ALIAS_IDENTITY)
+    for f in fields:
+        if f in _ALIAS_SUM_FIELDS:
+            out[f] = round(sum((r.get(f, 0) or 0) for r in rows), 2)
+        elif f in _ALIAS_GMV_WEIGHTED:
+            out[f] = _alias_wavg(rows, f, gmv_w)
+        else:
+            out[f] = _alias_wavg(rows, f, ord_w)
+
+    # Recompute derived ratios exactly from the summed components (only when present).
+    def _rc(field, num, den, scale=1.0):
+        if field in out and out.get(num) is not None and out.get(den):
+            out[field] = round(out[num] / out[den] * scale, 2)
+
+    _rc("aov_items_only", "gmv_eur", "orders")
+    _rc("new_user_share", "users_activated", "orders", 100.0)
+    _rc("refund_rate_pct", "total_refunds_eur", "gmv_eur", 100.0)
+    _rc("cpo_eur", "courier_cost_eur", "orders")
+    _rc("conversion_rate", "sessions_ordered", "sessions_viewed", 100.0)
+    _rc("retention_rate", "retained_users", "prior_active_users", 100.0)
+    if out.get("ops_gmv_eur"):
+        _rc("commission_gmv_pct", "commission_eur", "ops_gmv_eur", 100.0)
+        _rc("cp_margin_pct", "cp_l1_eur", "ops_gmv_eur", 100.0)
+        _rc("cp_l2_margin_pct", "cp_l2_eur", "ops_gmv_eur", 100.0)
+    if "failed_rate_total" in out and out.get("total_placed"):
+        out["failed_rate_total"] = round(
+            ((out.get("failed_merchant", 0) or 0) + (out.get("failed_bolt_courier", 0) or 0)) / out["total_placed"] * 100, 2)
+    return out
+
+
+def apply_partner_aliases(rows, key_fields=("group_name", "period")):
+    """Rename aliased group names, then merge rows that share the same key."""
+    if not rows or not isinstance(rows[0], dict) or "group_name" not in rows[0]:
+        return rows
+    for r in rows:
+        gn = r.get("group_name")
+        if gn in PARTNER_ALIASES:
+            r["group_name"] = PARTNER_ALIASES[gn]
+    groups = defaultdict(list)
+    order = []
+    for r in rows:
+        k = tuple(r.get(kf) for kf in key_fields)
+        if k not in groups:
+            order.append(k)
+        groups[k].append(r)
+    return [_merge_alias_group(groups[k]) for k in order]
+
+
+gmv_weekly = apply_partner_aliases(gmv_weekly)
+gmv_monthly = apply_partner_aliases(gmv_monthly)
+partner_fin_weekly = apply_partner_aliases(partner_fin_weekly)
+partner_fin_monthly = apply_partner_aliases(partner_fin_monthly)
+partner_camp_weekly = apply_partner_aliases(partner_camp_weekly)
+partner_camp_monthly = apply_partner_aliases(partner_camp_monthly)
+partner_user_metrics_weekly = apply_partner_aliases(partner_user_metrics_weekly)
+partner_user_metrics_monthly = apply_partner_aliases(partner_user_metrics_monthly)
+partner_failed_weekly = apply_partner_aliases(partner_failed_weekly)
+partner_failed_monthly = apply_partner_aliases(partner_failed_monthly)
+refund_partner_weekly = apply_partner_aliases(refund_partner_weekly)
+refund_partner_monthly = apply_partner_aliases(refund_partner_monthly)
+ops_partners = apply_partner_aliases(ops_partners)
+ops_partners_monthly = apply_partner_aliases(ops_partners_monthly)
+item_defects_raw = apply_partner_aliases(item_defects_raw)
+top_partners = apply_partner_aliases(top_partners, key_fields=("group_name",))
+partner_city_weekly = apply_partner_aliases(partner_city_weekly, key_fields=("group_name", "period", "city_name"))
+
+# Dict-shaped datasets keyed by partner name (merge acceptance before summing stores so store weights survive)
+for _alias, _canon in PARTNER_ALIASES.items():
+    if _alias in acceptance:
+        _arows = acceptance.pop(_alias)
+        if _canon in acceptance and acceptance[_canon] and _arows:
+            _wa = active_stores_data.get(_alias, 0) or 0
+            _wc = active_stores_data.get(_canon, 0) or 0
+            _a0, _c0 = _arows[0], acceptance[_canon][0]
+            if _wa + _wc > 0:
+                for _fld in ("acceptance_rate_30d", "availability_rate_30d", "avg_rating_30d"):
+                    _va, _vc = _a0.get(_fld), _c0.get(_fld)
+                    if _va is not None and _vc is not None:
+                        _c0[_fld] = round((_va * _wa + _vc * _wc) / (_wa + _wc), 4)
+        else:
+            acceptance[_canon] = _arows
+    if _alias in active_stores_data:
+        active_stores_data[_canon] = (active_stores_data.get(_canon, 0) or 0) + active_stores_data.pop(_alias)
+
 # Merge refund data (from all orders) into financial data (delivered only)
 refund_w_by_period = {r["period"]: r for r in refund_weekly}
 for r in overview_fin_weekly:
@@ -739,7 +864,8 @@ def _load_city(name):
     lst = load_json(name)
     for r in lst:
         r["period"] = fmt_period(r["period"])
-    return lst
+    # Merge inconsistent partner spellings within each city+period (no-op for city-level files without group_name)
+    return apply_partner_aliases(lst, key_fields=("city_name", "group_name", "period"))
 
 _city_fin = {"weekly": _load_city("data_city_fin_weekly.json"), "monthly": _load_city("data_city_fin_monthly.json")}
 _city_finp = {"weekly": _load_city("data_city_fin_partner_weekly.json"), "monthly": _load_city("data_city_fin_partner_monthly.json")}
