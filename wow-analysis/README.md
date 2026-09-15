@@ -28,12 +28,26 @@ month`; it is a run-rate estimate, not a seasonality-adjusted forecast.
   incentives, demand refunds, commission %, CP L1 €, CP L1 %, WoW deltas,
   MTD GMV and projected full-month GMV.
 - Each weekly tab also expands the top 20 partners into a DI breakdown by
-  campaign objective (Bolt spend vs provider spend) and an accounting bridge:
-  provider commission + eater fees + other revenue − courier costs − DI −
-  refunds/fraud − other variable costs = CP L1. BRSM is pinned as an example.
+  campaign objective (Bolt spend vs provider spend) and an accounting bridge.
+  BRSM is pinned as an example.
 - Commission % and CP L1: `fact_provider_weekly`. Commission % is commission as
   a share of GMV. CP L1 is `total_contribution_profit_eur`, shown in € and as a
   % of `total_gmv_before_discounts_eur`.
+- **Demand incentives are not part of CP L1.** `total_contribution_profit_eur`
+  equals `total_reporting_revenue_eur − total_variable_costs_eur`, and that cost
+  base carries courier costs, supply incentives, demand and supply refunds and
+  fraud — but not demand incentives. The DI-charged margin is
+  `total_contribution_profit_without_demand_incentives_eur`, which is lower than
+  CP L1 by exactly the demand-incentive amount (verified on 367 of 369 partner
+  rows in the week of 7 Sep 2026). The bridge therefore shows DI as a step below
+  CP L1 rather than as one of its cost lines.
+- `Other variable costs` in the bridge is a residual (total variable costs minus
+  courier costs, refunds and fraud) and carries supply incentives with it. Supply
+  incentives are not broken out separately because at partner level they are not
+  a clean subset of total variable costs — subtracting them as their own line
+  makes the residual negative for about half the partners. As defined, the
+  residual is non-negative for all 146 partners and is roughly 20% of the cost
+  base.
 - Refund causes: latest non-deleted reason from `delivery_order_user_refund` joined to `delivery_order_user_refund_reason`.
 - Programs: named campaigns, objective, campaign type, attributed orders and
   Bolt spend from `dim_order_campaign_delivery` and `dim_campaign_delivery_v2`.

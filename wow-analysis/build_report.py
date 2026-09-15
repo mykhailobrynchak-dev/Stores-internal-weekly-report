@@ -89,21 +89,30 @@ SELECT
     - f.total_invoiced_bolt_plus_agency_fee_eur
   ), 2) AS other_revenue_eur,
   ROUND(SUM(f.total_invoiced_courier_costs_eur), 2) AS courier_costs_eur,
-  ROUND(SUM(f.total_invoiced_demand_incentives_eur), 2) AS accounting_di_eur,
+  ROUND(SUM(f.total_invoiced_supply_incentives_eur), 2) AS supply_incentives_eur,
   ROUND(SUM(f.total_invoiced_demand_refunds_eur), 2) AS accounting_dr_eur,
+  ROUND(SUM(f.total_invoiced_supply_refunds_eur), 2) AS supply_refunds_eur,
   ROUND(SUM(f.total_invoiced_fraud_eur), 2) AS fraud_costs_eur,
   ROUND(SUM(f.total_variable_costs_eur), 2) AS variable_costs_eur,
+  -- Residual cost bucket. Demand incentives are deliberately absent because CP L1
+  -- does not charge them. Supply incentives stay inside the residual: at partner
+  -- level they are not a clean subset of total variable costs, so subtracting them
+  -- separately would drive the residual negative for half the partners.
   ROUND(SUM(
     f.total_variable_costs_eur
     - f.total_invoiced_courier_costs_eur
-    - f.total_invoiced_demand_incentives_eur
     - f.total_invoiced_demand_refunds_eur
+    - f.total_invoiced_supply_refunds_eur
     - f.total_invoiced_fraud_eur
   ), 2) AS other_variable_costs_eur,
   ROUND(SUM(f.total_contribution_profit_eur), 2) AS cm_l1_eur,
   ROUND(SUM(f.total_contribution_profit_eur)
     / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cm_l1_pct,
-  ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur), 2) AS cm_without_di_eur,
+  ROUND(SUM(f.total_invoiced_demand_incentives_eur), 2) AS accounting_di_eur,
+  -- CP once demand incentives are charged; equals cm_l1_eur - accounting_di_eur.
+  ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur), 2) AS cm_after_di_eur,
+  ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur)
+    / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cm_after_di_pct,
   ROUND(SUM(f.total_gmv_before_discounts_eur), 2) AS economics_gmv_eur
 FROM main.ng_delivery.fact_provider_weekly f
 JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id

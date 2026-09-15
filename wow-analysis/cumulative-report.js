@@ -250,15 +250,17 @@
         ['Other revenue / reconciliation',row.other_revenue_eur],
         ['Total reporting revenue',row.reporting_revenue_eur],
         ['Courier costs',-(+row.courier_costs_eur || 0)],
-        ['Demand incentives',-(+row.accounting_di_eur || 0)],
         ['Demand refunds',-(+row.accounting_dr_eur || 0)],
+        ['Supply refunds',-(+row.supply_refunds_eur || 0)],
         ['Fraud costs',-(+row.fraud_costs_eur || 0)],
-        ['Other variable costs',-(+row.other_variable_costs_eur || 0)],
+        ['Other variable costs (incl. supply incentives)',-(+row.other_variable_costs_eur || 0)],
         ['Total variable costs',-(+row.variable_costs_eur || 0)],
-        ['CP L1',row.cm_l1_eur],
+        ['CP L1 (before demand incentives)',row.cm_l1_eur],
+        ['Demand incentives',-(+row.accounting_di_eur || 0)],
+        ['CP after demand incentives',row.cm_after_di_eur],
       ];
       const bridge = table(
-        ['CP L1 bridge','€','% GMV'],
+        ['CP bridge','€','% GMV'],
         bridgeRows.map(([label,value])=>[
           esc(label),valueOrDash(value,fmt.eur2),value == null ? '—' : pctGmv(value),
         ]),
@@ -277,11 +279,11 @@
       return `<details class="partner-driver" ${row.partner === 'BRSM' ? 'open' : ''}>
         <summary>
           <strong>${esc(row.partner)}${pin}</strong>
-          <span>Commission ${valueOrDash(row.commission_gmv_pct,fmt.rate)} · DI ${fmt.rate((+row.demand_incentives_eur||0)/(+row.gmv_eur||1)*100)} · <b class="${cpClass}">CP L1 ${valueOrDash(row.cm_l1_pct,fmt.rate)}</b></span>
+          <span>Commission ${valueOrDash(row.commission_gmv_pct,fmt.rate)} · DI ${fmt.rate((+row.demand_incentives_eur||0)/(+row.gmv_eur||1)*100)} · <b class="${cpClass}">CP L1 ${valueOrDash(row.cm_l1_pct,fmt.rate)}</b> · after DI ${valueOrDash(row.cm_after_di_pct,fmt.rate)}</span>
         </summary>
         <div class="driver-grid">
           <div><h3>What DI was spent on</h3><p>Bolt-funded campaign spend by objective; provider spend is shown separately.</p>${di}</div>
-          <div><h3>What drives CP L1</h3><p>CP L1 = reporting revenue − variable costs. Negative rows reduce CP.</p>${bridge}</div>
+          <div><h3>What drives CP L1</h3><p>CP L1 = reporting revenue − variable costs, and it does <strong>not</strong> charge demand incentives. DI is shown as the step below it.</p>${bridge}</div>
         </div>
       </details>`;
     }).join('');

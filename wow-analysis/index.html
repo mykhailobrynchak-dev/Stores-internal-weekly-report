@@ -108,8 +108,9 @@
     .driver-grid h3 { margin: 14px 0 3px; font-size: 14px; }
     .driver-grid p { color: var(--muted); font-size: 11px; margin: 0 0 9px; }
     .driver-grid .table-wrap { max-height: 360px; }
-    .bridge-table tr:nth-last-child(1) td, .bridge-table tr:nth-last-child(2) td,
-    .bridge-table tr:nth-child(6) td { font-weight: 800; background: #f6f8f7; }
+    /* Subtotal rows: reporting revenue, total variable costs, CP L1, CP after DI. */
+    .bridge-table tr:nth-child(6) td, .bridge-table tr:nth-child(12) td,
+    .bridge-table tr:nth-child(13) td, .bridge-table tr:nth-last-child(1) td { font-weight: 800; background: #f6f8f7; }
     footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
     @media (max-width: 1080px) { .kpis { grid-template-columns: repeat(3, 1fr); } .two, .equal, .driver-grid { grid-template-columns: 1fr; } }
     @media (max-width: 700px) {
