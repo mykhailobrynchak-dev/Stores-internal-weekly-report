@@ -37,6 +37,14 @@ month`; it is a run-rate estimate, not a seasonality-adjusted forecast.
   - **CP L2** = `total_contribution_profit_without_demand_incentives_eur` = CP L1
     minus demand incentives (and a small residual for menu-DI accounting on a
     handful of partners).
+- **Total reporting revenue** is itemised into invoiced provider commission,
+  eater fee revenue, Bolt+ agency fee, other invoiced revenue and an invoicing
+  reconciliation residual. The residual closes the block exactly for all 146
+  partners; it is needed because the four named components leave a gap of about
+  1.7% in absolute terms (83 of 146 partners are within €1, worst case €119).
+  Eater fee revenue is kept whole: splitting it into service fee, small order
+  fee and delivery price does not reconcile (off by ~8%), so those sit in a
+  clearly labelled memo instead of the bridge.
 - The partner bridge shows: total reporting revenue → itemised **CP L1 costs** +
   **Total costs in CP L1** → **CP L1** → **CP L2 costs** (demand incentives) +
   **Total costs in CP L2** → **CP L2**. Revenue line items sit in a collapsed

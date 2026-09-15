@@ -126,6 +126,12 @@
     ];
 
     const bridgeRows = [
+      {kind:'section', label:'Revenue in total reporting revenue', value:null},
+      {kind:'revenue', label:'Provider commission (invoiced)', value:+row.invoiced_commission_eur || 0},
+      {kind:'revenue', label:'Eater fee revenue', value:+row.eater_fee_revenue_eur || 0},
+      {kind:'revenue', label:'Bolt+ agency fee', value:+row.bolt_plus_agency_fee_eur || 0},
+      {kind:'revenue', label:'Other invoiced revenue', value:+row.invoiced_other_revenue_eur || 0},
+      {kind:'revenue', label:'Invoicing reconciliation', value:+row.other_revenue_eur || 0},
       {kind:'head', label:'Total reporting revenue', value:rev},
       {kind:'section', label:'Costs in CP L1', value:null},
       ...l1CostLines.map(([label, amount]) => ({kind:'cost', label, value:-amount})),
@@ -142,15 +148,13 @@
       {kind:'result', label:'CP L2 (= CP L1 − CP L2 costs)', value:cpL2},
     );
 
-    const revenueDetail = table(
-      ['Revenue breakdown','€','% GMV'],
+    const feeMemo = table(
+      ['Eater fee component','€','% GMV'],
       [
-        ['Provider commission revenue',row.invoiced_commission_eur],
-        ['Eater fee revenue',row.eater_fee_revenue_eur],
-        ['Bolt+ agency fee',row.bolt_plus_agency_fee_eur],
-        ['Other invoiced revenue',row.invoiced_other_revenue_eur],
-        ['Other revenue / reconciliation',row.other_revenue_eur],
-        ['Total reporting revenue',row.reporting_revenue_eur],
+        ['Service fee',row.service_fee_eur],
+        ['Small order fee',row.small_order_fee_eur],
+        ['Delivery price (after discounts)',row.delivery_price_eur],
+        ['Eater surge',row.eater_surge_eur],
       ].map(([label,value])=>[esc(label),valueOrDash(value,fmt.eur2),value == null ? '—' : pctGmv(+value || 0)]),
       'driver-table'
     );
@@ -170,7 +174,9 @@
       <thead><tr><th>Line</th><th>€</th><th>% GMV</th></tr></thead>
       <tbody>${body}</tbody>
     </table></div>
-    <details class="bridge-revenue-detail"><summary>How reporting revenue is built</summary>${revenueDetail}</details>`;
+    <details class="bridge-revenue-detail"><summary>Memo — what sits inside eater fee revenue</summary>
+      <p>Fees charged to the customer. These components are informational: they do not add up exactly to eater fee revenue, so they are not part of the bridge.</p>
+      ${feeMemo}</details>`;
   }
 
   function kpi(label, value, delta, sub, inverse=false) {
@@ -394,7 +400,7 @@
         </summary>
         <div class="driver-grid">
           <div><h3>What DI was spent on</h3><p>Bolt-funded campaign spend by objective; provider spend is shown separately.</p>${di}</div>
-          <div><h3>CP L1 and CP L2 bridge</h3><p>Start from reporting revenue. Subtract <strong>CP L1 costs</strong> (variable costs — no demand incentives) to get CP L1. Subtract <strong>CP L2 costs</strong> (demand incentives) to get CP L2.</p>${bridge}</div>
+          <div><h3>CP L1 and CP L2 bridge</h3><p>Reporting revenue is itemised first. Subtract <strong>CP L1 costs</strong> (variable costs — no demand incentives) to get CP L1, then <strong>CP L2 costs</strong> (demand incentives) to get CP L2.</p>${bridge}</div>
         </div>
       </details>`;
     }).join('');

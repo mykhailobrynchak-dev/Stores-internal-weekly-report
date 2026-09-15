@@ -81,6 +81,11 @@ SELECT
   ROUND(SUM(f.total_invoiced_other_revenue_eur), 2) AS invoiced_other_revenue_eur,
   ROUND(SUM(f.total_invoiced_bolt_plus_agency_fee_eur), 2) AS bolt_plus_agency_fee_eur,
   ROUND(SUM(f.total_reporting_revenue_eur), 2) AS reporting_revenue_eur,
+  -- Memo only: these fee components do not reconcile exactly to eater fee revenue.
+  ROUND(SUM(f.total_service_fee_eur), 2) AS service_fee_eur,
+  ROUND(SUM(f.total_small_order_fee_eur), 2) AS small_order_fee_eur,
+  ROUND(SUM(f.total_delivery_price_after_discounts_eur), 2) AS delivery_price_eur,
+  ROUND(SUM(f.total_calculated_eater_surge_eur), 2) AS eater_surge_eur,
   ROUND(SUM(
     f.total_reporting_revenue_eur
     - f.total_invoiced_provider_commission_eur
