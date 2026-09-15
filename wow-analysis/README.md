@@ -11,7 +11,7 @@ Running the build script adds the newest completed week and its tab automaticall
   straight-line full-month projection, top 20 partners across all metrics,
   top programs and refund reasons.
 - Partner ranking can be switched between GMV, orders, demand incentives,
-  demand refunds and CM L1.
+  demand refunds and CP L1.
 
 Every comparison uses complete weeks. MTD compares the same number of calendar
 days with the prior month. Projection is `MTD / elapsed calendar days × days in
@@ -25,9 +25,15 @@ month`; it is a run-rate estimate, not a seasonality-adjusted forecast.
 - Demand incentives: `demand_incentives_eur` on delivered orders.
 - Demand refunds: `demand_refunds_eur` across all order states, divided by delivered GMV for rates.
 - Weekly partner tables: top 20 partners with orders, GMV, AOV, demand
-  incentives, demand refunds, commission %, CM L1 €, CM L1 %, WoW deltas,
+  incentives, demand refunds, commission %, CP L1 €, CP L1 %, WoW deltas,
   MTD GMV and projected full-month GMV.
-- Commission % and CM L1: `fact_provider_weekly`. Commission % is commission as a share of GMV. CM L1 is `total_contribution_profit_eur` (the same figure as CP Margin in the weekly report), shown in € and as a % of `total_gmv_before_discounts_eur`.
+- Each weekly tab also expands the top 20 partners into a DI breakdown by
+  campaign objective (Bolt spend vs provider spend) and an accounting bridge:
+  provider commission + eater fees + other revenue − courier costs − DI −
+  refunds/fraud − other variable costs = CP L1. BRSM is pinned as an example.
+- Commission % and CP L1: `fact_provider_weekly`. Commission % is commission as
+  a share of GMV. CP L1 is `total_contribution_profit_eur`, shown in € and as a
+  % of `total_gmv_before_discounts_eur`.
 - Refund causes: latest non-deleted reason from `delivery_order_user_refund` joined to `delivery_order_user_refund_reason`.
 - Programs: named campaigns, objective, campaign type, attributed orders and
   Bolt spend from `dim_order_campaign_delivery` and `dim_campaign_delivery_v2`.

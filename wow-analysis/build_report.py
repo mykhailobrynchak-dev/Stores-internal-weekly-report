@@ -70,15 +70,40 @@ ORDER BY 1, gmv_eur DESC
 
 ECONOMICS_SQL = f"""
 SELECT
-  CAST(f.metric_timestamp_local AS STRING) AS week_start,
+  CAST(CAST(f.metric_timestamp_local AS DATE) AS STRING) AS week_start,
   CASE WHEN p.brand_name = 'OKKO MARKET' THEN p.brand_name
        ELSE COALESCE(p.group_name, p.brand_name) END AS partner,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight), 2) AS commission_eur,
   ROUND(SUM(f.provider_commission_gmv_share_value * f.provider_commission_gmv_share_weight)
     / NULLIF(SUM(f.provider_commission_gmv_share_weight), 0) * 100, 2) AS commission_gmv_pct,
+  ROUND(SUM(f.total_invoiced_provider_commission_eur), 2) AS invoiced_commission_eur,
+  ROUND(SUM(f.total_eater_fee_revenue_eur), 2) AS eater_fee_revenue_eur,
+  ROUND(SUM(f.total_invoiced_other_revenue_eur), 2) AS invoiced_other_revenue_eur,
+  ROUND(SUM(f.total_invoiced_bolt_plus_agency_fee_eur), 2) AS bolt_plus_agency_fee_eur,
+  ROUND(SUM(f.total_reporting_revenue_eur), 2) AS reporting_revenue_eur,
+  ROUND(SUM(
+    f.total_reporting_revenue_eur
+    - f.total_invoiced_provider_commission_eur
+    - f.total_eater_fee_revenue_eur
+    - f.total_invoiced_other_revenue_eur
+    - f.total_invoiced_bolt_plus_agency_fee_eur
+  ), 2) AS other_revenue_eur,
+  ROUND(SUM(f.total_invoiced_courier_costs_eur), 2) AS courier_costs_eur,
+  ROUND(SUM(f.total_invoiced_demand_incentives_eur), 2) AS accounting_di_eur,
+  ROUND(SUM(f.total_invoiced_demand_refunds_eur), 2) AS accounting_dr_eur,
+  ROUND(SUM(f.total_invoiced_fraud_eur), 2) AS fraud_costs_eur,
+  ROUND(SUM(f.total_variable_costs_eur), 2) AS variable_costs_eur,
+  ROUND(SUM(
+    f.total_variable_costs_eur
+    - f.total_invoiced_courier_costs_eur
+    - f.total_invoiced_demand_incentives_eur
+    - f.total_invoiced_demand_refunds_eur
+    - f.total_invoiced_fraud_eur
+  ), 2) AS other_variable_costs_eur,
   ROUND(SUM(f.total_contribution_profit_eur), 2) AS cm_l1_eur,
   ROUND(SUM(f.total_contribution_profit_eur)
     / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cm_l1_pct,
+  ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur), 2) AS cm_without_di_eur,
   ROUND(SUM(f.total_gmv_before_discounts_eur), 2) AS economics_gmv_eur
 FROM main.ng_delivery.fact_provider_weekly f
 JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
@@ -94,11 +119,14 @@ ORDER BY 1, economics_gmv_eur DESC
 CAMPAIGNS_SQL = f"""
 SELECT
   CAST(CAST(DATE_TRUNC('week', oc.order_created_date) AS DATE) AS STRING) AS week_start,
+  CASE WHEN p.brand_name = 'OKKO MARKET' THEN p.brand_name
+       ELSE COALESCE(p.group_name, p.brand_name, CAST(oc.provider_id AS STRING)) END AS partner,
   COALESCE(cd.campaign_name, 'Unnamed campaign') AS campaign,
   COALESCE(cd.campaign_spend_objective, 'unclassified') AS objective,
   COALESCE(cd.campaign_type, oc.campaign_type, 'unclassified') AS campaign_type,
   COUNT(DISTINCT oc.order_id) AS orders,
-  ROUND(SUM(COALESCE(oc.campaign_spend_bolt_eur, 0)), 2) AS bolt_spend_eur
+  ROUND(SUM(COALESCE(oc.campaign_spend_bolt_eur, 0)), 2) AS bolt_spend_eur,
+  ROUND(SUM(COALESCE(oc.campaign_spend_provider_eur, 0)), 2) AS provider_spend_eur
 FROM main.ng_delivery.dim_order_campaign_delivery oc
 JOIN main.ng_delivery.dim_campaign_delivery_v2 cd ON oc.campaign_id = cd.campaign_id
 JOIN main.ng_delivery.dim_provider_v2 p ON oc.provider_id = p.provider_id
@@ -106,8 +134,8 @@ WHERE oc.country_code = 'ua'
   AND (p.delivery_vertical LIKE 'store_3p%'
        OR p.group_name IN ('ANRI-PHARM', 'BRSM', 'VAPORS', 'PIVASOV'))
   AND oc.order_created_date BETWEEN DATE '{iso(PERIOD_START)}' AND DATE '{iso(CURRENT_WEEK_END)}'
-GROUP BY 1, 2, 3, 4
-HAVING bolt_spend_eur != 0
+GROUP BY 1, 2, 3, 4, 5
+HAVING bolt_spend_eur != 0 OR provider_spend_eur != 0
 ORDER BY 1, bolt_spend_eur DESC
 """
 

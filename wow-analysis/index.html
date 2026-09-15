@@ -95,12 +95,29 @@
       padding: 7px 10px; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700;
     }
     .metric-toggle button.active { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+    .partner-driver { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+    .partner-driver summary {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 13px 15px; cursor: pointer; list-style-position: inside;
+    }
+    .partner-driver summary:hover { background: #f8faf9; }
+    .partner-driver summary span { color: var(--muted); font-size: 12px; text-align: right; }
+    .partner-driver summary .risk { color: var(--red); }
+    .partner-driver summary .positive { color: var(--green); }
+    .driver-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 15px 15px; border-top: 1px solid var(--line); }
+    .driver-grid h3 { margin: 14px 0 3px; font-size: 14px; }
+    .driver-grid p { color: var(--muted); font-size: 11px; margin: 0 0 9px; }
+    .driver-grid .table-wrap { max-height: 360px; }
+    .bridge-table tr:nth-last-child(1) td, .bridge-table tr:nth-last-child(2) td,
+    .bridge-table tr:nth-child(6) td { font-weight: 800; background: #f6f8f7; }
     footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
-    @media (max-width: 1080px) { .kpis { grid-template-columns: repeat(3, 1fr); } .two, .equal { grid-template-columns: 1fr; } }
+    @media (max-width: 1080px) { .kpis { grid-template-columns: repeat(3, 1fr); } .two, .equal, .driver-grid { grid-template-columns: 1fr; } }
     @media (max-width: 700px) {
       .shell { padding: 20px 14px 40px; } header { align-items: flex-start; flex-direction: column; }
       .meta { text-align: left; } .kpis { grid-template-columns: 1fr 1fr; }
       .section-head { align-items: flex-start; flex-direction: column; } select { width: 100%; }
+      .partner-driver summary { align-items: flex-start; flex-direction: column; }
+      .partner-driver summary span { text-align: left; }
     }
   </style>
 </head>

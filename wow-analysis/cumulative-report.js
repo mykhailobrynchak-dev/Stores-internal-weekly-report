@@ -122,7 +122,7 @@
         ${kpi('Latest-week GMV',fmt.eur(latest.gmv_eur),shift(latest.gmv_eur,prior.gmv_eur),`vs ${weekLabel(weeks.at(-2))}`)}
         ${kpi('Latest-week orders',fmt.num(latest.orders),shift(latest.orders,prior.orders),`vs ${weekLabel(weeks.at(-2))}`)}
         ${kpi('Avg commission',valueOrDash(total.commission_gmv_pct,fmt.rate),null,'GMV-weighted across period')}
-        ${kpi('CM L1',valueOrDash(total.cm_l1_pct,fmt.rate),null,`${fmt.eur2(total.cm_l1_eur)} across period`)}
+        ${kpi('CP L1',valueOrDash(total.cm_l1_pct,fmt.rate),null,`${fmt.eur2(total.cm_l1_eur)} across period`)}
       </div>
       <div class="grid two">
         <div class="card"><h3>GMV and orders · all complete weeks</h3><div class="chart-wrap"><canvas id="overviewVolume"></canvas></div></div>
@@ -153,7 +153,7 @@
 
     const topCumulative = [...cumulative].sort((a,b)=>b.gmv_eur-a.gmv_eur).slice(0,15);
     document.getElementById('cumulativeTable').innerHTML = table(
-      ['Partner','Orders','GMV','GMV share','AOV','DI','DI / GMV','DR','DR / GMV','Comm %','CM L1 €','CM L1 %'],
+      ['Partner','Orders','GMV','GMV share','AOV','DI','DI / GMV','DR','DR / GMV','Comm %','CP L1 €','CP L1 %'],
       topCumulative.map(row => [
         esc(row.partner),fmt.num(row.orders),fmt.eur(row.gmv_eur),fmt.rate(row.gmv_eur/total.gmv_eur*100),
         fmt.eur2(row.gmv_eur/row.orders),fmt.eur(row.demand_incentives_eur),fmt.rate(row.demand_incentives_eur/row.gmv_eur*100),
@@ -194,7 +194,7 @@
     const mtd = byPartner(data.weekly_mtd_partner.filter(row=>row.week_start===week));
     const rows = [...current].sort((a,b)=>(+b[sortMetric]||0)-(+a[sortMetric]||0)).slice(0,20);
     document.getElementById('partnerWeekTable').innerHTML = table(
-      ['Partner','Orders','Orders WoW','GMV','GMV WoW','AOV','DI','DI WoW','DI / GMV','DR','DR WoW','DR / GMV','Comm %','Comm Δ pp','CM L1 €','CM L1 %','CM L1 Δ pp','GMV MTD','GMV projection'],
+      ['Partner','Orders','Orders WoW','GMV','GMV WoW','AOV','DI','DI WoW','DI / GMV','DR','DR WoW','DR / GMV','Comm %','Comm Δ pp','CP L1 €','CP L1 %','CP L1 Δ pp','GMV MTD','GMV projection'],
       rows.map(row => {
         const prior = previous[row.partner] || {};
         const month = mtd[row.partner] || {};
@@ -211,6 +211,80 @@
         ];
       })
     );
+    renderPartnerDrivers(week, rows, current);
+  }
+
+  function renderPartnerDrivers(week, topRows, allRows) {
+    const campaignRows = data.weekly_campaigns.filter(row => row.week_start === week);
+    const rows = [...topRows];
+    const brsm = allRows.find(row => row.partner === 'BRSM');
+    if (brsm && !rows.some(row => row.partner === 'BRSM')) rows.push(brsm);
+
+    document.getElementById('partnerDrivers').innerHTML = rows.map((row, index) => {
+      const partnerCampaigns = campaignRows.filter(item => item.partner === row.partner);
+      const objectives = {};
+      for (const item of partnerCampaigns) {
+        const key = item.objective || 'unclassified';
+        const objective = objectives[key] ||= {objective:key,orders:0,bolt_spend_eur:0,provider_spend_eur:0};
+        objective.orders += +item.orders || 0;
+        objective.bolt_spend_eur += +item.bolt_spend_eur || 0;
+        objective.provider_spend_eur += +item.provider_spend_eur || 0;
+      }
+      const objectiveRows = Object.values(objectives).sort((a,b)=>b.bolt_spend_eur-a.bolt_spend_eur);
+      const attributedBolt = sum(objectiveRows, 'bolt_spend_eur');
+      const residual = (+row.demand_incentives_eur || 0) - attributedBolt;
+      if (Math.abs(residual) >= .01) {
+        objectiveRows.push({
+          objective:'Unattributed / timing difference',
+          orders:0, bolt_spend_eur:residual, provider_spend_eur:0,
+        });
+      }
+
+      const gmv = +row.economics_gmv_eur || +row.gmv_eur || 0;
+      const pctGmv = value => gmv ? fmt.rate((+value || 0) / gmv * 100) : '—';
+      const bridgeRows = [
+        ['Provider commission revenue',row.invoiced_commission_eur],
+        ['Eater fee revenue',row.eater_fee_revenue_eur],
+        ['Bolt+ agency fee',row.bolt_plus_agency_fee_eur],
+        ['Other invoiced revenue',row.invoiced_other_revenue_eur],
+        ['Other revenue / reconciliation',row.other_revenue_eur],
+        ['Total reporting revenue',row.reporting_revenue_eur],
+        ['Courier costs',-(+row.courier_costs_eur || 0)],
+        ['Demand incentives',-(+row.accounting_di_eur || 0)],
+        ['Demand refunds',-(+row.accounting_dr_eur || 0)],
+        ['Fraud costs',-(+row.fraud_costs_eur || 0)],
+        ['Other variable costs',-(+row.other_variable_costs_eur || 0)],
+        ['Total variable costs',-(+row.variable_costs_eur || 0)],
+        ['CP L1',row.cm_l1_eur],
+      ];
+      const bridge = table(
+        ['CP L1 bridge','€','% GMV'],
+        bridgeRows.map(([label,value])=>[
+          esc(label),valueOrDash(value,fmt.eur2),value == null ? '—' : pctGmv(value),
+        ]),
+        'bridge-table'
+      );
+      const di = table(
+        ['DI objective','Orders','Bolt spend','Bolt / GMV','Provider spend'],
+        objectiveRows.length ? objectiveRows.map(item=>[
+          esc(item.objective),fmt.num(item.orders),fmt.eur2(item.bolt_spend_eur),
+          pctGmv(item.bolt_spend_eur),fmt.eur2(item.provider_spend_eur),
+        ]) : [['No attributed campaigns','—',fmt.eur2(0),'0.00%',fmt.eur2(0)]],
+        'driver-table'
+      );
+      const cpClass = (+row.cm_l1_eur || 0) < 0 ? 'risk' : 'positive';
+      const pin = row.partner === 'BRSM' && index >= topRows.length ? ' · pinned example' : '';
+      return `<details class="partner-driver" ${row.partner === 'BRSM' ? 'open' : ''}>
+        <summary>
+          <strong>${esc(row.partner)}${pin}</strong>
+          <span>Commission ${valueOrDash(row.commission_gmv_pct,fmt.rate)} · DI ${fmt.rate((+row.demand_incentives_eur||0)/(+row.gmv_eur||1)*100)} · <b class="${cpClass}">CP L1 ${valueOrDash(row.cm_l1_pct,fmt.rate)}</b></span>
+        </summary>
+        <div class="driver-grid">
+          <div><h3>What DI was spent on</h3><p>Bolt-funded campaign spend by objective; provider spend is shown separately.</p>${di}</div>
+          <div><h3>What drives CP L1</h3><p>CP L1 = reporting revenue − variable costs. Negative rows reduce CP.</p>${bridge}</div>
+        </div>
+      </details>`;
+    }).join('');
   }
 
   function renderWeek(week) {
@@ -242,7 +316,7 @@
         ${kpi('Demand incentives',fmt.eur(current.demand_incentives_eur),previousWeek?shift(current.demand_incentives_eur,previous.demand_incentives_eur):null,`${fmt.rate(current.demand_incentives_eur/current.gmv_eur*100)} of GMV`,true)}
         ${kpi('Demand refunds',fmt.eur2(current.demand_refunds_eur),previousWeek?shift(current.demand_refunds_eur,previous.demand_refunds_eur):null,`${fmt.rate(current.demand_refunds_eur/current.gmv_eur*100)} of GMV`,true)}
         ${kpi('Commission',valueOrDash(current.commission_gmv_pct,fmt.rate),previousWeek?shift(current.commission_gmv_pct,previous.commission_gmv_pct):null,'GMV-weighted')}
-        ${kpi('CM L1',valueOrDash(current.cm_l1_pct,fmt.rate),previousWeek?shift(current.cm_l1_pct,previous.cm_l1_pct):null,fmt.eur2(current.cm_l1_eur))}
+        ${kpi('CP L1',valueOrDash(current.cm_l1_pct,fmt.rate),previousWeek?shift(current.cm_l1_pct,previous.cm_l1_pct):null,fmt.eur2(current.cm_l1_eur))}
       </div>
       <section class="section">
         <div class="section-head"><div><h2>${snapshot.as_of ? fmt.month(snapshot.as_of) : 'Month'} · MTD and projection</h2><p>${esc(data.metadata.projection_method)}</p></div></div>
@@ -259,10 +333,14 @@
           <select id="partnerSort">
             <option value="gmv_eur">Sort by GMV</option><option value="orders">Sort by orders</option>
             <option value="demand_incentives_eur">Sort by incentives</option><option value="demand_refunds_eur">Sort by refunds</option>
-            <option value="cm_l1_eur">Sort by CM L1 €</option>
+            <option value="cm_l1_eur">Sort by CP L1 €</option>
           </select>
         </div>
         <div id="partnerWeekTable"></div>
+      </section>
+      <section class="section">
+        <div class="section-head"><div><h2>Top 20 partner DI and CP L1 drivers</h2><p>Expand a partner to see campaign objectives and the complete revenue-to-CP bridge. BRSM is pinned as an example when outside the top 20.</p></div></div>
+        <div id="partnerDrivers"></div>
       </section>
       <section class="section grid equal">
         <div><div class="section-head"><div><h2>Top 15 programs</h2><p>Named programs and WoW movement.</p></div></div><div id="weekPrograms"></div></div>
@@ -273,7 +351,7 @@
     document.getElementById('partnerSort').addEventListener('change', event => renderPartnerTable(week,event.target.value));
 
     const priorPrograms = previousWeek ? byProgram(data.weekly_campaigns.filter(row=>row.week_start===previousWeek)) : {};
-    const currentPrograms = data.weekly_campaigns.filter(row=>row.week_start===week)
+    const currentPrograms = Object.values(byProgram(data.weekly_campaigns.filter(row=>row.week_start===week)))
       .map(row=>({...row,prior:priorPrograms[row.campaign]?.bolt_spend_eur||0}))
       .map(row=>({...row,delta:row.bolt_spend_eur-row.prior}))
       .sort((a,b)=>b.bolt_spend_eur-a.bolt_spend_eur).slice(0,15);
@@ -302,9 +380,10 @@
   function byProgram(rows) {
     const output = {};
     for (const row of rows) {
-      const item = output[row.campaign] ||= {...row,orders:0,bolt_spend_eur:0};
+      const item = output[row.campaign] ||= {...row,orders:0,bolt_spend_eur:0,provider_spend_eur:0};
       item.orders += +row.orders || 0;
       item.bolt_spend_eur += +row.bolt_spend_eur || 0;
+      item.provider_spend_eur += +row.provider_spend_eur || 0;
     }
     return output;
   }
