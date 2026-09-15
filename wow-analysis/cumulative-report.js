@@ -20,6 +20,39 @@
   const weekLabel = start => `${fmt.date(start)}–${fmt.date(weekEnd(start))}`;
   const valueOrDash = (value, formatter) => value == null ? '—' : formatter(+value);
   const byPartner = rows => Object.fromEntries(rows.map(row => [row.partner, row]));
+
+  // campaign_spend_objective values from dim_campaign_delivery_v2. "funded" reflects
+  // what the campaign names and the Bolt/provider spend split show in UA 3P stores.
+  const OBJECTIVES = {
+    provider_campaign_retail_growth: {label:'Retail growth (partner campaign)', funded:'Mostly Bolt', note:'Partner-level growth campaigns tagged retail-growth — free/discounted delivery with a minimum order value, usually "0% On Provider", so Bolt funds the discount.'},
+    marketing_3rd_party_partnership: {label:'3rd-party partnership marketing', funded:'Bolt', note:'Co-branded campaigns with external partners such as Visa, PrivatBank and FUIB. Any partner co-funding is settled outside campaign spend, so what you see here is the Bolt-funded part.'},
+    provider_campaign_marketing_3rd_party_partnership: {label:'3rd-party partnership (partner campaign)', funded:'Mostly Bolt', note:'Same 3rd-party partnership logic, but created inside the partner campaign framework and tagged marketing-3rd-party-partnership.'},
+    new_city_launch: {label:'New city launch', funded:'Bolt', note:'Launch support in newly opened cities (UA_NEW_CITY_LAUNCH and related segments) to build first demand.'},
+    activation: {label:'Activation (lifecycle)', funded:'Bolt', note:'CRM lifecycle campaigns pushing users to place a first or early order in a city segment.'},
+    engagement: {label:'Engagement (lifecycle)', funded:'Shared', note:'Cost-shared user lifecycle campaigns keeping occasional users ordering; Bolt and partner split the spend.'},
+    reactivation: {label:'Reactivation (lifecycle)', funded:'Shared', note:'Cost-shared campaigns winning back users who stopped ordering.'},
+    acquisition: {label:'Acquisition', funded:'Bolt', note:'Campaigns aimed at acquiring brand-new customers.'},
+    marketing: {label:'Marketing / promocodes', funded:'Bolt', note:'General marketing activity such as promocode pages and web partnerships.'},
+    bolt_plus_campaign: {label:'Bolt Plus benefit', funded:'Bolt', note:'Free delivery granted to Bolt Plus subscribers. Cost follows subscriber behaviour, not a partner decision.'},
+    sp_activation: {label:'Smart Promo · activation', funded:'Shared', note:'Automated Smart Promotions targeting users to activate; spend is typically split 50/50 with the partner.'},
+    sp_engagement: {label:'Smart Promo · engagement', funded:'Shared', note:'Automated Smart Promotions for occasional users, segmented by conversion and profitability.'},
+    sp_reactivation: {label:'Smart Promo · reactivation', funded:'Shared', note:'Automated Smart Promotions targeting churned users.'},
+    sp_fully_funded: {label:'Smart Promo · partner-funded', funded:'Partner', note:'Smart Promotions paid entirely by the partner — no Bolt cost.'},
+    provider_campaign_marketing: {label:'Partner marketing campaign', funded:'Bolt or 50/50', note:'Always-on partner free-delivery offers with a minimum order value, e.g. Hop Hey 30 UAH above MOV 500 UAH. Funding follows the "On Provider" share in the campaign name: 0% means Bolt pays it all, 50% means the cost is split with the partner.'},
+    provider_campaign_retail_profitability: {label:'Retail profitability (partner-funded)', funded:'Partner', note:'Item-level discounts funded 100% by the partner, e.g. OKKO Market item discounts. Bolt spend is zero.'},
+    provider_campaign_portal: {label:'Partner portal self-serve', funded:'Partner', note:'Campaigns the partner created themselves in the portal and funds 100%.'},
+    bolt_market_supplier: {label:'Bolt Market supplier funding', funded:'Supplier', note:'Supplier or pricelist-funded activity (3P pricelist campaigns). Cost sits with the supplier, not Bolt.'},
+    provider_marketing_calendar_global_event: {label:'Global marketing calendar event', funded:'Partner', note:'Seasonal trade events from the global marketing calendar, e.g. Treat Yourself Week.'},
+    provider_campaign_sales_benefit: {label:'Sales benefit', funded:'Mostly Bolt', note:'Discount granted as a commercial benefit negotiated by sales, tagged sales-benefit.'},
+    provider_campaign_commission_increase: {label:'Traded for commission increase', funded:'Mostly Bolt', note:'Campaign given in exchange for a higher commission rate, tagged commission-increase.'},
+    provider_campaign_obligations_commitments: {label:'Contractual commitment', funded:'Mostly Bolt', note:'Activity Bolt is contractually committed to deliver for the partner.'},
+    provider_campaign_ELC_merchant: {label:'ELC merchant campaign', funded:'Mostly Bolt', note:'Merchant ELC campaigns, mostly free full delivery. The ELC tag comes from the campaign setup and is not documented in the data model.'},
+    other: {label:'Other (promocodes, CS goodwill)', funded:'Bolt', note:'Mixed bucket: marketing promocodes, social promo codes and customer-service auto-compensation such as cs_ai_auto_comp_full_delivery_ua.'},
+    unclassified: {label:'Unclassified', funded:'Unknown', note:'Campaign has no spend objective set in dim_campaign_delivery_v2.'},
+    'Unattributed / timing difference': {label:'Unattributed / timing difference', funded:'—', note:'Not a campaign. Gap between accounting DI for the week and DI attributed to campaigns, caused by order-date vs invoice-date timing and by incentives booked outside the campaign tables.'},
+  };
+  const objectiveMeta = key => OBJECTIVES[key] || {label:key, funded:'Unknown', note:'No description available for this objective yet.'};
+
   const charts = {};
   let data;
   let weeks;
@@ -252,7 +285,11 @@
     document.getElementById('programOverview').innerHTML = table(
       ['Program','Objective','Active weeks','Campaign orders','Bolt spend'],
       Object.values(programs).sort((a,b)=>b.bolt_spend_eur-a.bolt_spend_eur).slice(0,15)
-        .map(row=>[esc(row.campaign),esc(row.objective),fmt.num(row.weeks.size),fmt.num(row.orders),fmt.eur2(row.bolt_spend_eur)]),
+        .map(row=>[
+          esc(row.campaign),
+          `<span class="objective" title="${esc(objectiveMeta(row.objective).note)}">${esc(objectiveMeta(row.objective).label)}</span>`,
+          fmt.num(row.weeks.size),fmt.num(row.orders),fmt.eur2(row.bolt_spend_eur),
+        ]),
       'program-table'
     );
   }
@@ -282,6 +319,28 @@
       })
     );
     renderPartnerDrivers(week, rows, current);
+  }
+
+  function renderObjectiveLegend(week) {
+    const present = {};
+    for (const row of data.weekly_campaigns.filter(item => item.week_start === week)) {
+      const key = row.objective || 'unclassified';
+      const item = present[key] ||= {objective:key, bolt_spend_eur:0, provider_spend_eur:0};
+      item.bolt_spend_eur += +row.bolt_spend_eur || 0;
+      item.provider_spend_eur += +row.provider_spend_eur || 0;
+    }
+    const rows = Object.values(present).sort((a,b)=>b.bolt_spend_eur-a.bolt_spend_eur);
+    document.getElementById('objectiveLegend').innerHTML = table(
+      ['DI objective','Raw value','Funded by','What it means','Bolt spend','Provider spend'],
+      rows.map(item => {
+        const meta = objectiveMeta(item.objective);
+        return [
+          esc(meta.label),`<code>${esc(item.objective)}</code>`,esc(meta.funded),esc(meta.note),
+          fmt.eur2(item.bolt_spend_eur),fmt.eur2(item.provider_spend_eur),
+        ];
+      }),
+      'legend-table'
+    );
   }
 
   function renderPartnerDrivers(week, topRows, allRows) {
@@ -314,11 +373,15 @@
       const pctGmv = value => gmv ? fmt.rate((+value || 0) / gmv * 100) : '—';
       const bridge = renderCpBridge(row);
       const di = table(
-        ['DI objective','Orders','Bolt spend','Bolt / GMV','Provider spend'],
-        objectiveRows.length ? objectiveRows.map(item=>[
-          esc(item.objective),fmt.num(item.orders),fmt.eur2(item.bolt_spend_eur),
-          pctGmv(item.bolt_spend_eur),fmt.eur2(item.provider_spend_eur),
-        ]) : [['No attributed campaigns','—',fmt.eur2(0),'0.00%',fmt.eur2(0)]],
+        ['DI objective','Funded by','Orders','Bolt spend','Bolt / GMV','Provider spend'],
+        objectiveRows.length ? objectiveRows.map(item=>{
+          const meta = objectiveMeta(item.objective);
+          return [
+            `<span class="objective" title="${esc(meta.note)}">${esc(meta.label)}</span><span class="objective-key">${esc(item.objective)}</span>`,
+            esc(meta.funded),fmt.num(item.orders),fmt.eur2(item.bolt_spend_eur),
+            pctGmv(item.bolt_spend_eur),fmt.eur2(item.provider_spend_eur),
+          ];
+        }) : [['No attributed campaigns','—','—',fmt.eur2(0),'0.00%',fmt.eur2(0)]],
         'driver-table'
       );
       const cpClass = (+row.cm_l1_eur || 0) < 0 ? 'risk' : 'positive';
@@ -391,6 +454,7 @@
       </section>
       <section class="section">
         <div class="section-head"><div><h2>Top 20 partner DI and CP bridge</h2><p>Expand a partner for campaign objectives and the CP L1 / CP L2 cost bridge. BRSM is pinned when outside the top 20.</p></div></div>
+        <details class="legend-block"><summary>DI objective glossary — what each objective means</summary><div id="objectiveLegend"></div></details>
         <div id="partnerDrivers"></div>
       </section>
       <section class="section grid equal">
@@ -399,6 +463,7 @@
       </section>`;
 
     renderPartnerTable(week);
+    renderObjectiveLegend(week);
     document.getElementById('partnerSort').addEventListener('change', event => renderPartnerTable(week,event.target.value));
 
     const priorPrograms = previousWeek ? byProgram(data.weekly_campaigns.filter(row=>row.week_start===previousWeek)) : {};

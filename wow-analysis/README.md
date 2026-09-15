@@ -52,6 +52,16 @@ month`; it is a run-rate estimate, not a seasonality-adjusted forecast.
 - Refund causes: latest non-deleted reason from `delivery_order_user_refund` joined to `delivery_order_user_refund_reason`.
 - Programs: named campaigns, objective, campaign type, attributed orders and
   Bolt spend from `dim_order_campaign_delivery` and `dim_campaign_delivery_v2`.
+- Campaign objectives come from `dim_campaign_delivery_v2.campaign_spend_objective`.
+  All 24 values seen in UA 3P stores are mapped to a readable label, a
+  “funded by” hint and a description, shown as a tooltip in the partner DI table
+  and in full under “DI objective glossary” on each weekly tab. The glossary
+  lives in `OBJECTIVES` in `cumulative-report.js`. The table carries no column
+  comments for these values, so the descriptions were derived from campaign names
+  and the Bolt/provider spend split — funding is authoritative only in the spend
+  columns. Note the `provider_campaign_*` prefix means the campaign was created
+  in the partner-campaign framework, not that the partner funded it: the split is
+  set by the “% On Provider” share in the campaign name.
 - Refund liability is not the same as operational fault: the demand refunds in scope are Bolt-liable, while actor-at-fault is recorded as unknown on almost all of them.
 - Monetary values: EUR.
 
