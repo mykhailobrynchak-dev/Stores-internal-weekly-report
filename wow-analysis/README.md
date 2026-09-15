@@ -30,17 +30,18 @@ month`; it is a run-rate estimate, not a seasonality-adjusted forecast.
 - Each weekly tab also expands the top 20 partners into a DI breakdown by
   campaign objective (Bolt spend vs provider spend) and an accounting bridge.
   BRSM is pinned as an example.
-- Commission % and CP L1: `fact_provider_weekly`. Commission % is commission as
-  a share of GMV. CP L1 is `total_contribution_profit_eur`, shown in € and as a
-  % of `total_gmv_before_discounts_eur`.
-- **Demand incentives are not part of CP L1.** `total_contribution_profit_eur`
-  equals `total_reporting_revenue_eur − total_variable_costs_eur`, and that cost
-  base carries courier costs, supply incentives, demand and supply refunds and
-  fraud — but not demand incentives. The DI-charged margin is
-  `total_contribution_profit_without_demand_incentives_eur`, which is lower than
-  CP L1 by exactly the demand-incentive amount (verified on 367 of 369 partner
-  rows in the week of 7 Sep 2026). The bridge therefore shows DI as a step below
-  CP L1 rather than as one of its cost lines.
+- Commission % and CP L1 / CP L2: `fact_provider_weekly`, same naming as
+  `fetch_weekly_data.py`.
+  - **CP L1** = `total_contribution_profit_eur` = reporting revenue − variable
+    costs. Variable costs do **not** include demand incentives.
+  - **CP L2** = `total_contribution_profit_without_demand_incentives_eur` = CP L1
+    minus demand incentives (and a small residual for menu-DI accounting on a
+    handful of partners).
+- The partner bridge shows: total reporting revenue → itemised **CP L1 costs** +
+  **Total costs in CP L1** → **CP L1** → **CP L2 costs** (demand incentives) +
+  **Total costs in CP L2** → **CP L2**. Revenue line items sit in a collapsed
+  “How reporting revenue is built” block so DI never appears inside the CP L1
+  cost list.
 - `Other variable costs` in the bridge is a residual (total variable costs minus
   courier costs, refunds and fraud) and carries supply incentives with it. Supply
   incentives are not broken out separately because at partner level they are not

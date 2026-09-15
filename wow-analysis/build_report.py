@@ -109,10 +109,10 @@ SELECT
   ROUND(SUM(f.total_contribution_profit_eur)
     / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cm_l1_pct,
   ROUND(SUM(f.total_invoiced_demand_incentives_eur), 2) AS accounting_di_eur,
-  -- CP once demand incentives are charged; equals cm_l1_eur - accounting_di_eur.
-  ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur), 2) AS cm_after_di_eur,
+  -- CP L2 charges demand incentives on top of CP L1 (see fetch_weekly_data.py).
+  ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur), 2) AS cp_l2_eur,
   ROUND(SUM(f.total_contribution_profit_without_demand_incentives_eur)
-    / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cm_after_di_pct,
+    / NULLIF(SUM(f.total_gmv_before_discounts_eur), 0) * 100, 2) AS cp_l2_pct,
   ROUND(SUM(f.total_gmv_before_discounts_eur), 2) AS economics_gmv_eur
 FROM main.ng_delivery.fact_provider_weekly f
 JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id

@@ -36,9 +36,11 @@
       active_partners: new Set(rows.filter(row => +row.orders > 0).map(row => row.partner)).size,
       commission_eur: sum(rows, 'commission_eur'),
       cm_l1_eur: sum(rows, 'cm_l1_eur'),
+      cp_l2_eur: sum(rows, 'cp_l2_eur'),
       economics_gmv_eur: economicsGmv,
       commission_gmv_pct: economicsGmv ? sum(rows, 'commission_eur') / economicsGmv * 100 : null,
       cm_l1_pct: economicsGmv ? sum(rows, 'cm_l1_eur') / economicsGmv * 100 : null,
+      cp_l2_pct: economicsGmv ? sum(rows, 'cp_l2_eur') / economicsGmv * 100 : null,
     };
   }
 
@@ -59,7 +61,7 @@
     }
     for (const row of data.weekly_economics) {
       const item = rows[row.partner] ||= {partner:row.partner};
-      for (const key of ['commission_eur','cm_l1_eur','economics_gmv_eur']) {
+      for (const key of ['commission_eur','cm_l1_eur','cp_l2_eur','economics_gmv_eur']) {
         item[key] = (item[key] || 0) + (+row[key] || 0);
       }
     }
@@ -67,7 +69,75 @@
       ...row,
       commission_gmv_pct: row.economics_gmv_eur ? row.commission_eur / row.economics_gmv_eur * 100 : null,
       cm_l1_pct: row.economics_gmv_eur ? row.cm_l1_eur / row.economics_gmv_eur * 100 : null,
+      cp_l2_pct: row.economics_gmv_eur ? row.cp_l2_eur / row.economics_gmv_eur * 100 : null,
     }));
+  }
+
+  function renderCpBridge(row) {
+    const gmv = +row.economics_gmv_eur || +row.gmv_eur || 0;
+    const pctGmv = value => gmv ? fmt.rate(value / gmv * 100) : '—';
+    const rev = +row.reporting_revenue_eur || 0;
+    const cpL1 = +row.cm_l1_eur || 0;
+    const cpL2 = +(row.cp_l2_eur ?? row.cm_after_di_eur) || 0;
+    const totalL1Costs = +row.variable_costs_eur || 0;
+    const di = +row.accounting_di_eur || 0;
+    const totalL2Costs = cpL1 - cpL2;
+    const l2Other = totalL2Costs - di;
+
+    const l1CostLines = [
+      ['Courier costs', +row.courier_costs_eur || 0],
+      ['Demand refunds', +row.accounting_dr_eur || 0],
+      ['Supply refunds', +row.supply_refunds_eur || 0],
+      ['Fraud costs', +row.fraud_costs_eur || 0],
+      ['Other variable costs (incl. supply incentives)', +row.other_variable_costs_eur || 0],
+    ];
+
+    const bridgeRows = [
+      {kind:'head', label:'Total reporting revenue', value:rev},
+      {kind:'section', label:'Costs in CP L1', value:null},
+      ...l1CostLines.map(([label, amount]) => ({kind:'cost', label, value:-amount})),
+      {kind:'subtotal', label:'Total costs in CP L1', value:-totalL1Costs},
+      {kind:'result', label:'CP L1 (= revenue − CP L1 costs)', value:cpL1},
+      {kind:'section', label:'Costs in CP L2', value:null},
+      {kind:'cost', label:'Demand incentives', value:-di},
+    ];
+    if (Math.abs(l2Other) >= 0.05) {
+      bridgeRows.push({kind:'cost', label:'Other CP L2 costs (menu DI / accounting)', value:-l2Other});
+    }
+    bridgeRows.push(
+      {kind:'subtotal', label:'Total costs in CP L2', value:-totalL2Costs},
+      {kind:'result', label:'CP L2 (= CP L1 − CP L2 costs)', value:cpL2},
+    );
+
+    const revenueDetail = table(
+      ['Revenue breakdown','€','% GMV'],
+      [
+        ['Provider commission revenue',row.invoiced_commission_eur],
+        ['Eater fee revenue',row.eater_fee_revenue_eur],
+        ['Bolt+ agency fee',row.bolt_plus_agency_fee_eur],
+        ['Other invoiced revenue',row.invoiced_other_revenue_eur],
+        ['Other revenue / reconciliation',row.other_revenue_eur],
+        ['Total reporting revenue',row.reporting_revenue_eur],
+      ].map(([label,value])=>[esc(label),valueOrDash(value,fmt.eur2),value == null ? '—' : pctGmv(+value || 0)]),
+      'driver-table'
+    );
+
+    const body = bridgeRows.map(item => {
+      if (item.kind === 'section') {
+        return `<tr class="bridge-row section"><td colspan="3">${esc(item.label)}</td></tr>`;
+      }
+      return `<tr class="bridge-row ${item.kind}">
+        <td>${esc(item.label)}</td>
+        <td>${valueOrDash(item.value, fmt.eur2)}</td>
+        <td>${item.value == null ? '—' : pctGmv(item.value)}</td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="table-wrap"><table class="bridge-table">
+      <thead><tr><th>Line</th><th>€</th><th>% GMV</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>
+    <details class="bridge-revenue-detail"><summary>How reporting revenue is built</summary>${revenueDetail}</details>`;
   }
 
   function kpi(label, value, delta, sub, inverse=false) {
@@ -242,30 +312,7 @@
 
       const gmv = +row.economics_gmv_eur || +row.gmv_eur || 0;
       const pctGmv = value => gmv ? fmt.rate((+value || 0) / gmv * 100) : '—';
-      const bridgeRows = [
-        ['Provider commission revenue',row.invoiced_commission_eur],
-        ['Eater fee revenue',row.eater_fee_revenue_eur],
-        ['Bolt+ agency fee',row.bolt_plus_agency_fee_eur],
-        ['Other invoiced revenue',row.invoiced_other_revenue_eur],
-        ['Other revenue / reconciliation',row.other_revenue_eur],
-        ['Total reporting revenue',row.reporting_revenue_eur],
-        ['Courier costs',-(+row.courier_costs_eur || 0)],
-        ['Demand refunds',-(+row.accounting_dr_eur || 0)],
-        ['Supply refunds',-(+row.supply_refunds_eur || 0)],
-        ['Fraud costs',-(+row.fraud_costs_eur || 0)],
-        ['Other variable costs (incl. supply incentives)',-(+row.other_variable_costs_eur || 0)],
-        ['Total variable costs',-(+row.variable_costs_eur || 0)],
-        ['CP L1 (before demand incentives)',row.cm_l1_eur],
-        ['Demand incentives',-(+row.accounting_di_eur || 0)],
-        ['CP after demand incentives',row.cm_after_di_eur],
-      ];
-      const bridge = table(
-        ['CP bridge','€','% GMV'],
-        bridgeRows.map(([label,value])=>[
-          esc(label),valueOrDash(value,fmt.eur2),value == null ? '—' : pctGmv(value),
-        ]),
-        'bridge-table'
-      );
+      const bridge = renderCpBridge(row);
       const di = table(
         ['DI objective','Orders','Bolt spend','Bolt / GMV','Provider spend'],
         objectiveRows.length ? objectiveRows.map(item=>[
@@ -275,15 +322,16 @@
         'driver-table'
       );
       const cpClass = (+row.cm_l1_eur || 0) < 0 ? 'risk' : 'positive';
+      const cp2Class = (+(row.cp_l2_eur ?? row.cm_after_di_eur) || 0) < 0 ? 'risk' : 'positive';
       const pin = row.partner === 'BRSM' && index >= topRows.length ? ' · pinned example' : '';
       return `<details class="partner-driver" ${row.partner === 'BRSM' ? 'open' : ''}>
         <summary>
           <strong>${esc(row.partner)}${pin}</strong>
-          <span>Commission ${valueOrDash(row.commission_gmv_pct,fmt.rate)} · DI ${fmt.rate((+row.demand_incentives_eur||0)/(+row.gmv_eur||1)*100)} · <b class="${cpClass}">CP L1 ${valueOrDash(row.cm_l1_pct,fmt.rate)}</b> · after DI ${valueOrDash(row.cm_after_di_pct,fmt.rate)}</span>
+          <span>Commission ${valueOrDash(row.commission_gmv_pct,fmt.rate)} · DI ${fmt.rate((+row.demand_incentives_eur||0)/(+row.gmv_eur||1)*100)} · <b class="${cpClass}">CP L1 ${valueOrDash(row.cm_l1_pct,fmt.rate)}</b> · <b class="${cp2Class}">CP L2 ${valueOrDash(row.cp_l2_pct ?? row.cm_after_di_pct,fmt.rate)}</b></span>
         </summary>
         <div class="driver-grid">
           <div><h3>What DI was spent on</h3><p>Bolt-funded campaign spend by objective; provider spend is shown separately.</p>${di}</div>
-          <div><h3>What drives CP L1</h3><p>CP L1 = reporting revenue − variable costs, and it does <strong>not</strong> charge demand incentives. DI is shown as the step below it.</p>${bridge}</div>
+          <div><h3>CP L1 and CP L2 bridge</h3><p>Start from reporting revenue. Subtract <strong>CP L1 costs</strong> (variable costs — no demand incentives) to get CP L1. Subtract <strong>CP L2 costs</strong> (demand incentives) to get CP L2.</p>${bridge}</div>
         </div>
       </details>`;
     }).join('');
@@ -319,6 +367,7 @@
         ${kpi('Demand refunds',fmt.eur2(current.demand_refunds_eur),previousWeek?shift(current.demand_refunds_eur,previous.demand_refunds_eur):null,`${fmt.rate(current.demand_refunds_eur/current.gmv_eur*100)} of GMV`,true)}
         ${kpi('Commission',valueOrDash(current.commission_gmv_pct,fmt.rate),previousWeek?shift(current.commission_gmv_pct,previous.commission_gmv_pct):null,'GMV-weighted')}
         ${kpi('CP L1',valueOrDash(current.cm_l1_pct,fmt.rate),previousWeek?shift(current.cm_l1_pct,previous.cm_l1_pct):null,fmt.eur2(current.cm_l1_eur))}
+        ${kpi('CP L2',valueOrDash(current.cp_l2_pct,fmt.rate),previousWeek?shift(current.cp_l2_pct,previous.cp_l2_pct):null,fmt.eur2(current.cp_l2_eur))}
       </div>
       <section class="section">
         <div class="section-head"><div><h2>${snapshot.as_of ? fmt.month(snapshot.as_of) : 'Month'} · MTD and projection</h2><p>${esc(data.metadata.projection_method)}</p></div></div>
@@ -341,7 +390,7 @@
         <div id="partnerWeekTable"></div>
       </section>
       <section class="section">
-        <div class="section-head"><div><h2>Top 20 partner DI and CP L1 drivers</h2><p>Expand a partner to see campaign objectives and the complete revenue-to-CP bridge. BRSM is pinned as an example when outside the top 20.</p></div></div>
+        <div class="section-head"><div><h2>Top 20 partner DI and CP bridge</h2><p>Expand a partner for campaign objectives and the CP L1 / CP L2 cost bridge. BRSM is pinned when outside the top 20.</p></div></div>
         <div id="partnerDrivers"></div>
       </section>
       <section class="section grid equal">
