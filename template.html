@@ -281,6 +281,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
       html += `<div class="nav-item ${currentView==='city'?'active':''}" data-view="city">City overview</div>`;
     }
     html += `<div class="nav-item ${currentView==='portfolio'?'active':''}" data-view="portfolio">AM Performance</div>`;
+    html += `<div class="nav-item ${currentView==='varus-performance'?'active':''}" data-view="varus-performance">Varus Performance</div>`;
 
     const groups = D.employee_groups || {};
     const groupNames = Object.keys(groups);
@@ -393,6 +394,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   function getDataSource() {
     if (currentView === 'overview') return (D.overview || {})[currentGran] || {};
     if (currentView === 'portfolio') return (D.overview || {})[currentGran] || {};
+    if (currentView === 'varus-performance') return ((D.partners || {}).VARUS || {}).weekly || {};
     if (currentView === 'city') return (((D.cities || {})[currentCity] || {})[currentGran]) || {};
     return ((D.partners || {})[canonicalPartner(currentView)] || {})[currentGran] || {};
   }
@@ -457,6 +459,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     if (view === 'overview') return 'All 3P Stores';
     if (view === 'insights') return 'Weekly notes';
     if (view === 'portfolio') return 'AM Performance';
+    if (view === 'varus-performance') return 'Varus Performance';
     if (view === 'KOPIYKA') return 'KOPIYKA Group';
     if (view === 'РОСТ') return 'ROST';
     if (view === 'MEALTIME') return 'Mealtime';
@@ -779,6 +782,142 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     $('content').innerHTML = html;
   }
 
+  function renderVarusPerformance() {
+    const vp = D.varus_performance || {};
+    const src = (((D.partners || {}).VARUS || {}).weekly) || {};
+    const fin = safe(src.financial);
+    const camp = safe(src.campaigns);
+    const ops = safe(src.operational);
+    const fail = safe(src.failed_orders);
+    const cur = last(fin), prv = prev(fin);
+    if (!cur || !prv) {
+      $('content').innerHTML = '<div class="section"><div class="section-title">Varus Performance</div><div style="padding:20px;">Not enough weekly data.</div></div>';
+      return;
+    }
+
+    const curKey = cur.period.slice(0,10), prvKey = prv.period.slice(0,10);
+    const at = (rows, key) => safe(rows).find(r => String(r.period || '').slice(0,10) === key) || {};
+    const cCamp = at(camp, curKey), pCamp = at(camp, prvKey);
+    const cOps = at(ops, curKey), pOps = at(ops, prvKey);
+    const cFail = at(fail, curKey), pFail = at(fail, prvKey);
+    const sum = (rows, field) => safe(rows).reduce((a,r) => a + Number(r[field] || 0), 0);
+    const delta = (a,b) => Number(a || 0) - Number(b || 0);
+    const signed = (v, dec=0) => `${v > 0 ? '+' : ''}${fmt(v, dec)}`;
+    const pp = (a,b) => `${delta(a,b) > 0 ? '+' : ''}${fmt(delta(a,b),1)}pp`;
+    const table = (title, headers, body, note='') =>
+      `<div class="section"><div class="section-title">${title}</div>
+       <div class="data-table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+       <tbody>${body}</tbody></table></div>${note ? `<div style="padding:10px 16px;color:var(--text-secondary);font-size:12px;">${note}</div>` : ''}</div>`;
+
+    const orderLoss = Math.max(0, Number(prv.orders || 0) - Number(cur.orders || 0));
+    const gmvLoss = Math.max(0, Number(prv.gmv_eur || 0) - Number(cur.gmv_eur || 0));
+    const prevAov = Number(prv.gmv_eur || 0) / Number(prv.orders || 1);
+    const curAov = Number(cur.gmv_eur || 0) / Number(cur.orders || 1);
+    const volumeImpact = (Number(cur.orders || 0) - Number(prv.orders || 0)) * prevAov;
+    const aovImpact = Number(cur.orders || 0) * (curAov - prevAov);
+    const campaignOrderLoss = Math.max(0, Number(pCamp.campaign_orders || 0) - Number(cCamp.campaign_orders || 0));
+
+    const daily = safe(vp.daily).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const curDaily = daily.filter(r => String(r.date) >= curKey);
+    const prvDaily = daily.filter(r => String(r.date) < curKey);
+    const merchantPrev = sum(prvDaily, 'merchant_funded_orders');
+    const merchantCur = sum(curDaily, 'merchant_funded_orders');
+    const boltPrev = sum(prvDaily, 'bolt_funded_orders');
+    const boltCur = sum(curDaily, 'bolt_funded_orders');
+    const worstDay = curDaily.filter(r => r.availability_pct != null)
+      .sort((a,b)=>Number(a.availability_pct)-Number(b.availability_pct))[0] || {};
+    const maxLowStores = Math.max(0, ...curDaily.map(r => Number(r.stores_below_50pct || 0)));
+
+    const citySets = {
+      fin: safe(vp.city_financial), camp: safe(vp.city_campaigns),
+      ops: safe(vp.city_operational), fail: safe(vp.city_failed)
+    };
+    const cities = [...new Set(citySets.fin.map(r=>r.city_name))];
+    const cityRows = cities.map(city => {
+      const pick = (set,key) => citySets[set].find(r=>r.city_name===city && String(r.period).slice(0,10)===key) || {};
+      const pf=pick('fin',prvKey), cf=pick('fin',curKey), pc=pick('camp',prvKey), cc=pick('camp',curKey);
+      const po=pick('ops',prvKey), co=pick('ops',curKey), pfa=pick('fail',prvKey), cfa=pick('fail',curKey);
+      return {city, prev_gmv:pf.gmv_eur||0, gmv:cf.gmv_eur||0, prev_orders:pf.orders||0, orders:cf.orders||0,
+        promo_delta:delta(cc.campaign_orders,pc.campaign_orders), merchant_delta:delta(cc.merchant_spend_eur,pc.merchant_spend_eur),
+        prev_avail:po.availability_rate, avail:co.availability_rate,
+        prev_stores:po.stores_with_orders, stores:co.stores_with_orders,
+        prev_fail:pfa.failed_rate_total, fail:cfa.failed_rate_total,
+        gmv_delta:delta(cf.gmv_eur,pf.gmv_eur), order_delta:delta(cf.orders,pf.orders)};
+    }).sort((a,b)=>a.gmv_delta-b.gmv_delta);
+    const topCities = cityRows.filter(r=>r.gmv_delta<0).slice(0,3);
+    const topCityLoss = -sum(topCities.map(r=>({v:r.gmv_delta})),'v');
+
+    const storeRowsRaw = safe(vp.stores_weekly);
+    const storeIds = [...new Set(storeRowsRaw.map(r=>String(r.provider_id)))];
+    const storeRows = storeIds.map(id => {
+      const p=storeRowsRaw.find(r=>String(r.provider_id)===id && String(r.period).slice(0,10)===prvKey)||{};
+      const c=storeRowsRaw.find(r=>String(r.provider_id)===id && String(r.period).slice(0,10)===curKey)||{};
+      return {id, name:c.provider_name||p.provider_name||id, city:c.city_name||p.city_name||'—',
+        prev_orders:p.orders||0, orders:c.orders||0, prev_gmv:p.gmv_eur||0, gmv:c.gmv_eur||0,
+        prev_avail:p.availability_pct, avail:c.availability_pct, inactive:c.inactive_hours,
+        low_days:c.low_availability_days, gmv_delta:delta(c.gmv_eur,p.gmv_eur), order_delta:delta(c.orders,p.orders)};
+    }).filter(r=>r.prev_orders||r.orders).sort((a,b)=>a.gmv_delta-b.gmv_delta);
+    const noOrderStores = storeRows.filter(r=>r.prev_orders>0 && r.orders===0);
+
+    let html = `<div class="section"><div class="section-title">Why VARUS declined · ${periodLabel(cur.period,'weekly')} vs ${periodLabel(prv.period,'weekly')}</div>
+      <div style="padding:18px 20px;background:#FFF7ED;border-left:5px solid #F97316;border-radius:8px;line-height:1.55;">
+        <div style="font-size:17px;font-weight:750;margin-bottom:6px;">Primary cause: merchant-funded promo pullback and lower traffic, compounded by a Tue–Thu availability incident.</div>
+        <div style="color:var(--text-secondary);">Campaign orders fell by ${fmt(campaignOrderLoss)} — ${fmt(orderLoss ? campaignOrderLoss/orderLoss*100 : null,0)}% of the net order decline. Merchant-funded orders fell ${fmtPct(pctChange(merchantCur,merchantPrev),1)}, while viewed sessions fell ${fmtPct(Math.abs(pctChange(cur.sessions_viewed,prv.sessions_viewed)),1)} despite conversion improving ${pp(cur.conversion_rate,prv.conversion_rate)}. Availability then dropped to ${fmtPct(worstDay.availability_pct,1)} on ${worstDay.date || '—'}, with ${fmt(maxLowStores)} stores below 50% availability.</div>
+      </div></div>`;
+
+    html += `<div class="section"><div class="section-title">Weekly impact</div><div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">GMV</div><div class="kpi-value">${fmtEur(cur.gmv_eur)}</div>${changeHtml(cur.gmv_eur,prv.gmv_eur)}</div>
+      <div class="kpi-card"><div class="kpi-label">Orders</div><div class="kpi-value">${fmt(cur.orders)}</div>${changeHtml(cur.orders,prv.orders)}</div>
+      <div class="kpi-card"><div class="kpi-label">AOV</div><div class="kpi-value">${fmtEur(curAov,2)}</div>${changeHtml(curAov,prevAov)}</div>
+      <div class="kpi-card"><div class="kpi-label">Viewed sessions</div><div class="kpi-value">${fmt(cur.sessions_viewed)}</div>${changeHtml(cur.sessions_viewed,prv.sessions_viewed)}</div>
+    </div></div>`;
+
+    const driverCard = (title, verdict, body, color) =>
+      `<div style="padding:16px 18px;border:1px solid var(--border);border-top:4px solid ${color};border-radius:9px;background:var(--card);">
+       <div style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;">${verdict}</div>
+       <div style="font-size:16px;font-weight:700;margin:4px 0 8px;">${title}</div><div style="font-size:13px;line-height:1.55;color:var(--text-secondary);">${body}</div></div>`;
+    html += `<div class="section"><div class="section-title">Driver assessment</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;padding:0 4px 4px;">
+      ${driverCard('Merchant promotions','Primary driver',
+        `Merchant spend fell ${fmtPct(Math.abs(pctChange(cCamp.merchant_spend_eur,pCamp.merchant_spend_eur)),1)} (${fmtEur(pCamp.merchant_spend_eur)} → ${fmtEur(cCamp.merchant_spend_eur)}). Merchant-funded orders fell ${fmt(merchantPrev)} → ${fmt(merchantCur)}; Bolt-funded orders were broadly stable (${fmt(boltPrev)} → ${fmt(boltCur)}).`, '#DC2626')}
+      ${driverCard('Traffic / demand','Primary driver',
+        `Sessions viewed fell ${fmtPct(Math.abs(pctChange(cur.sessions_viewed,prv.sessions_viewed)),1)} and active users fell ${fmtPct(Math.abs(pctChange(cur.active_users,prv.active_users)),1)}. Conversion improved from ${fmtPct(prv.conversion_rate,1)} to ${fmtPct(cur.conversion_rate,1)}, so the issue was fewer visitors, not poorer checkout conversion.`, '#DC2626')}
+      ${driverCard('Store availability','Material contributor',
+        `Weekly availability fell ${fmtPct(pOps.availability_rate,1)} → ${fmtPct(cOps.availability_rate,1)}. The low point was ${fmtPct(worstDay.availability_pct,1)} on ${worstDay.date || '—'}; ${fmt(maxLowStores)} stores were below 50%. ${fmt(noOrderStores.length)} previously selling store(s) had zero orders for the week.`, '#F59E0B')}
+      ${driverCard('Courier / catalogue','Not the main cause',
+        `Courier acceptance improved ${pp(cOps.courier_acceptance_rate,pOps.courier_acceptance_rate)}, late delivery improved ${pp(cOps.late_delivery_rate,pOps.late_delivery_rate)}, and SKU session availability improved ${pp(cOps.sku_availability_pct,pOps.sku_availability_pct)}. Acceptance only moved ${pp(cOps.acceptance_rate,pOps.acceptance_rate)}.`, '#16A34A')}
+      </div></div>`;
+
+    html += table('GMV decline decomposition', ['Driver','Estimated GMV impact','Share of decline','Interpretation'],
+      `<tr><td>Order volume</td><td>${fmtEur(volumeImpact)}</td><td>${fmtPct(gmvLoss ? Math.abs(volumeImpact)/gmvLoss*100 : null,0)}</td><td>${fmt(orderLoss)} fewer orders</td></tr>
+       <tr><td>Basket size / AOV</td><td>${fmtEur(aovImpact)}</td><td>${fmtPct(gmvLoss ? Math.abs(aovImpact)/gmvLoss*100 : null,0)}</td><td>AOV ${fmtEur(prevAov,2)} → ${fmtEur(curAov,2)}</td></tr>`,
+      'Additive decomposition: order-volume effect at prior-week AOV plus AOV effect on current-week orders.');
+
+    html += table('City impact', ['City','GMV Δ','Share of total decline','Orders Δ','Campaign orders Δ','Merchant spend Δ','Availability','Stores w/ orders','Failed rate'],
+      cityRows.map(r=>`<tr><td><strong>${r.city}</strong></td><td class="${r.gmv_delta<0?'chg-down':'chg-up'}">${signed(r.gmv_delta)}</td>
+        <td>${r.gmv_delta<0 ? fmtPct(Math.abs(r.gmv_delta)/gmvLoss*100,1) : 'offset'}</td><td>${signed(r.order_delta)}</td>
+        <td>${signed(r.promo_delta)}</td><td>${fmtEur(r.merchant_delta)}</td><td>${fmtPct(r.prev_avail,1)} → ${fmtPct(r.avail,1)}</td>
+        <td>${fmt(r.prev_stores)} → ${fmt(r.stores)}</td><td>${fmtPct(r.prev_fail,1)} → ${fmtPct(r.fail,1)}</td></tr>`).join(''),
+      `${topCities.map(r=>r.city).join(', ')} explain ${fmtPct(gmvLoss ? topCityLoss/gmvLoss*100 : null,1)} of the total GMV decline.`);
+
+    html += table('Stores with the largest GMV decline', ['Store','City','GMV Δ','Orders','Orders Δ','Availability','Inactive hours','Low-availability days'],
+      storeRows.slice(0,15).map(r=>`<tr><td><strong>${r.name.replace(/^VARUS,?\\s*/,'')}</strong></td><td>${r.city}</td>
+        <td class="chg-down">${fmtEur(r.gmv_delta)}</td><td>${fmt(r.prev_orders)} → ${fmt(r.orders)}</td><td>${signed(r.order_delta)}</td>
+        <td>${fmtPct(r.prev_avail,1)} → ${fmtPct(r.avail,1)}</td><td>${fmt(r.inactive,1)}</td><td>${fmt(r.low_days)}</td></tr>`).join(''),
+      'Zero current-week orders can indicate a full-week closure or no demand; availability and inactive hours distinguish temporary downtime where source data exists.');
+
+    html += table('Daily incident timeline · latest week', ['Date','Orders','GMV','Stores w/ orders','Availability','Stores <50% avail.','Inactive hours','Merchant-funded orders','Merchant spend'],
+      curDaily.map(r=>`<tr><td><strong>${r.date}</strong></td><td>${fmt(r.orders)}</td><td>${fmtEur(r.gmv_eur)}</td>
+        <td>${fmt(r.stores_with_orders)}</td><td>${fmtPct(r.availability_pct,1)}</td><td>${fmt(r.stores_below_50pct)}</td>
+        <td>${fmt(r.inactive_hours,1)}</td><td>${fmt(r.merchant_funded_orders)}</td><td>${fmtEur(r.merchant_spend_eur)}</td></tr>`).join(''),
+      'Daily availability can lag for the final day of the week; weekly availability above uses the finalized provider-week metric.');
+
+    html += `<div class="section"><div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
+      Interpretation is evidence-based but not a controlled causal estimate. Promo, traffic, and availability overlap: an unavailable store also loses campaign orders and sessions. The strongest supported conclusion is that the decline was demand-led (merchant promo/traffic), with a material mid-week availability incident; courier performance and SKU session availability do not explain the drop.
+    </div></div>`;
+    $('content').innerHTML = html;
+  }
+
   function render() {
     destroyCharts();
     if (currentView === 'city' && !currentCity) currentCity = safe(D.city_list)[0] || null;
@@ -786,11 +925,12 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     buildCityNav();
     const controlsRow = document.querySelector('.controls-row');
     const brandSel = $('brandSelector');
-    if (currentView === 'insights') {
+    if (currentView === 'insights' || currentView === 'varus-performance') {
       if (controlsRow) controlsRow.style.display = 'none';
       if (brandSel) brandSel.innerHTML = '';
-      $('pageTitle').textContent = 'Weekly notes';
-      renderWeeklyNotes();
+      $('pageTitle').textContent = displayName(currentView);
+      if (currentView === 'insights') renderWeeklyNotes();
+      else renderVarusPerformance();
       return;
     }
     if (controlsRow) controlsRow.style.display = '';

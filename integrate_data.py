@@ -175,6 +175,8 @@ refund_partner_weekly = load_json("data_refund_partner_weekly.json")
 refund_partner_monthly = load_json("data_refund_partner_monthly.json")
 active_stores_data = load_json("data_active_stores.json")
 partner_city_weekly = load_json("data_partner_city_weekly.json")
+varus_daily = load_json("data_varus_daily.json")
+varus_stores_weekly = load_json("data_varus_stores_weekly.json")
 
 partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
@@ -188,7 +190,7 @@ for lst in [overview_fin_weekly, overview_fin_monthly, overview_camp_weekly, ove
             failed_overview_weekly, partner_failed_weekly, partner_failed_monthly,
             item_defects_raw,
             refund_weekly, refund_monthly, refund_partner_weekly, refund_partner_monthly,
-            partner_city_weekly]:
+            partner_city_weekly, varus_stores_weekly]:
     for r in lst:
         r["period"] = fmt_period(r["period"])
 
@@ -1832,6 +1834,14 @@ DATA = {
     "cities": cities_data,
     "city_list": city_list,
     "active_stores_snapshot": active_stores_data if isinstance(active_stores_data, dict) else {},
+    "varus_performance": {
+        "daily": varus_daily,
+        "stores_weekly": varus_stores_weekly,
+        "city_financial": [r for r in _city_finp["weekly"] if r.get("group_name") == "VARUS"],
+        "city_campaigns": [r for r in _city_campp["weekly"] if r.get("group_name") == "VARUS"],
+        "city_operational": [r for r in _city_opsp["weekly"] if r.get("group_name") == "VARUS"],
+        "city_failed": [r for r in _city_failp["weekly"] if r.get("group_name") == "VARUS"],
+    },
     "weekly_insights": weekly_insights,
 }
 

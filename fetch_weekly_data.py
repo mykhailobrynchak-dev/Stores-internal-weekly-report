@@ -808,6 +808,130 @@ def partner_city_breakdown_query():
     """
 
 
+def varus_daily_diagnostics_query():
+    """Daily demand, promo and availability signals for the last two completed weeks."""
+    return """
+    WITH fin AS (
+        SELECT f.order_created_date AS date,
+               COUNT(*) AS orders,
+               ROUND(SUM(f.order_gmv_eur), 2) AS gmv_eur,
+               COUNT(DISTINCT f.provider_id) AS stores_with_orders
+        FROM main.ng_delivery.fact_order_delivery f
+        JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
+        WHERE f.city_country_code = 'ua'
+          AND p.group_name = 'VARUS'
+          AND f.order_state = 'delivered'
+          AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -14)
+          AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
+        GROUP BY f.order_created_date
+    ),
+    promo AS (
+        SELECT CAST(m.order_created_date AS DATE) AS date,
+               SUM(CASE WHEN COALESCE(m.provider_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.provider_menu_campaign_cost_eur, 0) > 0
+                        THEN 1 ELSE 0 END) AS merchant_funded_orders,
+               SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.bolt_menu_campaign_cost_eur, 0) > 0
+                        THEN 1 ELSE 0 END) AS bolt_funded_orders,
+               SUM(CASE WHEN COALESCE(m.provider_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.provider_menu_campaign_cost_eur, 0) > 0
+                              AND COALESCE(m.bolt_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.bolt_menu_campaign_cost_eur, 0) = 0
+                        THEN 1 ELSE 0 END) AS merchant_only_orders,
+               SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.bolt_menu_campaign_cost_eur, 0) > 0
+                              AND COALESCE(m.provider_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.provider_menu_campaign_cost_eur, 0) = 0
+                        THEN 1 ELSE 0 END) AS bolt_only_orders,
+               SUM(CASE WHEN COALESCE(m.bolt_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.bolt_menu_campaign_cost_eur, 0) > 0
+                              AND COALESCE(m.provider_delivery_campaign_cost_eur, 0)
+                              + COALESCE(m.provider_menu_campaign_cost_eur, 0) > 0
+                        THEN 1 ELSE 0 END) AS cofunded_orders,
+               ROUND(SUM(m.bolt_delivery_campaign_cost_eur)
+                     + SUM(m.bolt_menu_campaign_cost_eur), 2) AS bolt_spend_eur,
+               ROUND(SUM(m.provider_delivery_campaign_cost_eur)
+                     + SUM(m.provider_menu_campaign_cost_eur), 2) AS merchant_spend_eur
+        FROM main.ng_public.etl_delivery_order_monetary_metrics m
+        JOIN main.ng_delivery.dim_provider_v2 p ON m.provider_id = p.provider_id
+        WHERE m.country = 'ua'
+          AND p.group_name = 'VARUS'
+          AND CAST(m.order_created_date AS DATE) >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -14)
+          AND CAST(m.order_created_date AS DATE) < DATE_TRUNC('week', CURRENT_DATE())
+        GROUP BY CAST(m.order_created_date AS DATE)
+    ),
+    avail AS (
+        SELECT a.created_date AS date,
+               ROUND(SUM(a.active_time) * 100.0 / NULLIF(SUM(a.working_time), 0), 1) AS availability_pct,
+               COUNT(DISTINCT CASE WHEN a.working_time > 0 THEN a.provider_id END) AS scheduled_stores,
+               COUNT(DISTINCT CASE WHEN a.working_time > 0 AND a.availability < 0.5
+                                   THEN a.provider_id END) AS stores_below_50pct,
+               ROUND(SUM(a.inactive_time) / 60.0, 1) AS inactive_hours
+        FROM main.ng_delivery.etl_delivery_provider_daily_availability a
+        JOIN main.ng_delivery.dim_provider_v2 p ON a.provider_id = p.provider_id
+        WHERE p.country_code = 'ua'
+          AND p.group_name = 'VARUS'
+          AND a.created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -14)
+          AND a.created_date < DATE_TRUNC('week', CURRENT_DATE())
+        GROUP BY a.created_date
+    )
+    SELECT CAST(f.date AS STRING) AS date, f.orders, f.gmv_eur, f.stores_with_orders,
+           p.merchant_funded_orders, p.bolt_funded_orders, p.merchant_only_orders,
+           p.bolt_only_orders, p.cofunded_orders, p.bolt_spend_eur, p.merchant_spend_eur,
+           a.availability_pct, a.scheduled_stores, a.stores_below_50pct, a.inactive_hours
+    FROM fin f
+    LEFT JOIN promo p ON f.date = p.date
+    LEFT JOIN avail a ON f.date = a.date
+    ORDER BY f.date
+    """
+
+
+def varus_store_weekly_diagnostics_query():
+    """Store-level sales and availability for the last two completed weeks."""
+    return """
+    WITH fin AS (
+        SELECT CAST(DATE_TRUNC('week', f.order_created_date) AS STRING) AS period,
+               f.provider_id, f.provider_name, f.city_name,
+               COUNT(*) AS orders, ROUND(SUM(f.order_gmv_eur), 2) AS gmv_eur
+        FROM main.ng_delivery.fact_order_delivery f
+        JOIN main.ng_delivery.dim_provider_v2 p ON f.provider_id = p.provider_id
+        WHERE f.city_country_code = 'ua'
+          AND p.group_name = 'VARUS'
+          AND f.order_state = 'delivered'
+          AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -14)
+          AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE())
+        GROUP BY DATE_TRUNC('week', f.order_created_date), f.provider_id, f.provider_name, f.city_name
+    ),
+    avail AS (
+        SELECT CAST(DATE_TRUNC('week', a.created_date) AS STRING) AS period,
+               a.provider_id,
+               ROUND(SUM(a.active_time) * 100.0 / NULLIF(SUM(a.working_time), 0), 1) AS availability_pct,
+               ROUND(SUM(a.inactive_time) / 60.0, 1) AS inactive_hours,
+               SUM(CASE WHEN a.working_time > 0 AND a.availability < 0.5 THEN 1 ELSE 0 END) AS low_availability_days
+        FROM main.ng_delivery.etl_delivery_provider_daily_availability a
+        JOIN main.ng_delivery.dim_provider_v2 p ON a.provider_id = p.provider_id
+        WHERE p.country_code = 'ua'
+          AND p.group_name = 'VARUS'
+          AND a.created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -14)
+          AND a.created_date < DATE_TRUNC('week', CURRENT_DATE())
+        GROUP BY DATE_TRUNC('week', a.created_date), a.provider_id
+    ),
+    keys AS (
+        SELECT period, provider_id FROM fin
+        UNION
+        SELECT period, provider_id FROM avail
+    )
+    SELECT k.period, k.provider_id, p.provider_name, p.city_name,
+           COALESCE(f.orders, 0) AS orders, COALESCE(f.gmv_eur, 0) AS gmv_eur,
+           a.availability_pct, a.inactive_hours, a.low_availability_days
+    FROM keys k
+    JOIN main.ng_delivery.dim_provider_v2 p ON k.provider_id = p.provider_id
+    LEFT JOIN fin f ON k.period = f.period AND k.provider_id = f.provider_id
+    LEFT JOIN avail a ON k.period = a.period AND k.provider_id = a.provider_id
+    ORDER BY p.city_name, p.provider_name, k.period
+    """
+
+
 def clean_row(row):
     return {k: to_float(v) if k != "period" and k != "group_name" and k != "city_name" else v for k, v in row.items()}
 
@@ -1079,7 +1203,24 @@ def main():
         save_json(f"data_city_camp_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_campaign_query(gran))])
         save_json(f"data_city_camp_partner_{sfx}.json", [clean_row(r) for r in run_query(cursor, city_campaign_query(gran, by_partner=True))])
 
-    # 17. Metadata
+    # 17. VARUS deep-dive diagnostics
+    print("17. Fetching VARUS performance diagnostics...")
+    varus_daily = [
+        {k: (v if k == "date" else to_float(v)) for k, v in r.items()}
+        for r in run_query(cursor, varus_daily_diagnostics_query())
+    ]
+    save_json("data_varus_daily.json", varus_daily)
+    varus_stores = [
+        {
+            k: (v if k in ("period", "provider_name", "city_name") else
+                to_int(v) if k == "provider_id" else to_float(v))
+            for k, v in r.items()
+        }
+        for r in run_query(cursor, varus_store_weekly_diagnostics_query())
+    ]
+    save_json("data_varus_stores_weekly.json", varus_stores)
+
+    # 18. Metadata
     from datetime import datetime, timezone
     metadata = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
