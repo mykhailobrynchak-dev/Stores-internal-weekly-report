@@ -826,7 +826,9 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     const boltCur = sum(curDaily, 'bolt_funded_orders');
     const worstDay = curDaily.filter(r => r.availability_pct != null)
       .sort((a,b)=>Number(a.availability_pct)-Number(b.availability_pct))[0] || {};
-    const maxLowStores = Math.max(0, ...curDaily.map(r => Number(r.stores_below_50pct || 0)));
+    const maxLowDay = curDaily.slice().sort((a,b)=>Number(b.stores_below_50pct||0)-Number(a.stores_below_50pct||0))[0] || {};
+    const maxLowStores = Number(maxLowDay.stores_below_50pct || 0);
+    const troughLowStores = Number(worstDay.stores_below_50pct || 0);
 
     const citySets = {
       fin: safe(vp.city_financial), camp: safe(vp.city_campaigns),
@@ -882,7 +884,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     let html = `<div class="section"><div class="section-title">Why VARUS declined · ${periodLabel(cur.period,'weekly')} vs ${periodLabel(prv.period,'weekly')}</div>
       <div style="padding:18px 20px;background:#FFF7ED;border-left:5px solid #F97316;border-radius:8px;line-height:1.55;">
         <div style="font-size:17px;font-weight:750;margin-bottom:6px;">Primary cause: merchant-funded promo pullback and lower traffic, compounded by a Tue–Thu availability incident.</div>
-        <div style="color:var(--text-secondary);">GMV fell by <strong>${fmtEur(gmvLoss)}</strong> (${fmtPct(Math.abs(pctChange(cur.gmv_eur,prv.gmv_eur)),1)}) and orders by ${fmt(orderLoss)}. Campaign orders fell by ${fmt(campaignOrderLoss)} — ${fmt(orderLoss ? campaignOrderLoss/orderLoss*100 : null,0)}% of the net order decline. Merchant-funded orders fell ${fmtPct(Math.abs(pctChange(merchantCur,merchantPrev)),1)}, while viewed sessions fell ${fmtPct(Math.abs(pctChange(cur.sessions_viewed,prv.sessions_viewed)),1)} despite conversion improving ${pp(cur.conversion_rate,prv.conversion_rate)}. Availability dropped to ${fmtPct(worstDay.availability_pct,1)} on ${worstDay.date || '—'}, with ${fmt(maxLowStores)} stores below 50%; ${confirmedClosed.length} stores were confirmed hidden for the full week.</div>
+        <div style="color:var(--text-secondary);">GMV fell by <strong>${fmtEur(gmvLoss)}</strong> (${fmtPct(Math.abs(pctChange(cur.gmv_eur,prv.gmv_eur)),1)}) and orders by ${fmt(orderLoss)}. Campaign orders fell by ${fmt(campaignOrderLoss)} — ${fmt(orderLoss ? campaignOrderLoss/orderLoss*100 : null,0)}% of the net order decline. Merchant-funded orders fell ${fmtPct(Math.abs(pctChange(merchantCur,merchantPrev)),1)}, while viewed sessions fell ${fmtPct(Math.abs(pctChange(cur.sessions_viewed,prv.sessions_viewed)),1)} despite conversion improving ${pp(cur.conversion_rate,prv.conversion_rate)}. Availability dropped to ${fmtPct(worstDay.availability_pct,1)} on ${worstDay.date || '—'} with ${fmt(troughLowStores)} stores below 50%; the affected-store count peaked at ${fmt(maxLowStores)} on ${maxLowDay.date || '—'}. ${confirmedClosed.length} stores were confirmed hidden for the full week.</div>
       </div></div>`;
 
     html += `<div class="section"><div class="section-title">Weekly impact</div><div class="kpi-grid">
@@ -903,7 +905,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
       ${driverCard('Traffic / demand','Primary driver',
         `Sessions viewed fell ${fmtPct(Math.abs(pctChange(cur.sessions_viewed,prv.sessions_viewed)),1)} and active users fell ${fmtPct(Math.abs(pctChange(cur.active_users,prv.active_users)),1)}. Conversion improved from ${fmtPct(prv.conversion_rate,1)} to ${fmtPct(cur.conversion_rate,1)}, so the issue was fewer visitors, not poorer checkout conversion.`, '#DC2626')}
       ${driverCard('Store availability','Material contributor',
-        `Weekly availability fell ${fmtPct(pOps.availability_rate,1)} → ${fmtPct(cOps.availability_rate,1)}. On ${worstDay.date || '—'}, ${fmt(maxLowStores)} stores were below 50%; together those stores moved from ${fmtEur(affectedPrevGmv)} / ${fmt(affectedPrevOrders)} orders to ${fmtEur(affectedGmv)} / ${fmt(affectedOrders)} orders. ${confirmedClosed.length} hidden stores removed ${fmtEur(closedPrevGmv)} and ${fmt(closedPrevOrders)} prior-week orders.`, '#F59E0B')}
+        `Weekly availability fell ${fmtPct(pOps.availability_rate,1)} → ${fmtPct(cOps.availability_rate,1)}. On the availability trough (${worstDay.date || '—'}), ${fmt(troughLowStores)} stores were below 50%; together those stores moved from ${fmtEur(affectedPrevGmv)} / ${fmt(affectedPrevOrders)} orders to ${fmtEur(affectedGmv)} / ${fmt(affectedOrders)} orders. ${confirmedClosed.length} hidden stores removed ${fmtEur(closedPrevGmv)} and ${fmt(closedPrevOrders)} prior-week orders.`, '#F59E0B')}
       ${driverCard('Courier / catalogue','Not the main cause',
         `Courier acceptance improved ${pp(cOps.courier_acceptance_rate,pOps.courier_acceptance_rate)}, late delivery improved ${pp(cOps.late_delivery_rate,pOps.late_delivery_rate)}, and SKU session availability improved ${pp(cOps.sku_availability_pct,pOps.sku_availability_pct)}. Acceptance only moved ${pp(cOps.acceptance_rate,pOps.acceptance_rate)}.`, '#16A34A')}
       </div></div>`;
@@ -943,7 +945,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
         <td>${confirmedClosed.includes(r) ? '<strong>Confirmed hidden / closed</strong>' : 'Active; zero delivered orders, not closed'}</td></tr>`).join(''),
       `Confirmed hidden stores removed ${fmtEur(closedPrevGmv)} and ${fmt(closedPrevOrders)} orders versus the prior week (${fmtPct(gmvLoss ? closedPrevGmv/gmvLoss*100 : null,1)} of the GMV decline). ${zeroOrdersActive.length} active zero-order store(s) are shown separately and are not classified as closed.`);
 
-    html += table(`Stores below 50% availability · exact locations (${fmt(maxLowStores)} on ${worstDay.date || 'worst day'})`,
+    html += table(`Stores below 50% availability · exact locations (${fmt(troughLowStores)} on ${worstDay.date || 'trough'}; peak ${fmt(maxLowStores)} on ${maxLowDay.date || '—'})`,
       ['Date','Store','City','Availability','Inactive / scheduled hours','Weekly GMV previous → latest','Weekly orders previous → latest','Share of decline'],
       lowAvailabilityRows.map(r=>{ const s=storeById(r.provider_id); return `<tr><td><strong>${r.date}</strong></td>
         <td>${String(r.provider_name||'').replace(/^VARUS,?\\s*/,'')}</td><td>${r.city_name}</td><td class="chg-down">${fmtPct(r.availability_pct,1)}</td>
