@@ -177,6 +177,7 @@ active_stores_data = load_json("data_active_stores.json")
 partner_city_weekly = load_json("data_partner_city_weekly.json")
 varus_daily = load_json("data_varus_daily.json")
 varus_stores_weekly = load_json("data_varus_stores_weekly.json")
+varus_low_availability_daily = load_json("data_varus_low_availability_daily.json")
 
 partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
@@ -1837,6 +1838,7 @@ DATA = {
     "varus_performance": {
         "daily": varus_daily,
         "stores_weekly": varus_stores_weekly,
+        "low_availability_daily": varus_low_availability_daily,
         "city_financial": [r for r in _city_finp["weekly"] if r.get("group_name") == "VARUS"],
         "city_campaigns": [r for r in _city_campp["weekly"] if r.get("group_name") == "VARUS"],
         "city_operational": [r for r in _city_opsp["weekly"] if r.get("group_name") == "VARUS"],

@@ -906,6 +906,7 @@ def varus_store_weekly_diagnostics_query():
         SELECT CAST(DATE_TRUNC('week', a.created_date) AS STRING) AS period,
                a.provider_id,
                ROUND(SUM(a.active_time) * 100.0 / NULLIF(SUM(a.working_time), 0), 1) AS availability_pct,
+               ROUND(SUM(a.working_time) / 60.0, 1) AS scheduled_hours,
                ROUND(SUM(a.inactive_time) / 60.0, 1) AS inactive_hours,
                SUM(CASE WHEN a.working_time > 0 AND a.availability < 0.5 THEN 1 ELSE 0 END) AS low_availability_days
         FROM main.ng_delivery.etl_delivery_provider_daily_availability a
@@ -923,12 +924,34 @@ def varus_store_weekly_diagnostics_query():
     )
     SELECT k.period, k.provider_id, p.provider_name, p.city_name,
            COALESCE(f.orders, 0) AS orders, COALESCE(f.gmv_eur, 0) AS gmv_eur,
-           a.availability_pct, a.inactive_hours, a.low_availability_days
+           p.provider_status, a.availability_pct, a.scheduled_hours,
+           a.inactive_hours, a.low_availability_days
     FROM keys k
     JOIN main.ng_delivery.dim_provider_v2 p ON k.provider_id = p.provider_id
     LEFT JOIN fin f ON k.period = f.period AND k.provider_id = f.provider_id
     LEFT JOIN avail a ON k.period = a.period AND k.provider_id = a.provider_id
     ORDER BY p.city_name, p.provider_name, k.period
+    """
+
+
+def varus_low_availability_store_query():
+    """Exact store-days below 50% availability in the last two completed weeks."""
+    return """
+    SELECT CAST(a.created_date AS STRING) AS date,
+           a.provider_id, p.provider_name, p.city_name, p.provider_status,
+           ROUND(a.availability * 100, 1) AS availability_pct,
+           ROUND(a.active_time / 60.0, 1) AS active_hours,
+           ROUND(a.inactive_time / 60.0, 1) AS inactive_hours,
+           ROUND(a.working_time / 60.0, 1) AS scheduled_hours
+    FROM main.ng_delivery.etl_delivery_provider_daily_availability a
+    JOIN main.ng_delivery.dim_provider_v2 p ON a.provider_id = p.provider_id
+    WHERE p.country_code = 'ua'
+      AND p.group_name = 'VARUS'
+      AND a.created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -14)
+      AND a.created_date < DATE_TRUNC('week', CURRENT_DATE())
+      AND a.working_time > 0
+      AND a.availability < 0.5
+    ORDER BY a.created_date, p.city_name, p.provider_name
     """
 
 
@@ -1212,13 +1235,22 @@ def main():
     save_json("data_varus_daily.json", varus_daily)
     varus_stores = [
         {
-            k: (v if k in ("period", "provider_name", "city_name") else
+            k: (v if k in ("period", "provider_name", "city_name", "provider_status") else
                 to_int(v) if k == "provider_id" else to_float(v))
             for k, v in r.items()
         }
         for r in run_query(cursor, varus_store_weekly_diagnostics_query())
     ]
     save_json("data_varus_stores_weekly.json", varus_stores)
+    varus_low_availability = [
+        {
+            k: (v if k in ("date", "provider_name", "city_name", "provider_status") else
+                to_int(v) if k == "provider_id" else to_float(v))
+            for k, v in r.items()
+        }
+        for r in run_query(cursor, varus_low_availability_store_query())
+    ]
+    save_json("data_varus_low_availability_daily.json", varus_low_availability)
 
     # 18. Metadata
     from datetime import datetime, timezone
