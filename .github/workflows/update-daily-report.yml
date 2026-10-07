@@ -1,0 +1,54 @@
+name: Update Stores Daily Report
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stores-daily-report
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run only at 09:00 Kyiv
+        id: kyiv-time
+        run: echo "run=$(test "$GITHUB_EVENT_NAME" = workflow_dispatch -o "$(TZ=Europe/Kyiv date +%H)" = "09" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Install dependencies
+        if: steps.kyiv-time.outputs.run == 'true'
+        run: pip install -r requirements.txt
+      - name: Fetch daily ENT and SMB partner data
+        if: steps.kyiv-time.outputs.run == 'true'
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_WAREHOUSE_ID: ${{ secrets.DATABRICKS_WAREHOUSE_ID }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+        run: python fetch_daily_partner_data.py
+      - name: Validate daily extract
+        if: steps.kyiv-time.outputs.run == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          payload = json.load(open("daily_partner_data.json"))
+          if not payload.get("rows"):
+              raise SystemExit("Daily extract is empty")
+          print(f"OK: {len(payload['rows'])} rows through {payload['through']}")
+          PY
+      - name: Commit refreshed data
+        if: steps.kyiv-time.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add daily_partner_data.json
+          git diff --cached --quiet || git commit -m "Refresh daily Stores report"
+          git push
