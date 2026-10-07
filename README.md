@@ -2,8 +2,6 @@
 
 Live report: **https://mykhailobrynchak-dev.github.io/Stores-internal-weekly-report/**
 
-Daily ENT/SMB report: **https://mykhailobrynchak-dev.github.io/Stores-internal-weekly-report/daily.html**
-
 ## Overview
 
 A comprehensive financial and operational performance dashboard for Ukraine's 3P stores segment, covering:
@@ -23,8 +21,6 @@ All data is sourced from Databricks (tables: `fact_order_delivery`, `etl_deliver
 ## Automation
 
 The report auto-updates every Monday at 10:00 Kyiv time via GitHub Actions. Manual trigger is also available via the Actions tab.
-
-The daily report refreshes at 09:00 Kyiv. It includes all current UA Stores partners classified as Enterprise or SMB and shows GMV, orders, availability, day vs the same day last week, WTD vs prior WTD, and MTD vs the same number of days in the previous month.
 
 ## Setup (GitHub Secrets)
 
