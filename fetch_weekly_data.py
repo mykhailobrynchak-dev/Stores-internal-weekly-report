@@ -134,7 +134,7 @@ def financial_query(granularity, group_filter=None):
         {group_select}CAST({time_col} AS STRING) as period,
         COUNT(*) as orders,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
-        ROUND(SUM(f.total_price_before_discount_eur) / COUNT(*), 2) as aov_with_delivery,
+        ROUND(SUM(f.provider_price_before_discount_eur + f.delivery_price_eur) / COUNT(*), 2) as aov_with_delivery,
         ROUND(SUM(f.provider_price_before_discount_eur) / COUNT(*), 2) as aov_items_only,
         ROUND(SUM(f.delivery_price_eur) / COUNT(*), 2) as eater_fees_per_order,
         ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur), 2) as delivery_fee_total,
@@ -604,7 +604,7 @@ def sku_median_query(granularity="week", brands=False):
 _CITY_FIN_COLS = """
         COUNT(*) as orders,
         ROUND(SUM(f.order_gmv_eur), 2) as gmv_eur,
-        ROUND(SUM(f.total_price_before_discount_eur) / COUNT(*), 2) as aov_with_delivery,
+        ROUND(SUM(f.provider_price_before_discount_eur + f.delivery_price_eur) / COUNT(*), 2) as aov_with_delivery,
         ROUND(SUM(f.provider_price_before_discount_eur) / COUNT(*), 2) as aov_items_only,
         ROUND(SUM(f.delivery_price_eur) / COUNT(*), 2) as eater_fees_per_order,
         ROUND(SUM(f.delivery_price_eur - f.small_order_fee_eur - f.order_service_fee_eur) / COUNT(*), 2) as delivery_fee_per_order,

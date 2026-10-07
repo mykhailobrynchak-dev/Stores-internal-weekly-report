@@ -76,7 +76,8 @@ def aggregate_financial(rows):
     return {
         "orders": total_orders,
         "gmv_eur": round(total_gmv, 2),
-        "aov_with_delivery": round(sum((r.get("aov_with_delivery", 0) or 0) * (r.get("orders", 0) or 0) for r in rows) / total_orders, 2),
+        # AOV (w/ Eater Fees) = AOV (Items Only) + Eater Fees / Order
+        "aov_with_delivery": round(total_gmv / total_orders + sum((r.get("eater_fees_per_order", 0) or 0) * (r.get("orders", 0) or 0) for r in rows) / total_orders, 2),
         "aov_items_only": round(total_gmv / total_orders, 2),
         "eater_fees_per_order": round(sum((r.get("eater_fees_per_order", 0) or 0) * (r.get("orders", 0) or 0) for r in rows) / total_orders, 2),
         "delivery_fee_total": round(sum(r.get("delivery_fee_total", 0) or 0 for r in rows), 2),
@@ -319,6 +320,17 @@ for _alias, _canon in PARTNER_ALIASES.items():
             acceptance[_canon] = _arows
     if _alias in active_stores_data:
         active_stores_data[_canon] = (active_stores_data.get(_canon, 0) or 0) + active_stores_data.pop(_alias)
+
+# AOV (w/ Eater Fees) = AOV (Items Only) + Eater Fees / Order — enforce this definition on all raw financial rows
+def _fix_aov_with_eater_fees(rows):
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if r.get("aov_items_only") is not None or r.get("eater_fees_per_order") is not None:
+            r["aov_with_delivery"] = round((r.get("aov_items_only") or 0) + (r.get("eater_fees_per_order") or 0), 2)
+
+for _fin_lst in (overview_fin_weekly, overview_fin_monthly, partner_fin_weekly, partner_fin_monthly):
+    _fix_aov_with_eater_fees(_fin_lst)
 
 # Merge refund data (from all orders) into financial data (delivered only)
 refund_w_by_period = {r["period"]: r for r in refund_weekly}
@@ -879,6 +891,11 @@ _city_ops = {"weekly": _load_city("data_city_ops_weekly.json"), "monthly": _load
 _city_opsp = {"weekly": _load_city("data_city_ops_partner_weekly.json"), "monthly": _load_city("data_city_ops_partner_monthly.json")}
 _city_camp = {"weekly": _load_city("data_city_camp_weekly.json"), "monthly": _load_city("data_city_camp_monthly.json")}
 _city_campp = {"weekly": _load_city("data_city_camp_partner_weekly.json"), "monthly": _load_city("data_city_camp_partner_monthly.json")}
+
+# AOV (w/ Eater Fees) = AOV (Items Only) + Eater Fees / Order — add derived field to city financial rows
+for _g in ("weekly", "monthly"):
+    _fix_aov_with_eater_fees(_city_fin[_g])
+    _fix_aov_with_eater_fees(_city_finp[_g])
 
 # Sanitize campaign negatives (data quality) + override financial refunds with all-orders values
 for g in ("weekly", "monthly"):
