@@ -46,8 +46,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 body.city-mode .city-nav { display: block; }
 body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); max-width: calc(100vw - var(--sidebar-w) - var(--city-nav-w)); }
 .top-bar { margin-bottom: 16px; }
+.page-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-.top-bar h1 { font-size: 22px; font-weight: 700; }
+.top-bar h1 { font-size: 22px; font-weight: 700; margin: 0; }
+.segment-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.4px; line-height: 1.2; }
+.segment-badge.ent { background: #E0E7FF; color: #3730A3; }
+.segment-badge.smb { background: #D1FAE5; color: #065F46; }
+.segment-badge.mm { background: #FEF3C7; color: #92400E; }
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .toggle-group { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .toggle-btn { padding: 6px 16px; font-size: 12px; cursor: pointer; background: var(--card); border: none; color: var(--text-secondary); font-weight: 500; transition: all 0.2s; }
@@ -171,7 +176,10 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
 
 <div class="main">
   <div class="top-bar">
-    <h1 id="pageTitle">All 3P Stores</h1>
+    <div class="page-title-row">
+      <h1 id="pageTitle">All 3P Stores</h1>
+      <span id="pageSegmentBadge" class="segment-badge" style="display:none" aria-hidden="true"></span>
+    </div>
   </div>
   <div id="brandSelector"></div>
   <div class="controls-row">
@@ -468,6 +476,25 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     if (view === 'EKO MARKET') return 'Eko Market';
     return view;
   }
+  function setPageTitle(title, viewKey) {
+    $('pageTitle').textContent = title;
+    const badge = $('pageSegmentBadge');
+    if (!badge) return;
+    const segs = D.partner_segments || {};
+    const key = viewKey != null ? canonicalPartner(viewKey) : null;
+    const seg = key && segs[key];
+    if (seg) {
+      badge.textContent = seg;
+      const cls = seg === 'Ent' ? 'ent' : seg === 'SMB' ? 'smb' : seg === 'MM' ? 'mm' : '';
+      badge.className = 'segment-badge' + (cls ? ' ' + cls : '');
+      badge.style.display = '';
+      badge.removeAttribute('aria-hidden');
+    } else {
+      badge.textContent = '';
+      badge.style.display = 'none';
+      badge.setAttribute('aria-hidden', 'true');
+    }
+  }
   function canonicalPartner(view) {
     return view === 'РОСТ' ? 'ROST' : view;
   }
@@ -660,7 +687,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   }
 
   function renderAMPortfolio() {
-    $('pageTitle').textContent = 'AM Performance';
+    setPageTitle('AM Performance');
     const overview = (D.overview || {})[currentGran] || {};
     const totalFin = safe(overview.financial).find(r => r.period === currentPeriod);
     const totalCp = safe(overview.cp_margins).find(r => r.period === currentPeriod) || {};
@@ -987,7 +1014,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     if (currentView === 'insights' || currentView === 'varus-performance') {
       if (controlsRow) controlsRow.style.display = 'none';
       if (brandSel) brandSel.innerHTML = '';
-      $('pageTitle').textContent = displayName(currentView);
+      setPageTitle(displayName(currentView));
       if (currentView === 'insights') renderWeeklyNotes();
       else renderVarusPerformance();
       return;
@@ -996,7 +1023,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
     buildControls();
     if (currentView === 'city') { renderCity(); return; }
     if (currentView === 'portfolio') { renderAMPortfolio(); return; }
-    $('pageTitle').textContent = displayName(currentView);
+    setPageTitle(displayName(currentView), currentView);
 
     // Future / onboarding key accounts with no data yet -> "Not yet activated" banner
     if (currentView !== 'overview' && !partnerHasData(currentView)) {
@@ -1295,7 +1322,7 @@ body.city-mode .main { margin-left: calc(var(--sidebar-w) + var(--city-nav-w)); 
   /* ===================== CITY OVERVIEW ===================== */
   function renderCity() {
     const city = currentCity;
-    $('pageTitle').textContent = 'City overview — ' + (city || '');
+    setPageTitle('City overview — ' + (city || ''));
     const cityNode = (D.cities || {})[city] || {};
     const src = getDataSource();
     const fin = safe(src.financial), cp = safe(src.cp_margins), ops = safe(src.operational),
