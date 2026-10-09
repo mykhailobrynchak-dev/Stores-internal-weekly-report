@@ -369,6 +369,19 @@ def failed_orders_query(granularity, group_filter=None):
     """
 
 
+def partner_segments_query():
+    return f"""
+    SELECT
+        {GROUP_KEY} as group_name,
+        MAX(p.business_segment_v2) as business_segment_v2
+    FROM main.ng_delivery.dim_provider_v2 p
+    WHERE {VERTICAL_FILTER_SQL}
+    GROUP BY 1
+    HAVING group_name IS NOT NULL
+    ORDER BY group_name
+    """
+
+
 def gmv_by_partner_query(granularity):
     time_col = "DATE_TRUNC('week', f.order_created_date)" if granularity == "week" else "DATE_TRUNC('month', f.order_created_date)"
     week_filter = "AND f.order_created_date < DATE_TRUNC('week', CURRENT_DATE()) AND f.order_created_date >= DATE_ADD(DATE_TRUNC('week', CURRENT_DATE()), -70)" if granularity == "week" else ""
@@ -1251,6 +1264,12 @@ def main():
         for r in run_query(cursor, varus_low_availability_store_query())
     ]
     save_json("data_varus_low_availability_daily.json", varus_low_availability)
+
+    partner_segments = [
+        {"group_name": r["group_name"], "business_segment_v2": r["business_segment_v2"]}
+        for r in run_query(cursor, partner_segments_query())
+    ]
+    save_json("data_partner_segments.json", partner_segments)
 
     # 18. Metadata
     from datetime import datetime, timezone

@@ -179,6 +179,7 @@ partner_city_weekly = load_json("data_partner_city_weekly.json")
 varus_daily = load_json("data_varus_daily.json")
 varus_stores_weekly = load_json("data_varus_stores_weekly.json")
 varus_low_availability_daily = load_json("data_varus_low_availability_daily.json")
+partner_segments_raw = load_json("data_partner_segments.json")
 
 partners_list = metadata.get("partners_list", ALL_TRACKED_PARTNERS)
 tenth_partner = metadata.get("tenth_partner")
@@ -1115,7 +1116,7 @@ for city in city_list:
 # ======== EMPLOYEE GROUPS ========
 EMPLOYEE_GROUPS = {
     "Mykhailo": ["VARUS", "LOKO", "KOPIYKA", "HOP HEY", "BEER MARKET", "CAFE RYNOK", "TAISTRA", "BEERLAND K", "WINETIME", "BRSM", "SPAR", "OKKO MARKET", "ROST"],
-    "Viktor": ["RUKAVYCHKA"],
+    "Sviatoslav": ["RUKAVYCHKA"],
     "Khrystyna": ["TOCHKA", "LEPRUKON", "MAXBEER", "SPRAGA", "DIMPYVA", "ALTBIER", "FLOWER SHOP", "NO TABOO", "RODYNNA KOVBASKA", "VAPERY | VAPE SHOP", "VAPORS", "PIVASOV", "MEALTIME", "CHILL TIME", "MILLION FLOWERS", "ANRI-PHARM", "REMESLO BREWERY", "PYVNA BORODA"],
     "NEW w/o AM": ["AUCHAN", "ATB", "FLOWERS UA", "THRASH", "E-ZOO", "MASTER ZOO", "BYLE TA SYKHE", "FORA", "ANC", "BLYZENKO", "LIKI 24", "EKO MARKET"],
 }
@@ -1124,6 +1125,33 @@ OWNER_BY_PARTNER = {
     p: emp for emp, brands in EMPLOYEE_GROUPS.items() for p in brands if emp != "NEW w/o AM"
 }
 SUBBRAND_KEYS = {"Kopiyka", "Kopiyka Mini", "Santim"}
+
+
+def _segment_short(raw):
+    if not raw:
+        return None
+    s = str(raw)
+    if "Enterprise" in s:
+        return "Ent"
+    if "SMB" in s:
+        return "SMB"
+    if "Mid-market" in s:
+        return "MM"
+    return None
+
+
+def _build_partner_segments(raw_rows):
+    segments = {}
+    for row in raw_rows:
+        name = row.get("group_name")
+        short = _segment_short(row.get("business_segment_v2"))
+        if name and short:
+            segments[name] = short
+    kopi_seg = segments.get("KOPIYKA")
+    if kopi_seg:
+        for sub in SUBBRAND_KEYS:
+            segments[sub] = kopi_seg
+    return segments
 
 
 def _pct(cur, prev):
@@ -1847,6 +1875,7 @@ DATA = {
     "city_eater_fees_weekly": city_eater_fees_weekly,
     "partner_city_weekly": partner_city_weekly,
     "employee_groups": EMPLOYEE_GROUPS,
+    "partner_segments": _build_partner_segments(partner_segments_raw),
     "subbrand_keys": ["Kopiyka", "Kopiyka Mini", "Santim"],
     "subbrand_groups": {"KOPIYKA": ["Kopiyka", "Kopiyka Mini", "Santim"]},
     "cities": cities_data,
