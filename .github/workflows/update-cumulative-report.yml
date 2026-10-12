@@ -1,10 +1,14 @@
 name: Update Stores Cumulative Weekly Report
 
-# 09:05 Kyiv is 06:05 UTC in summer and 07:05 UTC in winter (Monday only).
+# Target 09:00 Kyiv. GitHub schedule can slip by hours, so several Monday UTC slots
+# all run the same job; only stale data triggers a rebuild.
 on:
   schedule:
-    - cron: '5 6 * * 1'
-    - cron: '5 7 * * 1'
+    - cron: '0 6 * * 1'
+    - cron: '0 7 * * 1'
+    - cron: '0 8 * * 1'
+    - cron: '0 9 * * 1'
+    - cron: '0 10 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -18,42 +22,41 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check this schedule matches 09:05 Kyiv
-        id: guard
-        run: |
-          set -euo pipefail
-          offset="$(TZ=Europe/Kyiv date +%z)"
-          case "$offset" in
-            +0300) want='5 6 * * 1' ;;
-            +0200) want='5 7 * * 1' ;;
-            *) echo "Unexpected Kyiv offset $offset"; exit 1 ;;
-          esac
-          if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$SCHEDULE" = "$want" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Kyiv offset $offset expects '$want', got '$SCHEDULE' - skipping."
-          fi
-        env:
-          SCHEDULE: ${{ github.event.schedule }}
-
       - name: Checkout repository
-        if: steps.guard.outputs.run == 'true'
         uses: actions/checkout@v4
 
+      - name: Check if a rebuild is needed
+        id: freshness
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run — always rebuild."
+            exit 0
+          fi
+          expected="$(python3 -c "from datetime import date, timedelta; t=date.today(); print((t - timedelta(days=t.weekday() + 7)).isoformat())")"
+          current="$(python3 -c "import json; print(json.load(open('wow-analysis/data.json'))['metadata']['latest_week'])")"
+          if [ "$current" = "$expected" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Already fresh: latest_week=$current (expected $expected)."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "Stale data: $current -> $expected."
+          fi
+
       - name: Set up Python 3.11
-        if: steps.guard.outputs.run == 'true'
+        if: steps.freshness.outputs.needed == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
 
       - name: Install dependencies
-        if: steps.guard.outputs.run == 'true'
+        if: steps.freshness.outputs.needed == 'true'
         run: pip install -r requirements.txt
 
       - name: Rebuild report data
-        if: steps.guard.outputs.run == 'true'
+        if: steps.freshness.outputs.needed == 'true'
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
@@ -61,11 +64,11 @@ jobs:
         run: python wow-analysis/build_report.py
 
       - name: Verify the latest complete week landed
-        if: steps.guard.outputs.run == 'true'
+        if: steps.freshness.outputs.needed == 'true'
         run: python wow-analysis/verify_report.py
 
       - name: Commit and push
-        if: steps.guard.outputs.run == 'true'
+        if: steps.freshness.outputs.needed == 'true'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"

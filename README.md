@@ -20,7 +20,7 @@ All data is sourced from Databricks (tables: `fact_order_delivery`, `etl_deliver
 
 ## Automation
 
-The report auto-updates every Monday at 09:05 Kyiv time via GitHub Actions. Manual trigger is also available via the Actions tab.
+The cumulative wow-analysis report auto-updates every Monday from about 09:00 Kyiv time via GitHub Actions (with backup slots if GitHub delays the schedule). Manual trigger is also available via the Actions tab.
 
 ## Setup (GitHub Secrets)
 
